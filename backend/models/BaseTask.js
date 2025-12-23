@@ -86,7 +86,16 @@ const baseTaskSchema = new mongoose.Schema(
       default: [],
     },
     tags: {
-      type: [String],
+      type: [
+        {
+          type: String,
+          trim: true,
+          maxlength: [
+            LIMITS.TAG_MAX,
+            `Tag cannot exceed ${LIMITS.TAG_MAX} characters`,
+          ],
+        },
+      ],
       validate: {
         validator: function (v) {
           return v.length <= LIMITS.MAX_TAGS;
@@ -105,8 +114,8 @@ const baseTaskSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
     discriminatorKey: "taskType",
+    timestamps: true,
     toJSON: {
       transform: dateTransform,
     },
@@ -119,16 +128,23 @@ const baseTaskSchema = new mongoose.Schema(
 // Indexes
 baseTaskSchema.index({ organization: 1, department: 1, createdAt: -1 });
 baseTaskSchema.index({ organization: 1, createdBy: 1, createdAt: -1 });
+baseTaskSchema.index({
+  organization: 1,
+  department: 1,
+  status: 1,
+  priority: 1,
+  dueDate: 1,
+});
 baseTaskSchema.index({ tags: "text" });
 baseTaskSchema.index({ isDeleted: 1 });
 baseTaskSchema.index({ deletedAt: 1 });
 
 // Pre-save hook for date conversion
 baseTaskSchema.pre("save", function (next) {
-  // Convert date fields if they exist (will be added by discriminators)
+  // Convert dates to UTC (startDate and dueDate will be added by discriminators)
   const dateFields = [];
-  if (this.startDate !== undefined) dateFields.push("startDate");
-  if (this.dueDate !== undefined) dateFields.push("dueDate");
+  if (this.startDate) dateFields.push("startDate");
+  if (this.dueDate) dateFields.push("dueDate");
 
   convertDatesToUTC(this, dateFields);
   next();
