@@ -147,6 +147,7 @@ export const LIMITS = {
   // Array limits
   MAX_ATTACHMENTS: 10,
   MAX_WATCHERS: 20,
+  MAX_ASSIGNEES: 20,
   MAX_MENTIONS: 5,
   MAX_MATERIALS: 20,
   MAX_TAGS: 5,
