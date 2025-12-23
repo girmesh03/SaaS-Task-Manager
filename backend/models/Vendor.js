@@ -39,18 +39,15 @@ const vendorSchema = new mongoose.Schema(
         LIMITS.EMAIL_MAX,
         `Email cannot exceed ${LIMITS.EMAIL_MAX} characters`,
       ],
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please provide a valid email address",
+      ],
     },
     phone: {
       type: String,
       trim: true,
-      validate: {
-        validator: function (v) {
-          if (!v) return true; // Optional field
-          return PHONE_REGEX.test(v);
-        },
-        message:
-          "Phone number must match Ethiopian format (+251XXXXXXXXX or 0XXXXXXXXX)",
-      },
+      match: [PHONE_REGEX, "Please provide a valid phone number"],
     },
     address: {
       type: String,
