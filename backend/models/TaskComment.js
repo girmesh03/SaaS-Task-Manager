@@ -25,8 +25,8 @@ const taskCommentSchema = new mongoose.Schema(
       type: String,
       required: [true, "Parent model is required"],
       enum: {
-        values: ["Task", "TaskActivity", "TaskComment"],
-        message: "{VALUE} is not a valid parent model",
+        values: ["BaseTask", "TaskActivity", "TaskComment"],
+        message: "Parent must be Task, TaskActivity, or TaskComment",
       },
     },
     mentions: {
@@ -86,46 +86,43 @@ taskCommentSchema.pre("save", function (next) {
   next();
 });
 
-// Helper function to calculate comment depth
-taskCommentSchema.statics.calculateDepth = async function (
-  parentId,
-  parentModel,
-  { session } = {}
-) {
-  let depth = 0;
-  let currentParent = parentId;
-  let currentModel = parentModel;
-
-  // Traverse up the parent chain
-  while (currentModel === "TaskComment" && depth < LIMITS.MAX_COMMENT_DEPTH) {
-    const TaskComment = this;
-    const comment = await TaskComment.findById(currentParent).session(session);
-
-    if (!comment) break;
-
-    depth++;
-    currentParent = comment.parent;
-    currentModel = comment.parentModel;
-  }
-
-  return depth;
-};
-
-// Validation: max depth 3 levels
+// Pre-save hook to validate max depth 3 levels
 taskCommentSchema.pre("save", async function (next) {
   if (this.isNew && this.parentModel === "TaskComment") {
-    const TaskComment = this.constructor;
-    const depth = await TaskComment.calculateDepth(
-      this.parent,
-      this.parentModel
-    );
+    const session = this.$session();
 
-    if (depth >= LIMITS.MAX_COMMENT_DEPTH) {
-      return next(
-        new Error(
-          `Comment depth cannot exceed ${LIMITS.MAX_COMMENT_DEPTH} levels`
-        )
-      );
+    try {
+      // Calculate depth by traversing parent chain
+      let depth = 1;
+      let currentParent = this.parent;
+      let currentParentModel = this.parentModel;
+
+      const TaskComment = mongoose.model("TaskComment");
+
+      while (currentParentModel === "TaskComment" && depth < 4) {
+        const parentComment = await TaskComment.findById(currentParent).session(
+          session
+        );
+
+        if (!parentComment) {
+          return next(new Error("Parent comment not found"));
+        }
+
+        depth++;
+        currentParent = parentComment.parent;
+        currentParentModel = parentComment.parentModel;
+      }
+
+      // Check if depth exceeds 3
+      if (depth > 3) {
+        return next(
+          new Error(
+            "Comment depth cannot exceed 3 levels (comment → reply → reply to reply)"
+          )
+        );
+      }
+    } catch (error) {
+      return next(error);
     }
   }
   next();
@@ -138,13 +135,15 @@ taskCommentSchema.statics.cascadeDelete = async function (
   { session } = {}
 ) {
   // Get all models directly from mongoose
+  const TaskComment = mongoose.model("TaskComment");
   const Attachment = mongoose.model("Attachment");
 
-  // Soft delete all child comments (recursive)
+  // Soft delete all child comments recursively
   const childComments = await TaskComment.find({
     parent: commentId,
     parentModel: "TaskComment",
   }).session(session);
+
   for (const childComment of childComments) {
     if (!childComment.isDeleted) {
       await childComment.softDelete(deletedBy, { session });
@@ -158,6 +157,7 @@ taskCommentSchema.statics.cascadeDelete = async function (
     parent: commentId,
     parentModel: "TaskComment",
   }).session(session);
+
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
       await attachment.softDelete(deletedBy, { session });
