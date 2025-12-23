@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
-import { TTL, NOTIFICATION_TYPES } from "../utils/constants.js";
+import { NOTIFICATION_TYPES, TTL } from "../utils/constants.js";
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -22,12 +22,10 @@ const notificationSchema = new mongoose.Schema(
         values: Object.values(NOTIFICATION_TYPES),
         message: "{VALUE} is not a valid notification type",
       },
-      index: true,
     },
     isRead: {
       type: Boolean,
       default: false,
-      index: true,
     },
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
@@ -51,6 +49,7 @@ const notificationSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       default: function () {
+        // Default to 30 days from creation
         return new Date(Date.now() + TTL.NOTIFICATION * 1000);
       },
       index: true,
@@ -70,7 +69,7 @@ const notificationSchema = new mongoose.Schema(
 // Indexes
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
 notificationSchema.index({ organization: 1, createdAt: -1 });
-notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index based on expiresAt field
+notificationSchema.index({ expiresAt: 1 });
 
 // Pre-save hook for date conversion
 notificationSchema.pre("save", function (next) {
@@ -78,12 +77,17 @@ notificationSchema.pre("save", function (next) {
   next();
 });
 
-// Apply plugins (no soft delete for notifications - they expire via TTL)
+// Apply plugins
 notificationSchema.plugin(mongoosePaginate);
 
-// Note: Notifications do NOT use soft delete plugin
-// They are automatically hard-deleted via TTL index based on expiresAt field
-
+// Configure TTL index based on expiresAt field
 const Notification = mongoose.model("Notification", notificationSchema);
+
+// Create TTL index on expiresAt field
+// This will automatically delete documents when expiresAt date is reached
+Notification.collection.createIndex(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 0 }
+);
 
 export default Notification;
