@@ -65,10 +65,7 @@ departmentSchema.statics.cascadeDelete = async function (
   deletedBy,
   { session } = {}
 ) {
-  const Department = this;
-  const mongoose = Department.base;
-
-  // Get all models
+  // Get all models directly from mongoose
   const User = mongoose.model("User");
   const Material = mongoose.model("Material");
 

@@ -137,10 +137,7 @@ taskCommentSchema.statics.cascadeDelete = async function (
   deletedBy,
   { session } = {}
 ) {
-  const TaskComment = this;
-  const mongoose = TaskComment.base;
-
-  // Get all models
+  // Get all models directly from mongoose
   const Attachment = mongoose.model("Attachment");
 
   // Soft delete all child comments (recursive)

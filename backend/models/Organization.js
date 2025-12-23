@@ -43,13 +43,15 @@ const organizationSchema = new mongoose.Schema(
       },
       maxlength: [100, "Industry cannot exceed 100 characters"],
     },
-    logoUrl: {
-      type: String,
-      trim: true,
-    },
-    publicId: {
-      type: String,
-      trim: true,
+    logo: {
+      url: {
+        type: String,
+        trim: true,
+      },
+      publicId: {
+        type: String,
+        trim: true,
+      },
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -102,10 +104,7 @@ organizationSchema.statics.cascadeDelete = async function (
   deletedBy,
   { session } = {}
 ) {
-  const Organization = this;
-  const mongoose = Organization.base;
-
-  // Get all models
+  // Get all models directly from mongoose
   const Department = mongoose.model("Department");
   const User = mongoose.model("User");
   const Vendor = mongoose.model("Vendor");

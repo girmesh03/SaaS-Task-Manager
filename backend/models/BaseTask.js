@@ -140,11 +140,8 @@ baseTaskSchema.statics.cascadeDelete = async function (
   deletedBy,
   { session } = {}
 ) {
-  const BaseTask = this;
-  const mongoose = BaseTask.base;
-
-  // Get allconst
-  TaskActivity = mongoose.model("TaskActivity");
+  // Get all models directly from mongoose
+  const TaskActivity = mongoose.model("TaskActivity");
   const TaskComment = mongoose.model("TaskComment");
   const Attachment = mongoose.model("Attachment");
   const Notification = mongoose.model("Notification");
