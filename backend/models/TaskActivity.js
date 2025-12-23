@@ -26,8 +26,7 @@ const taskActivitySchema = new mongoose.Schema(
       required: [true, "Parent model is required"],
       enum: {
         values: [TASK_TYPES.PROJECT_TASK, TASK_TYPES.ASSIGNED_TASK],
-        message:
-          "TaskActivity is only supported for ProjectTask and AssignedTask (NOT RoutineTask)",
+        message: "Parent must be ProjectTask or AssignedTask (NOT RoutineTask)",
       },
     },
     materials: {
@@ -36,15 +35,12 @@ const taskActivitySchema = new mongoose.Schema(
           material: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Material",
-            required: true,
+            required: [true, "Material reference is required"],
           },
           quantity: {
             type: Number,
-            required: true,
-            min: [
-              LIMITS.QUANTITY_MIN,
-              `Quantity must be at least ${LIMITS.QUANTITY_MIN}`,
-            ],
+            required: [true, "Quantity is required"],
+            min: [LIMITS.QUANTITY_MIN, "Quantity cannot be negative"],
           },
         },
       ],
@@ -95,6 +91,46 @@ taskActivitySchema.index({ deletedAt: 1 });
 // Pre-save hook for date conversion
 taskActivitySchema.pre("save", function (next) {
   convertDatesToUTC(this, []);
+  next();
+});
+
+// Pre-save hook to validate parent is ProjectTask or AssignedTask (NOT RoutineTask)
+taskActivitySchema.pre("save", async function (next) {
+  if (this.isNew || this.isModified("parent")) {
+    const session = this.$session();
+
+    try {
+      // Get the parent task
+      const BaseTask = mongoose.model("BaseTask");
+      const parentTask = await BaseTask.findById(this.parent).session(session);
+
+      if (!parentTask) {
+        return next(new Error("Parent task not found"));
+      }
+
+      // Validate parent is NOT RoutineTask
+      if (parentTask.taskType === TASK_TYPES.ROUTINE_TASK) {
+        return next(
+          new Error(
+            "TaskActivity is not supported for RoutineTask. Use TaskComment for changes/updates/corrections."
+          )
+        );
+      }
+
+      // Validate parent is ProjectTask or AssignedTask
+      if (
+        parentTask.taskType !== TASK_TYPES.PROJECT_TASK &&
+        parentTask.taskType !== TASK_TYPES.ASSIGNED_TASK
+      ) {
+        return next(new Error("Parent must be ProjectTask or AssignedTask"));
+      }
+
+      // Set parentModel based on parent's taskType
+      this.parentModel = parentTask.taskType;
+    } catch (error) {
+      return next(error);
+    }
+  }
   next();
 });
 
