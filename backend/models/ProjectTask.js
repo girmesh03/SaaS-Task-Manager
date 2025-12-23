@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import BaseTask from "./BaseTask.js";
-import { LIMITS, CURRENCY, TASK_TYPES } from "../utils/constants.js";
+import { LIMITS, TASK_TYPES } from "../utils/constants.js";
 
 // ProjectTask discriminator schema
 const projectTaskSchema = new mongoose.Schema({
@@ -16,27 +16,22 @@ const projectTaskSchema = new mongoose.Schema({
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Vendor",
-    required: [true, "Vendor is required"],
+    required: [true, "Vendor is required for ProjectTask"],
   },
   estimatedCost: {
     type: Number,
-    min: [
-      LIMITS.COST_MIN,
-      `Estimated cost cannot be less than ${LIMITS.COST_MIN}`,
-    ],
+    min: [0, "Estimated cost cannot be negative"],
     default: 0,
   },
   actualCost: {
     type: Number,
-    min: [
-      LIMITS.COST_MIN,
-      `Actual cost cannot be less than ${LIMITS.COST_MIN}`,
-    ],
+    min: [0, "Actual cost cannot be negative"],
     default: 0,
   },
   currency: {
     type: String,
-    default: CURRENCY.DEFAULT,
+    default: "ETB",
+    trim: true,
   },
   costHistory: {
     type: [
@@ -48,8 +43,8 @@ const projectTaskSchema = new mongoose.Schema({
         },
         type: {
           type: String,
-          required: true,
           enum: ["estimated", "actual"],
+          required: true,
         },
         updatedBy: {
           type: mongoose.Schema.Types.ObjectId,
@@ -78,13 +73,71 @@ const projectTaskSchema = new mongoose.Schema({
   },
 });
 
-// Pre-save validation for dueDate after startDate
-projectTaskSchema.pre("save", function (next) {
-  if (this.startDate && this.dueDate) {
-    if (this.dueDate <= this.startDate) {
-      return next(new Error("Due date must be after start date"));
+// Validation: dueDate must be after startDate if both provided
+projectTaskSchema.pre("save", async function (next) {
+  const session = this.$session();
+
+  // Validate dueDate is after startDate
+  if (this.startDate && this.dueDate && this.dueDate <= this.startDate) {
+    const error = new Error("Due date must be after start date");
+    error.name = "ValidationError";
+    return next(error);
+  }
+
+  // Validate vendor exists and is not deleted
+  if (this.isModified("vendor") && this.vendor) {
+    const Vendor = mongoose.model("Vendor");
+    const vendor = await Vendor.findById(this.vendor)
+      .withDeleted()
+      .session(session);
+
+    if (!vendor) {
+      const error = new Error("Vendor not found");
+      error.name = "ValidationError";
+      return next(error);
+    }
+
+    if (vendor.isDeleted) {
+      const error = new Error("Cannot assign deleted vendor to task");
+      error.name = "ValidationError";
+      return next(error);
     }
   }
+
+  // Validate watchers are HOD users
+  if (
+    this.isModified("watchers") &&
+    this.watchers &&
+    this.watchers.length > 0
+  ) {
+    const User = mongoose.model("User");
+    const watchers = await User.find({ _id: { $in: this.watchers } })
+      .withDeleted()
+      .session(session);
+
+    for (const watcher of watchers) {
+      if (!watcher.isHod) {
+        const error = new Error(
+          `User ${
+            watcher.fullName || watcher.email
+          } is not a HOD and cannot be a watcher`
+        );
+        error.name = "ValidationError";
+        return next(error);
+      }
+
+      if (watcher.isDeleted) {
+        const error = new Error(
+          `User ${
+            watcher.fullName || watcher.email
+          } is deleted and cannot be a watcher`
+        );
+        error.name = "ValidationError";
+        return next(error);
+      }
+    }
+  }
+
   next();
 });
 
