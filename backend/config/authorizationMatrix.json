@@ -1,0 +1,302 @@
+{
+  "Organization": {
+    "SuperAdmin": {
+      "create": ["crossOrg", "crossDept"],
+      "read": ["crossOrg", "crossDept"],
+      "update": ["crossOrg", "crossDept"],
+      "delete": ["crossOrg", "crossDept"],
+      "restore": ["crossOrg", "crossDept"]
+    },
+    "Admin": {
+      "create": [],
+      "read": ["crossDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    },
+    "Manager": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    },
+    "User": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    }
+  },
+  "Department": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    },
+    "User": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    }
+  },
+  "User": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": [],
+      "restore": []
+    },
+    "User": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": [],
+      "restore": []
+    }
+  },
+  "Vendor": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    }
+  },
+  "Material": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": [],
+      "read": ["ownDept"],
+      "update": [],
+      "delete": [],
+      "restore": []
+    }
+  },
+  "Task": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": ["own"]
+    }
+  },
+  "TaskActivity": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": ["own"]
+    }
+  },
+  "TaskComment": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": ["own"]
+    }
+  },
+  "Attachment": {
+    "SuperAdmin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Admin": {
+      "create": ["crossDept"],
+      "read": ["crossDept"],
+      "update": ["crossDept"],
+      "delete": ["crossDept"],
+      "restore": ["crossDept"]
+    },
+    "Manager": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["ownDept"],
+      "delete": ["ownDept"],
+      "restore": ["ownDept"]
+    },
+    "User": {
+      "create": ["ownDept"],
+      "read": ["ownDept"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": ["own"]
+    }
+  },
+  "Notification": {
+    "SuperAdmin": {
+      "create": [],
+      "read": ["own"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": []
+    },
+    "Admin": {
+      "create": [],
+      "read": ["own"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": []
+    },
+    "Manager": {
+      "create": [],
+      "read": ["own"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": []
+    },
+    "User": {
+      "create": [],
+      "read": ["own"],
+      "update": ["own"],
+      "delete": ["own"],
+      "restore": []
+    }
+  }
+}
