@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import BaseTask from "./BaseTask.js";
 import { LIMITS, CURRENCY, TASK_TYPES } from "../utils/constants.js";
 
+// ProjectTask discriminator schema
 const projectTaskSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -15,27 +16,27 @@ const projectTaskSchema = new mongoose.Schema({
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Vendor",
-    required: [true, "Vendor is required for ProjectTask"],
-    index: true,
+    required: [true, "Vendor is required"],
   },
   estimatedCost: {
     type: Number,
     min: [
       LIMITS.COST_MIN,
-      `Estimated cost must be at least ${LIMITS.COST_MIN}`,
+      `Estimated cost cannot be less than ${LIMITS.COST_MIN}`,
     ],
+    default: 0,
   },
   actualCost: {
     type: Number,
-    min: [LIMITS.COST_MIN, `Actual cost must be at least ${LIMITS.COST_MIN}`],
+    min: [
+      LIMITS.COST_MIN,
+      `Actual cost cannot be less than ${LIMITS.COST_MIN}`,
+    ],
+    default: 0,
   },
   currency: {
     type: String,
     default: CURRENCY.DEFAULT,
-    enum: {
-      values: Object.values(CURRENCY),
-      message: "{VALUE} is not a valid currency",
-    },
   },
   costHistory: {
     type: [
@@ -43,6 +44,7 @@ const projectTaskSchema = new mongoose.Schema({
         amount: {
           type: Number,
           required: true,
+          min: 0,
         },
         type: {
           type: String,
@@ -76,30 +78,17 @@ const projectTaskSchema = new mongoose.Schema({
   },
 });
 
-// Additional index for ProjectTask
-projectTaskSchema.index({
-  organization: 1,
-  department: 1,
-  startDate: 1,
-  dueDate: 1,
-});
-projectTaskSchema.index({
-  organization: 1,
-  department: 1,
-  status: 1,
-  priority: 1,
-  dueDate: 1,
-});
-
-// Validation: dueDate must be after startDate
+// Pre-save validation for dueDate after startDate
 projectTaskSchema.pre("save", function (next) {
-  if (this.startDate && this.dueDate && this.dueDate <= this.startDate) {
-    return next(new Error("Due date must be after start date"));
+  if (this.startDate && this.dueDate) {
+    if (this.dueDate <= this.startDate) {
+      return next(new Error("Due date must be after start date"));
+    }
   }
   next();
 });
 
-// Create discriminator
+// Create ProjectTask discriminator
 const ProjectTask = BaseTask.discriminator(
   TASK_TYPES.PROJECT_TASK,
   projectTaskSchema
