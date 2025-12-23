@@ -15,7 +15,7 @@ const requiredEnvVars = [
   "JWT_REFRESH_SECRET",
   "EMAIL_USER",
   "EMAIL_PASSWORD",
-  "EMAIL_FROM",
+  // "EMAIL_FROM",
   "CLIENT_URL",
 ];
 

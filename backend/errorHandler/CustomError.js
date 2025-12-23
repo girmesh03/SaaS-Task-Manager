@@ -2,8 +2,8 @@
  * Custom Error Class with Static Helper Methods
  *
  * CRITICAL: ONLY use static helper methods (validation, authentication, authorization, notFound, conflict, internal)
- * NEVER use consctor d
-
+ * NEVER use constructor directly
+ *
  * Error Codes:
  * - VALIDATION_ERROR (400): Invalid input data
  * - AUTHENTICATION_ERROR (401): Invalid credentials, triggers logout on frontend

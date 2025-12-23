@@ -7,6 +7,8 @@ import logger from "../utils/logger.js";
  * Formats error responses consistently
  * Logs errors with appropriate severity
  * Hides internal error details in production
+ *
+ * Requirements: 17.1, 17.2, 17.3, 17.4, 17.5
  */
 
 const errorHandler = (err, req, res, next) => {
@@ -44,11 +46,16 @@ const errorHandler = (err, req, res, next) => {
     success: false,
     statusCode,
     errorCode,
-    message: err.message || "An unexpected error occurred",
+    // For 500 errors, return generic message to user without exposing internal details (Requirement 17.5)
+    // For operational errors (4xx), return the actual error message
+    message:
+      statusCode >= 500 && process.env.NODE_ENV === "production"
+        ? "An unexpected error occurred. Please try again later."
+        : err.message || "An unexpected error occurred",
     context: err.context || {},
   };
 
-  // Include stack trace only in development
+  // Include stack trace only in development (Requirement 17.5)
   if (process.env.NODE_ENV === "development") {
     errorResponse.stack = err.stack;
   }
