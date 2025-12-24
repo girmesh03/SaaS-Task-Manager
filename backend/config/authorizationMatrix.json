@@ -1,29 +1,29 @@
 {
   "Organization": {
     "SuperAdmin": {
-      "create": ["crossOrg", "crossDept"],
-      "read": ["crossOrg", "crossDept"],
-      "update": ["crossOrg", "crossDept"],
-      "delete": ["crossOrg", "crossDept"],
-      "restore": ["crossOrg", "crossDept"]
+      "create": [],
+      "read": ["crossOrg", "own"],
+      "update": ["crossOrg", "own"],
+      "delete": ["crossOrg", "own"],
+      "restore": ["crossOrg", "own"]
     },
     "Admin": {
       "create": [],
-      "read": ["crossDept"],
+      "read": ["own"],
       "update": [],
       "delete": [],
       "restore": []
     },
     "Manager": {
       "create": [],
-      "read": ["ownDept"],
+      "read": ["own"],
       "update": [],
       "delete": [],
       "restore": []
     },
     "User": {
       "create": [],
-      "read": ["ownDept"],
+      "read": ["own"],
       "update": [],
       "delete": [],
       "restore": []
