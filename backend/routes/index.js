@@ -9,6 +9,7 @@ import MaterialRoutes from "./materialRoutes.js";
 import TaskRoutes from "./taskRoutes.js";
 import TaskActivityRoutes from "./taskActivityRoutes.js";
 import TaskCommentRoutes from "./taskCommentRoutes.js";
+import AttachmentRoutes from "./attachmentRoutes.js";
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.use("/materials", MaterialRoutes);
 router.use("/tasks", TaskRoutes);
 router.use("/task-activities", TaskActivityRoutes);
 router.use("/task-comments", TaskCommentRoutes);
+router.use("/attachments", AttachmentRoutes);
 
 export default router;
 
