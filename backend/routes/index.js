@@ -10,6 +10,7 @@ import TaskRoutes from "./taskRoutes.js";
 import TaskActivityRoutes from "./taskActivityRoutes.js";
 import TaskCommentRoutes from "./taskCommentRoutes.js";
 import AttachmentRoutes from "./attachmentRoutes.js";
+import NotificationRoutes from "./notificationRoutes.js";
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ router.use("/tasks", TaskRoutes);
 router.use("/task-activities", TaskActivityRoutes);
 router.use("/task-comments", TaskCommentRoutes);
 router.use("/attachments", AttachmentRoutes);
+router.use("/notifications", NotificationRoutes);
 
 export default router;
 
