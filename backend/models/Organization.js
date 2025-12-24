@@ -4,6 +4,22 @@ import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import { INDUSTRIES, TTL } from "../utils/constants.js";
 
+/**
+ * Organization Schema
+ *
+ * SOFT DELETE POLICY (per docs/softDelete-doc.md):
+ * - Parents: None (root entity)
+ * - Owned Children: Department, User, Vendor, Material, Notification, Tasks (via Department)
+ * - Weak Refs: None
+ * - Critical Dependencies: None
+ * - Restore Prerequisites: None (root entity)
+ * - Deletion Cascade Policy: Cascades to ALL children (Departments → Users → Tasks → Activities → Comments → Attachments, Materials, Vendors, Notifications)
+ * - Deletion Order: Organization → Department → User → Tasks → Activities → Comments → Attachments → Materials → Vendors → Notifications
+ * - Restore Policy: Top-down only, children NOT auto-restored
+ * - TTL: Never expires (null)
+ * - Special Protection: Platform organization (isPlatformOrg: true) CANNOT be deleted
+ */
+
 const organizationSchema = new mongoose.Schema(
   {
     name: {
@@ -98,6 +114,26 @@ organizationSchema.pre("save", function (next) {
 });
 
 // Cascade delete static method
+/**
+ * Cascade soft delete to all organization children
+ *
+ * CRITICAL: Follows deletion order from docs/softDelete-doc.md
+ * CRITICAL: Idempotent - checks isDeleted before calling softDelete
+ * CRITICAL: Uses organization scoping for all queries
+ * CRITICAL: Executes within transaction session
+ *
+ * Cascade Order:
+ * 1. Departments (which cascade to Users, Tasks, Materials)
+ * 2. Users (which cascade to created Tasks, Activities, Comments, Attachments)
+ * 3. Vendors (leaf nodes)
+ * 4. Materials (leaf nodes)
+ * 5. Notifications (leaf nodes)
+ *
+ * @param {ObjectId} organizationId - Organization ID to cascade delete
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 organizationSchema.statics.cascadeDelete = async function (
   organizationId,
   deletedBy,
@@ -110,10 +146,15 @@ organizationSchema.statics.cascadeDelete = async function (
   const Material = mongoose.model("Material");
   const Notification = mongoose.model("Notification");
 
+  // CRITICAL: Use withDeleted() to enumerate ALL children (including already deleted)
+  // This ensures idempotent cascade and proper handling of partially deleted hierarchies
+
   // Soft delete all departments
   const departments = await Department.find({
     organization: organizationId,
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const dept of departments) {
     if (!dept.isDeleted) {
       await dept.softDelete(deletedBy, { session });
@@ -123,9 +164,9 @@ organizationSchema.statics.cascadeDelete = async function (
   }
 
   // Soft delete all users
-  const users = await User.find({ organization: organizationId }).session(
-    session
-  );
+  const users = await User.find({ organization: organizationId })
+    .withDeleted()
+    .session(session);
   for (const user of users) {
     if (!user.isDeleted) {
       await user.softDelete(deletedBy, { session });
@@ -135,9 +176,9 @@ organizationSchema.statics.cascadeDelete = async function (
   }
 
   // Soft delete all vendors
-  const vendors = await Vendor.find({ organization: organizationId }).session(
-    session
-  );
+  const vendors = await Vendor.find({ organization: organizationId })
+    .withDeleted()
+    .session(session);
   for (const vendor of vendors) {
     if (!vendor.isDeleted) {
       await vendor.softDelete(deletedBy, { session });
@@ -147,7 +188,9 @@ organizationSchema.statics.cascadeDelete = async function (
   // Soft delete all materials
   const materials = await Material.find({
     organization: organizationId,
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const material of materials) {
     if (!material.isDeleted) {
       await material.softDelete(deletedBy, { session });
@@ -157,7 +200,9 @@ organizationSchema.statics.cascadeDelete = async function (
   // Soft delete all notifications
   const notifications = await Notification.find({
     organization: organizationId,
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const notification of notifications) {
     if (!notification.isDeleted) {
       await notification.softDelete(deletedBy, { session });

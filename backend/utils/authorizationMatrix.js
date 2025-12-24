@@ -1,4 +1,4 @@
-import authMatrix from "../config/authorizationMatrix.json" assert { type: "json" };
+import authMatrix from "../config/authorizationMatrix.json" with { type: "json" };
 import { SCOPES } from "./constants.js";
 
 /**
