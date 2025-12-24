@@ -6,6 +6,7 @@ import DepartmentRoutes from "./departmentRoutes.js";
 import UserRoutes from "./userRoutes.js";
 import VendorRoutes from "./vendorRoutes.js";
 import MaterialRoutes from "./materialRoutes.js";
+import TaskRoutes from "./taskRoutes.js";
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router.use("/departments", DepartmentRoutes);
 router.use("/users", UserRoutes);
 router.use("/vendors", VendorRoutes);
 router.use("/materials", MaterialRoutes);
+router.use("/tasks", TaskRoutes);
 
 export default router;
 
