@@ -11,6 +11,7 @@ import corsOptions from "./config/corsOptions.js";
 import errorHandler from "./errorHandler/ErrorController.js";
 import { generalRateLimiter } from "./middlewares/rateLimiter.js";
 import logger from "./utils/logger.js";
+import routes from "./routes/index.js";
 
 // Initialize dayjs with UTC plugin
 import dayjs from "dayjs";
@@ -50,8 +51,11 @@ app.get("/health", (req, res) => {
   });
 });
 
-// API routes will be added here
-// app.use('/api', routes);
+// Import routes
+import authRoutes from "./routes/authRoutes.js";
+
+// Mount API routes
+app.use("/api", routes);
 
 // Error handling middleware (MUST be last)
 app.use(errorHandler);

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import logger from "../../utils/logger.js";
 
 /**
@@ -27,7 +28,7 @@ const softDeletePlugin = (schema, options = {}) => {
       default: null,
     },
     deletedBy: {
-      type: schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
@@ -36,7 +37,7 @@ const softDeletePlugin = (schema, options = {}) => {
       default: null,
     },
     restoredBy: {
-      type: schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },

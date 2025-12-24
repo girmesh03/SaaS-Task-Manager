@@ -19,7 +19,6 @@ const taskActivitySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       refPath: "parentModel",
       required: [true, "Parent task is required"],
-      index: true,
     },
     parentModel: {
       type: String,
@@ -56,19 +55,16 @@ const taskActivitySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Created by is required"],
-      index: true,
     },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
       required: [true, "Department is required"],
-      index: true,
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: [true, "Organization is required"],
-      index: true,
     },
   },
   {

@@ -71,13 +71,11 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: [true, "Organization is required"],
-      index: true,
     },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
       required: [true, "Department is required"],
-      index: true,
     },
     profilePicture: {
       url: {
@@ -176,12 +174,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       immutable: true,
-      index: true,
     },
     isHod: {
       type: Boolean,
       default: false,
-      index: true,
     },
     lastLogin: {
       type: Date,
@@ -219,6 +215,7 @@ userSchema.index(
   { organization: 1, employeeId: 1 },
   { unique: true, partialFilterExpression: { isDeleted: false } }
 );
+userSchema.index({ organization: 1 });
 userSchema.index({ isPlatformUser: 1 });
 userSchema.index({ isHod: 1 });
 userSchema.index({ isDeleted: 1 });

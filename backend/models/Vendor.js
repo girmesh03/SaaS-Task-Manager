@@ -61,7 +61,6 @@ const vendorSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: [true, "Organization is required"],
-      index: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

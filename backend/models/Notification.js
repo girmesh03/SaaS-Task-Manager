@@ -31,7 +31,6 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Recipient is required"],
-      index: true,
     },
     entity: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +43,6 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: [true, "Organization is required"],
-      index: true,
     },
     expiresAt: {
       type: Date,
@@ -52,7 +50,6 @@ const notificationSchema = new mongoose.Schema(
         // Default to 30 days from creation
         return new Date(Date.now() + TTL.NOTIFICATION * 1000);
       },
-      index: true,
     },
   },
   {

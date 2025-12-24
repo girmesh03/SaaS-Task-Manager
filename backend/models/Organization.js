@@ -61,7 +61,6 @@ const organizationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       immutable: true,
-      index: true,
     },
   },
   {

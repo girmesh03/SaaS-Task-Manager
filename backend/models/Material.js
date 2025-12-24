@@ -35,7 +35,6 @@ const materialSchema = new mongoose.Schema(
         values: Object.values(MATERIAL_CATEGORIES),
         message: "{VALUE} is not a valid category",
       },
-      index: true,
     },
     unitType: {
       type: String,
@@ -54,13 +53,11 @@ const materialSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
       required: [true, "Department is required"],
-      index: true,
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: [true, "Organization is required"],
-      index: true,
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
