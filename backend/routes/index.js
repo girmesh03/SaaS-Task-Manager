@@ -26,5 +26,10 @@ router.use("/task-comments", TaskCommentRoutes);
 router.use("/attachments", AttachmentRoutes);
 router.use("/notifications", NotificationRoutes);
 
+// Health Check
+router.get("/health", (req, res) => {
+  res.status(200).json({ success: true, message: "API is healthy", timestamp: new Date() });
+});
+
 export default router;
 
