@@ -8,6 +8,7 @@ import VendorRoutes from "./vendorRoutes.js";
 import MaterialRoutes from "./materialRoutes.js";
 import TaskRoutes from "./taskRoutes.js";
 import TaskActivityRoutes from "./taskActivityRoutes.js";
+import TaskCommentRoutes from "./taskCommentRoutes.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.use("/vendors", VendorRoutes);
 router.use("/materials", MaterialRoutes);
 router.use("/tasks", TaskRoutes);
 router.use("/task-activities", TaskActivityRoutes);
+router.use("/task-comments", TaskCommentRoutes);
 
 export default router;
 

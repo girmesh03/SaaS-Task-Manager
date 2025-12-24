@@ -148,6 +148,7 @@ baseTaskSchema.pre("save", function (next) {
 });
 
 // Cascade delete static method
+// Cascade delete static method
 baseTaskSchema.statics.cascadeDelete = async function (
   taskId,
   deletedBy,
@@ -174,7 +175,7 @@ baseTaskSchema.statics.cascadeDelete = async function (
   // Soft delete all comments for this task
   const comments = await TaskComment.find({
     parent: taskId,
-    parentModel: "Task",
+    parentModel: "BaseTask",
   }).session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
@@ -187,7 +188,7 @@ baseTaskSchema.statics.cascadeDelete = async function (
   // Soft delete all attachments for this task
   const attachments = await Attachment.find({
     parent: taskId,
-    parentModel: "Task",
+    parentModel: "BaseTask",
   }).session(session);
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
@@ -198,7 +199,7 @@ baseTaskSchema.statics.cascadeDelete = async function (
   // Soft delete all notifications for this task
   const notifications = await Notification.find({
     entity: taskId,
-    entityModel: "Task",
+    entityModel: "BaseTask",
   }).session(session);
   for (const notification of notifications) {
     if (!notification.isDeleted) {
@@ -206,6 +207,7 @@ baseTaskSchema.statics.cascadeDelete = async function (
     }
   }
 };
+
 
 // Apply plugins
 baseTaskSchema.plugin(mongoosePaginate);
