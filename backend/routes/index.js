@@ -7,6 +7,7 @@ import UserRoutes from "./userRoutes.js";
 import VendorRoutes from "./vendorRoutes.js";
 import MaterialRoutes from "./materialRoutes.js";
 import TaskRoutes from "./taskRoutes.js";
+import TaskActivityRoutes from "./taskActivityRoutes.js";
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.use("/users", UserRoutes);
 router.use("/vendors", VendorRoutes);
 router.use("/materials", MaterialRoutes);
 router.use("/tasks", TaskRoutes);
+router.use("/task-activities", TaskActivityRoutes);
 
 export default router;
 
