@@ -1,0 +1,827 @@
+import mongoose from "mongoose";
+import { User, Department, Organization, BaseTask } from "../models/index.js";
+import CustomError from "../errorHandler/CustomError.js";
+import { emitToRooms } from "../utils/socketEmitter.js";
+import { PAGINATION, USER_ROLES } from "../utils/constants.js";
+import { sendEmail } from "../services/emailService.js";
+import { welcomeEmailTemplate } from "../templates/emailTemplates.js";
+import logger from "../utils/logger.js";
+
+/**
+ * User Controllers
+ *
+ * CRITICAL: All write operations use MongoDB transactions
+ * CRITICAL: Socket.IO events emitted AFTER transaction commit
+ * CRITICAL: Organization scoping for Customer SuperAdmin/Admin
+ * CRITICAL: Prevent last SuperAdmin/HOD deletion
+ * CRITICAL: Remove user from task watchers, assignees, and mentions on deletion
+ *
+ * CASCADE DELETE/RESTORE (per docs/softDelete-doc.md):
+ *
+ * PARENTS:
+ * - Organization
+ * - Department
+ *
+ * CHILDREN:
+ * - None (User has no owned children)
+ * - User is referenced as weak ref in many places (tasks, comments, etc.)
+ *
+ * WEAK REFERENCES (NOT cascaded, but unlinked on delete):
+ * - BaseTask.watchers[] -> User
+ * - AssignedTask.assignees[] -> User
+ * - TaskComment.mentions[] -> User
+ * - Department.hod -> User (nullable)
+ *
+ * CRITICAL DEPENDENCIES:
+ * - None
+ *
+ * RESTORE PREREQUISITES:
+ * - organization.isDeleted === false
+ * - department.isDeleted === false
+ *
+ * LINKING/UNLINKING:
+ * - On delete: Remove user from all task watchers, assignees, and comment mentions
+ * - On delete: If user is HOD, nullify department.hod
+ * - On restore: User is NOT automatically re-linked to tasks
+ *
+ * DELETION CASCADE POLICY:
+ * - deletionCascadePolicy.idempotent: true
+ * - deletionCascadePolicy.scope: No children to cascade to
+ * - User deletion removes user from weak refs in tasks and comments
+ *
+ * RESTORE POLICY:
+ * - restorePolicy.strictParentCheck: true (organization and department must be active)
+ * - restorePolicy.topDown: true
+ * - restorePolicy.childrenNotAutoRestored: N/A (no children)
+ * - Restore does NOT re-link user to tasks (manual orchestration required)
+ */
+
+/**
+ * Get all users with pagination and filters
+ * GET /api/users
+ * Protected route (authorize User read)
+ */
+export const getUsers = async (req, res, next) => {
+  try {
+    const {
+      page = PAGINATION.DEFAULT_PAGE,
+      limit = PAGINATION.DEFAULT_LIMIT,
+      search,
+      role,
+      department,
+      deleted = "false", // Show only active users by default
+    } = req.query;
+
+    // Build filter query
+    const filter = {
+      organization: req.user.organization._id,
+    };
+
+    // Search by name or email
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { employeeId: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Filter by role
+    if (role) {
+      filter.role = role;
+    }
+
+    // Filter by department
+    if (department) {
+      filter.department = department;
+    }
+
+    // Build query
+    let query = User.find(filter);
+
+    // Include deleted users if requested
+    if (deleted === "true") {
+      query = query.withDeleted();
+    } else if (deleted === "only") {
+      query = query.onlyDeleted();
+    }
+
+    // Pagination options
+    const options = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      sort: { createdAt: -1 },
+      populate: [
+        { path: "organization", select: "name" },
+        { path: "department", select: "name" },
+      ],
+      select: "-password -passwordResetToken -passwordResetExpires",
+    };
+
+    const users = await User.paginate(query, options);
+
+    res.status(200).json({
+      success: true,
+      message: "Users retrieved successfully",
+      data: users,
+    });
+  } catch (error) {
+    logger.error("Get Users Error:", error);
+    return next(
+      CustomError.internal("Failed to retrieve users", {
+        error: error.message,
+      })
+    );
+  }
+};
+
+/**
+ * Get single user by ID
+ * GET /api/users/:userId
+ * Protected route (authorize User read)
+ */
+export const getUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .populate("organization", "name email")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    if (!user) {
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Organization scoping
+    if (
+      user.organization._id.toString() !== req.user.organization._id.toString()
+    ) {
+      return next(
+        CustomError.authorization("You are not authorized to view this user")
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User retrieved successfully",
+      data: user,
+    });
+  } catch (error) {
+    logger.error("Get User Error:", error);
+    return next(
+      CustomError.internal("Failed to retrieve user", { error: error.message })
+    );
+  }
+};
+
+/**
+ * Create new user
+ * POST /api/users
+ * Protected route (authorize User create)
+ *
+ * CRITICAL: Auto-set isHod and isPlatformUser via model pre-save hook
+ * CRITICAL: Send welcome email after transaction commit
+ * CRITICAL: Emit Socket.IO event after transaction commit
+ */
+export const createUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      firstName,
+      lastName,
+      position,
+      role,
+      email,
+      password,
+      department,
+      employeeId,
+      dateOfBirth,
+      joinedAt,
+      skills,
+      profilePicture,
+    } = req.body;
+
+    // Create user (organization is automatically set from req.user)
+    const userData = {
+      firstName,
+      lastName,
+      position,
+      role: role || USER_ROLES.USER,
+      email,
+      password,
+      organization: req.user.organization._id,
+      department,
+      employeeId,
+      dateOfBirth,
+      joinedAt,
+      skills,
+      profilePicture,
+    };
+
+    const [user] = await User.create([userData], { session });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    // Fetch populated user for email
+    const populatedUserForEmail = await User.findById(user._id)
+      .populate("organization", "name")
+      .populate("department", "name")
+      .lean();
+
+    // Send welcome email AFTER commit
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Welcome to the Team!",
+        html: welcomeEmailTemplate(populatedUserForEmail),
+      });
+    } catch (emailError) {
+      logger.error("Welcome Email Error:", emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Emit Socket.IO event AFTER commit
+    emitToRooms(
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+      ],
+      "user:created",
+      {
+        userId: user._id,
+        organizationId: user.organization,
+        departmentId: user.department,
+      }
+    );
+
+    // Fetch populated user
+    const populatedUser = await User.findById(user._id)
+      .populate("organization", "name email")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: populatedUser,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Create User Error:", error);
+
+    if (error.code === 11000) {
+      return next(
+        CustomError.conflict("User with this email or employee ID already exists")
+      );
+    }
+
+    return next(
+      CustomError.internal("Failed to create user", { error: error.message })
+    );
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Update user
+ * PUT /api/users/:userId
+ * Protected route (authorize User update)
+ *
+ * CRITICAL: Auto-update isHod on role change via model pre-save hook
+ * CRITICAL: Prevent changing role/department if user is HOD
+ * CRITICAL: Emit Socket.IO event after transaction commit
+ */
+export const updateUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+
+    const user = await User.findById(userId).session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Organization scoping
+    if (
+      user.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      await session.abortTransaction();
+      return next(
+        CustomError.authorization("You are not authorized to update this user")
+      );
+    }
+
+    // Apply updates
+    Object.keys(updates).forEach((key) => {
+      // Prevent updating immutable fields
+      if (key !== "organization" && key !== "isPlatformUser") {
+        user[key] = updates[key];
+      }
+    });
+
+    await user.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    // Emit Socket.IO event AFTER commit
+    emitToRooms(
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+        `user:${user._id}`,
+      ],
+      "user:updated",
+      {
+        userId: user._id,
+        organizationId: user.organization,
+        departmentId: user.department,
+      }
+    );
+
+    // Fetch populated user
+    const populatedUser = await User.findById(user._id)
+      .populate("organization", "name email")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      data: populatedUser,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Update User Error:", error);
+
+    if (error.code === 11000) {
+      return next(
+        CustomError.conflict("User with this email or employee ID already exists")
+      );
+    }
+
+    return next(
+      CustomError.internal("Failed to update user", { error: error.message })
+    );
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Update own profile
+ * PUT /api/users/:userId/profile
+ * Protected route (authorize User update own)
+ *
+ * CRITICAL: Users cannot change role or department (only SuperAdmin can)
+ * CRITICAL: Users can update: firstName, lastName, position, skills, profilePicture, emailPreferences
+ */
+export const updateProfile = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId } = req.params;
+
+    // Verify user is updating their own profile
+    if (userId !== req.user._id.toString()) {
+      await session.abortTransaction();
+      return next(
+        CustomError.authorization("You can only update your own profile")
+      );
+    }
+
+    const user = await User.findById(userId).session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Allowed fields for profile update
+    const allowedFields = [
+      "firstName",
+      "lastName",
+      "position",
+      "skills",
+      "profilePicture",
+      "emailPreferences",
+      "dateOfBirth",
+      "password",
+    ];
+
+    // Apply updates only for allowed fields
+    Object.keys(req.body).forEach((key) => {
+      if (allowedFields.includes(key)) {
+        user[key] = req.body[key];
+      }
+    });
+
+    await user.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    // Emit Socket.IO event AFTER commit
+    emitToRooms([`user:${user._id}`], "user:updated", {
+      userId: user._id,
+      organizationId: user.organization,
+      departmentId: user.department,
+    });
+
+    // Fetch populated user
+    const populatedUser = await User.findById(user._id)
+      .populate("organization", "name email")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: populatedUser,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Update Profile Error:", error);
+    return next(
+      CustomError.internal("Failed to update profile", {
+        error: error.message,
+      })
+    );
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Get current user's account information
+ * GET /api/users/:userId/account
+ * Protected route (authorize User read own)
+ */
+export const getAccount = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify user is accessing their own account
+    if (userId !== req.user._id.toString()) {
+      return next(
+        CustomError.authorization("You can only access your own account")
+      );
+    }
+
+    const user = await User.findById(userId)
+      .populate("organization", "name email phone address industry logoUrl")
+      .populate("department", "name description")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    if (!user) {
+      return next(CustomError.notFound("User not found"));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Account information retrieved successfully",
+      data: user,
+    });
+  } catch (error) {
+    logger.error("Get Account Error:", error);
+    return next(
+      CustomError.internal("Failed to retrieve account information", {
+        error: error.message,
+      })
+    );
+  }
+};
+
+/**
+ * Get current user's profile and dashboard data
+ * GET /api/users/:userId/profile
+ * Protected route (authorize User read own)
+ */
+export const getProfile = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify user is accessing their own profile
+    if (userId !== req.user._id.toString()) {
+      return next(
+        CustomError.authorization("You can only access your own profile")
+      );
+    }
+
+    const user = await User.findById(userId)
+      .populate("organization", "name")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    if (!user) {
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Get dashboard stats
+    const taskStats = await BaseTask.aggregate([
+      {
+        $match: {
+          $or: [
+            { createdBy: mongoose.Types.ObjectId.createFromHexString(userId) },
+            { watchers: mongoose.Types.ObjectId.createFromHexString(userId) },
+          ],
+          isDeleted: false,
+        },
+      },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Profile retrieved successfully",
+      data: {
+        user,
+        stats: {
+          tasks: taskStats,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get Profile Error:", error);
+    return next(
+      CustomError.internal("Failed to retrieve profile", {
+        error: error.message,
+      })
+    );
+  }
+};
+
+/**
+ * Soft delete user with cascade
+ * DELETE /api/users/:userId
+ * Protected route (authorize User delete)
+ *
+ * CRITICAL: Prevent last SuperAdmin deletion
+ * CRITICAL: Prevent HOD deletion if they are the only HOD in department
+ * CRITICAL: Remove user from task watchers, assignees, and comment mentions
+ * CRITICAL: Emit Socket.IO event after transaction commit
+ *
+ * Implements cascade deletion per docs/softDelete-doc.md:
+ * - Idempotent: Skip if already deleted, preserve original deletedBy/deletedAt
+ * - No children to cascade (User has no owned children)
+ * - Unlink from weak refs: Remove from task watchers, assignees, mentions
+ * - Nullify department.hod if user is HOD
+ * - Transaction: All operations in single transaction
+ */
+export const deleteUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .withDeleted()
+      .session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Organization scoping
+    if (
+      user.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      await session.abortTransaction();
+      return next(
+        CustomError.authorization("You are not authorized to delete this user")
+      );
+    }
+
+    // Idempotent: Skip if already deleted
+    if (user.isDeleted) {
+      await session.abortTransaction();
+      return res.status(200).json({
+        success: true,
+        message: "User is already deleted",
+        data: { userId: user._id },
+      });
+    }
+
+    // Prevent last SuperAdmin deletion
+    if (user.role === USER_ROLES.SUPER_ADMIN) {
+      const superAdminCount = await User.countDocuments({
+        organization: user.organization,
+        role: USER_ROLES.SUPER_ADMIN,
+        isDeleted: false,
+      }).session(session);
+
+      if (superAdminCount <= 1) {
+        await session.abortTransaction();
+        return next(
+          CustomError.validation(
+            "Cannot delete the last SuperAdmin in the organization"
+          )
+        );
+      }
+    }
+
+    // Check if user is HOD
+    const department = await Department.findOne({
+      _id: user.department,
+      hod: user._id,
+    }).session(session);
+
+    if (department) {
+      // Nullify department.hod
+      department.hod = null;
+      await department.save({ session });
+
+      // Emit HOD pruned event
+      emitToRooms(
+        [`department:${department._id}`],
+        "department:hod_pruned",
+        {
+          departmentId: department._id,
+          userId: user._id,
+          reason: "User deleted",
+        }
+      );
+    }
+
+    // Soft delete user
+    await user.softDelete(req.user._id, { session });
+
+    // Cascade delete: Remove from weak refs and cascade to created resources
+    await User.cascadeDelete(user._id, req.user._id, { session });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    // Emit Socket.IO event AFTER commit
+    emitToRooms(
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+      ],
+      "user:deleted",
+      {
+        userId: user._id,
+        organizationId: user.organization,
+        departmentId: user.department,
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+      data: { userId: user._id },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Delete User Error:", error);
+    return next(
+      CustomError.internal("Failed to delete user", { error: error.message })
+    );
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Restore soft-deleted user
+ * PATCH /api/users/:userId/restore
+ * Protected route (authorize User update for restore)
+ *
+ * Implements restoration per docs/softDelete-doc.md:
+ * - Strict mode: Parent integrity check (organization and department must be active)
+ * - No critical dependencies to validate
+ * - No weak refs to prune
+ * - No children to auto-restore (User has no owned children)
+ * - Restore prerequisites: organization.isDeleted === false, department.isDeleted === false
+ */
+export const restoreUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .withDeleted()
+      .session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+      return next(CustomError.notFound("User not found"));
+    }
+
+    // Organization scoping
+    if (
+      user.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      await session.abortTransaction();
+      return next(
+        CustomError.authorization("You are not authorized to restore this user")
+      );
+    }
+
+    // Check if already active
+    if (!user.isDeleted) {
+      await session.abortTransaction();
+      return res.status(200).json({
+        success: true,
+        message: "User is already active",
+        data: { userId: user._id },
+      });
+    }
+
+    // Strict parent check: organization must be active
+    const organization = await Organization.findById(user.organization)
+      .withDeleted()
+      .session(session);
+
+    if (!organization || organization.isDeleted) {
+      await session.abortTransaction();
+      return next(
+        CustomError.validation(
+          "Cannot restore user. Parent organization is deleted or missing."
+        )
+      );
+    }
+
+    // Strict parent check: department must be active
+    const department = await Department.findById(user.department)
+      .withDeleted()
+      .session(session);
+
+    if (!department || department.isDeleted) {
+      await session.abortTransaction();
+      return next(
+        CustomError.validation(
+          "Cannot restore user. Parent department is deleted or missing."
+        )
+      );
+    }
+
+    // Restore user
+    await user.restore(req.user._id, { session });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    // Emit Socket.IO event AFTER commit
+    emitToRooms(
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+      ],
+      "user:restored",
+      {
+        userId: user._id,
+        organizationId: user.organization,
+        departmentId: user.department,
+      }
+    );
+
+    // Fetch populated user
+    const populatedUser = await User.findById(user._id)
+      .populate("organization", "name email")
+      .populate("department", "name")
+      .select("-password -passwordResetToken -passwordResetExpires")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: "User restored successfully",
+      data: populatedUser,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Restore User Error:", error);
+    return next(
+      CustomError.internal("Failed to restore user", { error: error.message })
+    );
+  } finally {
+    session.endSession();
+  }
+};
