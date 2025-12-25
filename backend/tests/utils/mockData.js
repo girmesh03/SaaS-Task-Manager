@@ -7,13 +7,13 @@
 
 import fc from "fast-check";
 import {
-  ROLES,
+  USER_ROLES,
   TASK_STATUS,
   TASK_PRIORITY,
   MATERIAL_CATEGORIES,
-  MATERIAL_UNIT_TYPES,
+  UNIT_TYPES,
   NOTIFICATION_TYPES,
-  FILE_TYPES,
+  ATTACHMENT_TYPES,
   INDUSTRIES,
 } from "../../utils/constants.js";
 
@@ -33,7 +33,7 @@ export const fcOrganization = () =>
       )
     ),
     address: fc.string({ minLength: 10, maxLength: 500 }),
-    industry: fc.constantFrom(...INDUSTRIES),
+    industry: fc.constantFrom(...Object.values(INDUSTRIES)),
     description: fc.string({ maxLength: 2000 }),
     isPlatformOrg: fc.boolean(),
   });
@@ -59,7 +59,7 @@ export const fcUser = (organizationId, departmentId) =>
     password: fc.string({ minLength: 8, maxLength: 50 }),
     organization: fc.constant(organizationId),
     department: fc.constant(departmentId),
-    role: fc.constantFrom(...ROLES),
+    role: fc.constantFrom(...Object.values(USER_ROLES)),
     employeeId: fc.integer({ min: 1000, max: 9999 }).map(String),
     dateOfBirth: fc.date({ max: new Date() }),
     joinedAt: fc.date({ max: new Date() }),
@@ -95,8 +95,8 @@ export const fcMaterial = (organizationId, departmentId) =>
   fc.record({
     name: fc.string({ minLength: 3, maxLength: 100 }),
     description: fc.string({ maxLength: 2000 }),
-    category: fc.constantFrom(...MATERIAL_CATEGORIES),
-    unitType: fc.constantFrom(...MATERIAL_UNIT_TYPES),
+    category: fc.constantFrom(...Object.values(MATERIAL_CATEGORIES)),
+    unitType: fc.constantFrom(...Object.values(UNIT_TYPES)),
     price: fc.float({ min: 0, max: 10000 }),
     organization: fc.constant(organizationId),
     department: fc.constant(departmentId),
@@ -118,8 +118,8 @@ export const fcProjectTask = (
     organization: fc.constant(organizationId),
     department: fc.constant(departmentId),
     createdBy: fc.constant(createdById),
-    status: fc.constantFrom(...TASK_STATUS),
-    priority: fc.constantFrom(...TASK_PRIORITY),
+    status: fc.constantFrom(...Object.values(TASK_STATUS)),
+    priority: fc.constantFrom(...Object.values(TASK_PRIORITY)),
     estimatedCost: fc.option(fc.float({ min: 0, max: 100000 }), {
       nil: undefined,
     }),
@@ -164,8 +164,8 @@ export const fcAssignedTask = (
     organization: fc.constant(organizationId),
     department: fc.constant(departmentId),
     createdBy: fc.constant(createdById),
-    status: fc.constantFrom(...TASK_STATUS),
-    priority: fc.constantFrom(...TASK_PRIORITY),
+    status: fc.constantFrom(...Object.values(TASK_STATUS)),
+    priority: fc.constantFrom(...Object.values(TASK_PRIORITY)),
     startDate: fc.option(fc.date(), { nil: undefined }),
     dueDate: fc.option(fc.date(), { nil: undefined }),
     tags: fc.array(fc.string({ maxLength: 50 }), { maxLength: 5 }),
@@ -221,7 +221,7 @@ export const fcAttachment = (
   fc.record({
     filename: fc.string({ minLength: 5, maxLength: 100 }),
     fileUrl: fc.webUrl(),
-    fileType: fc.constantFrom(...FILE_TYPES),
+    fileType: fc.constantFrom(...Object.values(ATTACHMENT_TYPES)),
     fileSize: fc.integer({ min: 1000, max: 10000000 }),
     parent: fc.constant(parentId),
     parentModel: fc.constant(parentModel),
@@ -237,7 +237,7 @@ export const fcNotification = (organizationId, recipientId) =>
   fc.record({
     title: fc.string({ minLength: 5, maxLength: 100 }),
     message: fc.string({ minLength: 10, maxLength: 500 }),
-    type: fc.constantFrom(...NOTIFICATION_TYPES),
+    type: fc.constantFrom(...Object.values(NOTIFICATION_TYPES)),
     recipient: fc.constant(recipientId),
     organization: fc.constant(organizationId),
     isRead: fc.boolean(),
