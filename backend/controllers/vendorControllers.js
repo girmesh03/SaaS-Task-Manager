@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
+import asyncHandler from "express-async-handler";
 import { Vendor, Organization } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
 import logger from "../utils/logger.js";
+import {
+  createdResponse,
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
 
 /**
  * Vendor Controllers
@@ -51,120 +58,98 @@ import logger from "../utils/logger.js";
  * GET /api/vendors
  * Protected route (authorize Vendor read)
  */
-export const getVendors = async (req, res, next) => {
-  try {
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      search,
-      deleted = "false", // Show only active vendors by default
-    } = req.query;
+export const getVendors = asyncHandler(async (req, res) => {
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    search,
+    deleted = "false", // Show only active vendors by default
+  } = req.query;
 
-    // Build filter query (organization scoped, NOT department)
-    const filter = {
-      organization: req.user.organization._id,
-    };
+  // Build filter query (organization scoped, NOT department)
+  const filter = {
+    organization: req.user.organization._id,
+  };
 
-    // Search by name, contact person, email, or phone
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { contactPerson: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    // Build query
-    let query = Vendor.find(filter);
-
-    // Include deleted vendors if requested
-    if (deleted === "true") {
-      query = query.withDeleted();
-    } else if (deleted === "only") {
-      query = query.onlyDeleted();
-    }
-
-    // Pagination options
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort: { createdAt: -1 },
-      populate: [
-        { path: "organization", select: "name" },
-        { path: "createdBy", select: "firstName lastName" },
-      ],
-    };
-
-    const vendors = await Vendor.paginate(query, options);
-
-    res.status(200).json({
-      success: true,
-      message: "Vendors retrieved successfully",
-      data: vendors,
-    });
-  } catch (error) {
-    logger.error("Get Vendors Error:", error);
-    return next(
-      CustomError.internal("Failed to retrieve vendors", {
-        error: error.message,
-      })
-    );
+  // Search by name, contact person, email, or phone
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { contactPerson: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+    ];
   }
-};
+
+  // Build query
+  let query = Vendor.find(filter);
+
+  // Include deleted vendors if requested
+  if (deleted === "true") {
+    query = query.withDeleted();
+  } else if (deleted === "only") {
+    query = query.onlyDeleted();
+  }
+
+  // Pagination options
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { createdAt: -1 },
+    populate: [
+      { path: "organization", select: "name" },
+      { path: "createdBy", select: "firstName lastName" },
+    ],
+  };
+
+  const vendors = await Vendor.paginate(query, options);
+
+  paginatedResponse(res, 200, "Vendors retrieved successfully", vendors.docs, {
+    total: vendors.totalDocs,
+    page: vendors.page,
+    limit: vendors.limit,
+    totalPages: vendors.totalPages,
+    hasNextPage: vendors.hasNextPage,
+    hasPrevPage: vendors.hasPrevPage,
+  });
+});
 
 /**
  * Get single vendor by ID
  * GET /api/vendors/:resourceId
  * Protected route (authorize Vendor read)
  */
-export const getVendor = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
+export const getVendor = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
 
-    const vendor = await Vendor.findById(resourceId)
-      .populate("organization", "name email")
-      .populate("createdBy", "firstName lastName")
-      .lean();
+  const vendor = await Vendor.findById(resourceId)
+    .populate("organization", "name email")
+    .populate("createdBy", "firstName lastName")
+    .lean();
 
-    if (!vendor) {
-      return next(CustomError.notFound("Vendor not found"));
-    }
-
-    // Organization scoping
-    if (
-      vendor.organization._id.toString() !==
-      req.user.organization._id.toString()
-    ) {
-      return next(
-        CustomError.authorization("You are not authorized to view this vendor")
-      );
-    }
-
-    // Get linked ProjectTasks count
-    const ProjectTask = mongoose.model("ProjectTask");
-    const linkedTasksCount = await ProjectTask.countDocuments({
-      vendor: resourceId,
-      isDeleted: false,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Vendor retrieved successfully",
-      data: {
-        ...vendor,
-        linkedTasksCount,
-      },
-    });
-  } catch (error) {
-    logger.error("Get Vendor Error:", error);
-    return next(
-      CustomError.internal("Failed to retrieve vendor", {
-        error: error.message,
-      })
-    );
+  if (!vendor) {
+    throw CustomError.notFound("Vendor not found");
   }
-};
+
+  // Organization scoping
+  if (
+    vendor.organization._id.toString() !== req.user.organization._id.toString()
+  ) {
+    throw CustomError.authorization("You are not authorized to view this vendor");
+  }
+
+  // Get linked ProjectTasks count
+  const ProjectTask = mongoose.model("ProjectTask");
+  const linkedTasksCount = await ProjectTask.countDocuments({
+    vendor: resourceId,
+    isDeleted: false,
+  });
+
+  okResponse(res, "Vendor retrieved successfully", {
+    ...vendor,
+    linkedTasksCount,
+  });
+});
 
 /**
  * Create new vendor
@@ -173,7 +158,7 @@ export const getVendor = async (req, res, next) => {
  *
  * CRITICAL: Emit Socket.IO event after transaction commit
  */
-export const createVendor = async (req, res, next) => {
+export const createVendor = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -214,28 +199,19 @@ export const createVendor = async (req, res, next) => {
       .populate("createdBy", "firstName lastName")
       .lean();
 
-    res.status(201).json({
-      success: true,
-      message: "Vendor created successfully",
-      data: populatedVendor,
-    });
+    createdResponse(res, "Vendor created successfully", populatedVendor);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Vendor Error:", error);
 
     if (error.code === 11000) {
-      return next(
-        CustomError.conflict("Vendor with this name already exists")
-      );
+      throw CustomError.conflict("Vendor with this name already exists");
     }
-
-    return next(
-      CustomError.internal("Failed to create vendor", { error: error.message })
-    );
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
 /**
  * Update vendor
@@ -244,7 +220,7 @@ export const createVendor = async (req, res, next) => {
  *
  * CRITICAL: Emit Socket.IO event after transaction commit
  */
-export const updateVendor = async (req, res, next) => {
+export const updateVendor = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -255,19 +231,15 @@ export const updateVendor = async (req, res, next) => {
     const vendor = await Vendor.findById(resourceId).session(session);
 
     if (!vendor) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Vendor not found"));
+      throw CustomError.notFound("Vendor not found");
     }
 
     // Organization scoping
     if (
       vendor.organization.toString() !== req.user.organization._id.toString()
     ) {
-      await session.abortTransaction();
-      return next(
-        CustomError.authorization(
-          "You are not authorized to update this vendor"
-        )
+      throw CustomError.authorization(
+        "You are not authorized to update this vendor"
       );
     }
 
@@ -300,28 +272,19 @@ export const updateVendor = async (req, res, next) => {
       .populate("createdBy", "firstName lastName")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Vendor updated successfully",
-      data: populatedVendor,
-    });
+    okResponse(res, "Vendor updated successfully", populatedVendor);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Update Vendor Error:", error);
 
     if (error.code === 11000) {
-      return next(
-        CustomError.conflict("Vendor with this name already exists")
-      );
+      throw CustomError.conflict("Vendor with this name already exists");
     }
-
-    return next(
-      CustomError.internal("Failed to update vendor", { error: error.message })
-    );
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
 /**
  * Soft delete vendor
@@ -338,7 +301,7 @@ export const updateVendor = async (req, res, next) => {
  * - Check for linked ProjectTasks and warn
  * - Transaction: All operations in single transaction
  */
-export const deleteVendor = async (req, res, next) => {
+export const deleteVendor = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -350,29 +313,23 @@ export const deleteVendor = async (req, res, next) => {
       .session(session);
 
     if (!vendor) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Vendor not found"));
+      throw CustomError.notFound("Vendor not found");
     }
 
     // Organization scoping
     if (
       vendor.organization.toString() !== req.user.organization._id.toString()
     ) {
-      await session.abortTransaction();
-      return next(
-        CustomError.authorization(
-          "You are not authorized to delete this vendor"
-        )
+      throw CustomError.authorization(
+        "You are not authorized to delete this vendor"
       );
     }
 
     // Idempotent: Skip if already deleted
     if (vendor.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Vendor is already deleted",
-        data: { vendorId: vendor._id },
+      return okResponse(res, "Vendor is already deleted", {
+        vendorId: vendor._id,
       });
     }
 
@@ -387,15 +344,12 @@ export const deleteVendor = async (req, res, next) => {
       .lean();
 
     if (linkedTasks.length > 0) {
-      await session.abortTransaction();
-      return next(
-        CustomError.validation(
-          `Cannot delete vendor. ${linkedTasks.length} active ProjectTask(s) are linked to this vendor. Please reassign or complete these tasks first.`,
-          {
-            linkedTasksCount: linkedTasks.length,
-            linkedTaskIds: linkedTasks.map((t) => t._id),
-          }
-        )
+      throw CustomError.validation(
+        `Cannot delete vendor. ${linkedTasks.length} active ProjectTask(s) are linked to this vendor. Please reassign or complete these tasks first.`,
+        {
+          linkedTasksCount: linkedTasks.length,
+          linkedTaskIds: linkedTasks.map((t) => t._id),
+        }
       );
     }
 
@@ -415,21 +369,17 @@ export const deleteVendor = async (req, res, next) => {
       }
     );
 
-    res.status(200).json({
-      success: true,
-      message: "Vendor deleted successfully",
-      data: { vendorId: vendor._id },
+    successResponse(res, 200, "Vendor deleted successfully", {
+      vendorId: vendor._id,
     });
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Vendor Error:", error);
-    return next(
-      CustomError.internal("Failed to delete vendor", { error: error.message })
-    );
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
 /**
  * Restore soft-deleted vendor
@@ -443,7 +393,7 @@ export const deleteVendor = async (req, res, next) => {
  * - No children to auto-restore (Vendor has no owned children)
  * - Restore prerequisites: organization.isDeleted === false
  */
-export const restoreVendor = async (req, res, next) => {
+export const restoreVendor = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -455,29 +405,23 @@ export const restoreVendor = async (req, res, next) => {
       .session(session);
 
     if (!vendor) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Vendor not found"));
+      throw CustomError.notFound("Vendor not found");
     }
 
     // Organization scoping
     if (
       vendor.organization.toString() !== req.user.organization._id.toString()
     ) {
-      await session.abortTransaction();
-      return next(
-        CustomError.authorization(
-          "You are not authorized to restore this vendor"
-        )
+      throw CustomError.authorization(
+        "You are not authorized to restore this vendor"
       );
     }
 
     // Check if already active
     if (!vendor.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Vendor is already active",
-        data: { vendorId: vendor._id },
+      return okResponse(res, "Vendor is already active", {
+        vendorId: vendor._id,
       });
     }
 
@@ -487,11 +431,8 @@ export const restoreVendor = async (req, res, next) => {
       .session(session);
 
     if (!organization || organization.isDeleted) {
-      await session.abortTransaction();
-      return next(
-        CustomError.validation(
-          "Cannot restore vendor. Parent organization is deleted or missing."
-        )
+      throw CustomError.validation(
+        "Cannot restore vendor. Parent organization is deleted or missing."
       );
     }
 
@@ -517,20 +458,12 @@ export const restoreVendor = async (req, res, next) => {
       .populate("createdBy", "firstName lastName")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Vendor restored successfully",
-      data: populatedVendor,
-    });
+    successResponse(res, 200, "Vendor restored successfully", populatedVendor);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Vendor Error:", error);
-    return next(
-      CustomError.internal("Failed to restore vendor", {
-        error: error.message,
-      })
-    );
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});

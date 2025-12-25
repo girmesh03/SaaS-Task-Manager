@@ -27,12 +27,33 @@ export const createTaskActivityValidator = [
 
   body("materials").optional().isArray().withMessage("Materials must be an array")
     .custom((value) => value.length <= LIMITS.MAX_MATERIALS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MATERIALS} materials`); })())
-    .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid material ID(s)"); })())
+    .custom((value) => {
+      // Validate structure: [{ material: ID, quantity: Number }]
+      const isValidStructure = value.every(item =>
+        item.material && mongoose.Types.ObjectId.isValid(item.material) &&
+        item.quantity !== undefined && typeof item.quantity === 'number' && item.quantity >= 0
+      );
+      if (!isValidStructure) {
+        throw new Error("Invalid materials format. Must be array of { material: ID, quantity: Number }");
+      }
+      return true;
+    })
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       const { default: Material } = await import("../../models/Material.js");
-      const materials = await Material.find({ _id: { $in: value } }).lean();
-      if (materials.length !== value.length) throw new Error("One or more materials not found");
+      const materialIds = value.map(item => item.material);
+
+      const materials = await Material.find({ _id: { $in: materialIds } }).lean();
+
+      if (materials.length !== materialIds.length) {
+         // Check for duplicates in input?
+         // If input has duplicates, materials.length will be less than input if we search by $in.
+         // Actually unique materials check might be needed?
+         // Assuming unique materials in list.
+         const uniqueIds = new Set(materialIds);
+         if (materials.length !== uniqueIds.size) throw new Error("One or more materials not found");
+      }
+
       if (materials.some(m => m.isDeleted)) throw new Error("One or more materials are deleted");
       if (materials.some(m => m.organization.toString() !== req.user.organization._id.toString())) {
         throw new Error("All materials must belong to the same organization");

@@ -1,9 +1,12 @@
-import mongoose from "mongoose";
+import asyncHandler from "express-async-handler";
 import { Notification } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
-import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
-import logger from "../utils/logger.js";
+import {
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
 
 /**
  * Notification Controllers
@@ -12,134 +15,111 @@ import logger from "../utils/logger.js";
  * CRITICAL: No Soft Delete (Ephemeral)
  */
 
-export const getNotifications = async (req, res, next) => {
-  try {
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      isRead,
-      type,
-    } = req.query;
+export const getNotifications = asyncHandler(async (req, res) => {
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    isRead,
+    type,
+  } = req.query;
 
-    const filter = { recipient: req.user._id };
+  const filter = { recipient: req.user._id };
 
-    if (isRead !== undefined) {
-      filter.isRead = isRead === "true";
-    }
-    if (type) {
-      filter.type = type;
-    }
-
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort: { isRead: 1, createdAt: -1 }, // Unread first, then newest
-    };
-
-    const notifications = await Notification.paginate(filter, options);
-
-    res.status(200).json({
-      success: true,
-      message: "Notifications retrieved successfully",
-      data: notifications,
-    });
-  } catch (error) {
-    logger.error("Get Notifications Error:", error);
-    return next(CustomError.internal("Failed to retrieve notifications", { error: error.message }));
+  if (isRead !== undefined) {
+    filter.isRead = isRead === "true";
   }
-};
-
-export const getNotification = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
-
-    const notification = await Notification.findById(resourceId).lean();
-
-    if (!notification) return next(CustomError.notFound("Notification not found"));
-
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-      return next(CustomError.authorization("You are not authorized to view this notification"));
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Notification retrieved successfully",
-      data: notification,
-    });
-  } catch (error) {
-    logger.error("Get Notification Error:", error);
-    return next(CustomError.internal("Failed to retrieve notification", { error: error.message }));
+  if (type) {
+    filter.type = type;
   }
-};
 
-export const markAsRead = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { isRead: 1, createdAt: -1 }, // Unread first, then newest
+  };
 
-    const notification = await Notification.findById(resourceId);
+  const notifications = await Notification.paginate(filter, options);
 
-    if (!notification) return next(CustomError.notFound("Notification not found"));
-
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-      return next(CustomError.authorization("You are not authorized to update this notification"));
+  paginatedResponse(
+    res,
+    200,
+    "Notifications retrieved successfully",
+    notifications.docs,
+    {
+      total: notifications.totalDocs,
+      page: notifications.page,
+      limit: notifications.limit,
+      totalPages: notifications.totalPages,
+      hasNextPage: notifications.hasNextPage,
+      hasPrevPage: notifications.hasPrevPage,
     }
+  );
+});
 
-    if (!notification.isRead) {
-      notification.isRead = true;
-      await notification.save();
-      // Optional: Emit socket event "notification:updated" to user room if we tracked read status live
-    }
+export const getNotification = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
 
-    res.status(200).json({
-      success: true,
-      message: "Notification marked as read",
-      data: notification,
-    });
-  } catch (error) {
-    logger.error("Mark Notification Read Error:", error);
-    return next(CustomError.internal("Failed to mark notification as read", { error: error.message }));
-  }
-};
+  const notification = await Notification.findById(resourceId).lean();
 
-export const markAllAsRead = async (req, res, next) => {
-  try {
-    const result = await Notification.updateMany(
-      { recipient: req.user._id, isRead: false },
-      { $set: { isRead: true } }
+  if (!notification) throw CustomError.notFound("Notification not found");
+
+  if (notification.recipient.toString() !== req.user._id.toString()) {
+    throw CustomError.authorization(
+      "You are not authorized to view this notification"
     );
-
-    res.status(200).json({
-      success: true,
-      message: "All notifications marked as read",
-      data: { modifiedCount: result.modifiedCount },
-    });
-  } catch (error) {
-    logger.error("Mark All Notifications Read Error:", error);
-    return next(CustomError.internal("Failed to mark all notifications as read", { error: error.message }));
   }
-};
 
-export const deleteNotification = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
+  okResponse(res, "Notification retrieved successfully", notification);
+});
 
-    const notification = await Notification.findById(resourceId);
+export const markAsRead = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
 
-    if (!notification) return next(CustomError.notFound("Notification not found"));
+  const notification = await Notification.findById(resourceId);
 
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-      return next(CustomError.authorization("You are not authorized to delete this notification"));
-    }
+  if (!notification) throw CustomError.notFound("Notification not found");
 
-    await notification.deleteOne();
-
-    res.status(200).json({
-      success: true,
-      message: "Notification deleted successfully",
-      data: { notificationId: resourceId },
-    });
-  } catch (error) {
-    logger.error("Delete Notification Error:", error);
-    return next(CustomError.internal("Failed to delete notification", { error: error.message }));
+  if (notification.recipient.toString() !== req.user._id.toString()) {
+    throw CustomError.authorization(
+      "You are not authorized to update this notification"
+    );
   }
-};
+
+  if (!notification.isRead) {
+    notification.isRead = true;
+    await notification.save();
+  }
+
+  okResponse(res, "Notification marked as read", notification);
+});
+
+export const markAllAsRead = asyncHandler(async (req, res) => {
+  const result = await Notification.updateMany(
+    { recipient: req.user._id, isRead: false },
+    { $set: { isRead: true } }
+  );
+
+  okResponse(res, "All notifications marked as read", {
+    modifiedCount: result.modifiedCount,
+  });
+});
+
+export const deleteNotification = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
+
+  const notification = await Notification.findById(resourceId);
+
+  if (!notification) throw CustomError.notFound("Notification not found");
+
+  if (notification.recipient.toString() !== req.user._id.toString()) {
+    throw CustomError.authorization(
+      "You are not authorized to delete this notification"
+    );
+  }
+
+  await notification.deleteOne();
+
+  successResponse(res, 200, "Notification deleted successfully", {
+    notificationId: resourceId,
+  });
+});

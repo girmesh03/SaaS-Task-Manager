@@ -1,9 +1,15 @@
 import mongoose from "mongoose";
+import asyncHandler from "express-async-handler";
 import { Organization } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
 import logger from "../utils/logger.js";
+import {
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
 
 /**
  * Organization Controllers
@@ -14,41 +20,6 @@ import logger from "../utils/logger.js";
  * CRITICAL: Platform SuperAdmin can access all organizations (crossOrg scope)
  * CRITICAL: Customer SuperAdmin/Admin can only access own organization
  * CRITICAL: Cascade delete/restore follows docs/softDelete-doc.md policy
- *
- * Cascade Policy for Organization (per docs/softDelete-doc.md):
- * ============================================================
- *
- * DELETION CASCADE:
- * - Parents: None (Organization is root)
- * - Owned Children: Department, User, Vendor, Material, Notification, and all tasks
- * - Cascade Order: Organization → Department → User → Tasks → Activities → Comments → Attachments → Materials → Vendors → Notifications
- * - Weak Refs: None (Organization is root)
- * - Critical Dependencies: None (Organization is root)
- * - Idempotent: Skip if already deleted, preserve original deletedBy/deletedAt
- * - Organization Boundary: All cascades scoped to organizationId
- * - Transaction: All operations in single transaction
- *
- * RESTORATION POLICY:
- * - Strict Mode: Parent integrity check (Organization is root, no parents to check)
- * - Critical Dependencies: None (Organization is root)
- * - Weak Refs: None (Organization is root)
- * - Non-blocking Repairs: None (Organization is root)
- * - Children: NOT auto-restored (top-down orchestration only, per docs/softDelete-doc.md)
- * - Restore Prerequisites: None (Organization is root)
- *
- * LINKING/UNLINKING:
- * - No weak refs to manage (Organization is root)
- * - Children maintain organization reference (not unlinked on delete)
- *
- * DELETION CASCADE POLICY:
- * - deletionCascadePolicy.idempotent: true
- * - deletionCascadePolicy.scope: All documents with organization == this._id
- * - deletionCascadePolicy.order: [Organization, Department, User, ProjectTask, RoutineTask, AssignedTask, TaskActivity, TaskComment, Attachment, Material, Vendor, Notification]
- *
- * RESTORE POLICY:
- * - restorePolicy.strictParentCheck: true (but Organization has no parents)
- * - restorePolicy.topDown: true
- * - restorePolicy.childrenNotAutoRestored: true
  */
 
 /**
@@ -56,161 +27,138 @@ import logger from "../utils/logger.js";
  * GET /api/organizations
  * Protected route (authorize Organization read)
  */
-export const getOrganizations = async (req, res, next) => {
-  try {
-    const user = req.user;
-    const allowedScopes = req.allowedScopes;
+export const getOrganizations = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const allowedScopes = req.allowedScopes;
 
-    // Extract query parameters
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      sortBy = PAGINATION.DEFAULT_SORT_BY,
-      sortOrder = PAGINATION.DEFAULT_SORT_ORDER,
-      search,
-      industry,
-      deleted,
-    } = req.query;
+  // Extract query parameters
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    sortBy = PAGINATION.DEFAULT_SORT_BY,
+    sortOrder = PAGINATION.DEFAULT_SORT_ORDER,
+    search,
+    industry,
+    deleted,
+  } = req.query;
 
-    // Build query
-    let query = {};
+  // Build query
+  let query = {};
 
-    // Scope filtering based on role
-    // Platform SuperAdmin with crossOrg scope can see all organizations
-    // Others can only see their own organization
-    if (!allowedScopes.includes("crossOrg")) {
-      query._id = user.organization._id;
-    }
-
-    // Search filter (name, email, phone)
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    // Industry filter
-    if (industry) {
-      query.industry = industry;
-    }
-
-    // Deleted filter
-    if (deleted === "true") {
-      query.isDeleted = true;
-    } else if (deleted === "false") {
-      query.isDeleted = false;
-    }
-    // If deleted is not specified, default behavior excludes soft-deleted (via plugin)
-
-    // Pagination options
-    const options = {
-      page: parseInt(page, 10),
-      limit: Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT),
-      sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
-      lean: true,
-      leanWithId: false,
-    };
-
-    // Use withDeleted() if we want to include deleted records
-    let queryBuilder =
-      deleted === "true"
-        ? Organization.find(query).withDeleted()
-        : Organization.find(query);
-
-    const organizations = await Organization.paginate(queryBuilder, options);
-
-    logger.info({
-      message: "Organizations retrieved successfully",
-      userId: user._id,
-      count: organizations.docs.length,
-      total: organizations.totalDocs,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Organizations retrieved successfully",
-      data: organizations.docs,
-      pagination: {
-        total: organizations.totalDocs,
-        page: organizations.page,
-        limit: organizations.limit,
-        totalPages: organizations.totalPages,
-        hasNextPage: organizations.hasNextPage,
-        hasPrevPage: organizations.hasPrevPage,
-      },
-    });
-  } catch (error) {
-    logger.error({
-      message: "Get organizations failed",
-      userId: req.user?._id,
-      error: error.message,
-      stack: error.stack,
-    });
-    next(error);
+  // Scope filtering based on role
+  // Platform SuperAdmin with crossOrg scope can see all organizations
+  // Others can only see their own organization
+  if (!allowedScopes.includes("crossOrg")) {
+    query._id = user.organization._id;
   }
-};
+
+  // Search filter (name, email, phone)
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // Industry filter
+  if (industry) {
+    query.industry = industry;
+  }
+
+  // Deleted filter
+  if (deleted === "true") {
+    query.isDeleted = true;
+  } else if (deleted === "false") {
+    query.isDeleted = false;
+  }
+  // If deleted is not specified, default behavior excludes soft-deleted (via plugin)
+
+  // Pagination options
+  const options = {
+    page: parseInt(page, 10),
+    limit: Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT),
+    sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
+    lean: true,
+    leanWithId: false,
+  };
+
+  // Use withDeleted() if we want to include deleted records
+  let queryBuilder =
+    deleted === "true"
+      ? Organization.find(query).withDeleted()
+      : Organization.find(query);
+
+  const organizations = await Organization.paginate(queryBuilder, options);
+
+  logger.info({
+    message: "Organizations retrieved successfully",
+    userId: user._id,
+    count: organizations.docs.length,
+    total: organizations.totalDocs,
+  });
+
+  paginatedResponse(
+    res,
+    200,
+    "Organizations retrieved successfully",
+    organizations.docs,
+    {
+      total: organizations.totalDocs,
+      page: organizations.page,
+      limit: organizations.limit,
+      totalPages: organizations.totalPages,
+      hasNextPage: organizations.hasNextPage,
+      hasPrevPage: organizations.hasPrevPage,
+    }
+  );
+});
 
 /**
  * Get single organization by ID
  * GET /api/organizations/:resourceId
  * Protected route (authorize Organization read)
  */
-export const getOrganization = async (req, res, next) => {
-  try {
-    const user = req.user;
-    const allowedScopes = req.allowedScopes;
-    const { resourceId } = req.params;
+export const getOrganization = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const allowedScopes = req.allowedScopes;
+  const { resourceId } = req.params;
 
-    // Find organization (use withDeleted to allow viewing soft-deleted orgs)
-    const organization = await Organization.findById(resourceId)
-      .withDeleted()
-      .lean();
+  // Find organization (use withDeleted to allow viewing soft-deleted orgs)
+  const organization = await Organization.findById(resourceId)
+    .withDeleted()
+    .lean();
 
-    if (!organization) {
-      throw CustomError.notFound("Organization not found");
-    }
-
-    // Check access based on scope
-    // Platform SuperAdmin with crossOrg can access any organization
-    // Others can only access their own organization
-    if (!allowedScopes.includes("crossOrg")) {
-      if (organization._id.toString() !== user.organization._id.toString()) {
-        throw CustomError.authorization(
-          "You do not have permission to access this organization"
-        );
-      }
-    }
-
-    logger.info({
-      message: "Organization retrieved successfully",
-      userId: user._id,
-      organizationId: organization._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Organization retrieved successfully",
-      data: organization,
-    });
-  } catch (error) {
-    logger.error({
-      message: "Get organization failed",
-      userId: req.user?._id,
-      organizationId: req.params.resourceId,
-      error: error.message,
-    });
-    next(error);
+  if (!organization) {
+    throw CustomError.notFound("Organization not found");
   }
-};
+
+  // Check access based on scope
+  // Platform SuperAdmin with crossOrg can access any organization
+  // Others can only access their own organization
+  if (!allowedScopes.includes("crossOrg")) {
+    if (organization._id.toString() !== user.organization._id.toString()) {
+      throw CustomError.authorization(
+        "You do not have permission to access this organization"
+      );
+    }
+  }
+
+  logger.info({
+    message: "Organization retrieved successfully",
+    userId: user._id,
+    organizationId: organization._id,
+  });
+
+  okResponse(res, "Organization retrieved successfully", organization);
+});
 
 /**
  * Update organization
  * PUT /api/organizations/:resourceId
  * Protected route (authorize Organization update)
  */
-export const updateOrganization = async (req, res, next) => {
+export const updateOrganization = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -276,11 +224,7 @@ export const updateOrganization = async (req, res, next) => {
       organizationId: organization._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Organization updated successfully",
-      data: organization,
-    });
+    okResponse(res, "Organization updated successfully", organization);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -293,23 +237,16 @@ export const updateOrganization = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
 
 /**
  * Soft delete organization with cascade
  * DELETE /api/organizations/:resourceId
  * Protected route (authorize Organization delete)
- *
- * Implements cascade deletion per docs/softDelete-doc.md:
- * - Idempotent: Skip if already deleted, preserve original deletedBy/deletedAt
- * - Cascade order: Organization → Department → User → Tasks → Activities → Comments → Attachments → Materials → Vendors → Notifications
- * - Organization boundary: All cascades scoped to organizationId
- * - Transaction: All operations in single transaction
- * - Weak refs: None (Organization is root)
  */
-export const deleteOrganization = async (req, res, next) => {
+export const deleteOrganization = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -344,8 +281,6 @@ export const deleteOrganization = async (req, res, next) => {
     }
 
     // Check access based on scope
-    // Platform SuperAdmin with crossOrg can delete any organization
-    // Others can only delete their own organization
     if (!allowedScopes.includes("crossOrg")) {
       if (organization._id.toString() !== user.organization._id.toString()) {
         throw CustomError.authorization(
@@ -357,9 +292,7 @@ export const deleteOrganization = async (req, res, next) => {
     // Soft delete organization (idempotent - plugin handles this)
     await organization.softDelete(user._id, { session });
 
-    // Cascade delete to all children (per docs/softDelete-doc.md)
-    // This follows the deletion order and organization boundary rules
-    // Order: Organization → Department → User → Tasks → Activities → Comments → Attachments → Materials → Vendors → Notifications
+    // Cascade delete to all children
     await Organization.cascadeDelete(organization._id, user._id, { session });
 
     // Commit transaction
@@ -377,10 +310,8 @@ export const deleteOrganization = async (req, res, next) => {
       organizationId: organization._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Organization deleted successfully",
-      data: { _id: organization._id },
+    successResponse(res, 200, "Organization deleted successfully", {
+      _id: organization._id,
     });
   } catch (error) {
     if (session.inTransaction()) {
@@ -394,24 +325,16 @@ export const deleteOrganization = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
 
 /**
  * Restore soft-deleted organization
  * PATCH /api/organizations/:resourceId/restore
  * Protected route (authorize Organization update for restore)
- *
- * Implements restoration per docs/softDelete-doc.md:
- * - Strict mode: Parent integrity check (Organization is root, no parents to check)
- * - Critical dependencies: None (Organization is root)
- * - Weak refs: None (Organization is root)
- * - Non-blocking repairs: None (Organization is root)
- * - Children: NOT auto-restored (top-down orchestration only)
- * - Restore prerequisites: None (Organization is root)
  */
-export const restoreOrganization = async (req, res, next) => {
+export const restoreOrganization = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -435,8 +358,6 @@ export const restoreOrganization = async (req, res, next) => {
     }
 
     // Check access based on scope
-    // Platform SuperAdmin with crossOrg can restore any organization
-    // Others can only restore their own organization
     if (!allowedScopes.includes("crossOrg")) {
       if (organization._id.toString() !== user.organization._id.toString()) {
         throw CustomError.authorization(
@@ -445,18 +366,8 @@ export const restoreOrganization = async (req, res, next) => {
       }
     }
 
-    // Strict parent check: Organization is root, no parents to check (per docs/softDelete-doc.md)
-    // Critical dependencies: None (Organization is root)
-    // Weak refs: None (Organization is root)
-    // Non-blocking repairs: None (Organization is root)
-
     // Restore organization
     await organization.restore(user._id, { session });
-
-    // IMPORTANT: Children are NOT auto-restored (per docs/softDelete-doc.md)
-    // Departments, Users, Tasks, etc. must be restored explicitly in top-down order
-    // This is by design to allow selective restoration
-    // restorePolicy.childrenNotAutoRestored: true
 
     // Commit transaction
     await session.commitTransaction();
@@ -474,12 +385,12 @@ export const restoreOrganization = async (req, res, next) => {
       organizationId: organization._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message:
-        "Organization restored successfully. Note: Child resources (departments, users, tasks) must be restored separately.",
-      data: organization,
-    });
+    successResponse(
+      res,
+      200,
+      "Organization restored successfully. Note: Child resources (departments, users, tasks) must be restored separately.",
+      organization
+    );
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -492,6 +403,6 @@ export const restoreOrganization = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});

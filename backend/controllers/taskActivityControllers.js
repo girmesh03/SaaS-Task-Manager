@@ -1,9 +1,23 @@
 import mongoose from "mongoose";
-import { TaskActivity, BaseTask, Material, Organization, Department } from "../models/index.js";
+import asyncHandler from "express-async-handler";
+import {
+  TaskActivity,
+  BaseTask,
+  Material,
+  Organization,
+  Department,
+} from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
 import logger from "../utils/logger.js";
+import {
+  createdResponse,
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
+import { transformMaterialsArray } from "../utils/materialTransform.js";
 
 /**
  * TaskActivity Controllers
@@ -22,83 +36,92 @@ import logger from "../utils/logger.js";
  * - Attachment (parent=TaskActivity)
  */
 
-export const getTaskActivities = async (req, res, next) => {
-  try {
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      parent,
-      deleted = "false",
-    } = req.query;
+export const getTaskActivities = asyncHandler(async (req, res) => {
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    parent,
+    deleted = "false",
+  } = req.query;
 
-    const filter = { organization: req.user.organization._id };
+  const filter = { organization: req.user.organization._id };
 
-    // Filter by parent task if provided
-    if (parent) {
-      filter.parent = parent;
-    }
-
-    let query = TaskActivity.find(filter);
-
-    if (deleted === "true") {
-      query = query.withDeleted();
-    } else if (deleted === "only") {
-      query = query.onlyDeleted();
-    }
-
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort: { createdAt: -1 },
-      populate: [
-        { path: "createdBy", select: "firstName lastName" },
-        { path: "materials", select: "name unitType" },
-      ],
-    };
-
-    const activities = await TaskActivity.paginate(query, options);
-
-    res.status(200).json({
-      success: true,
-      message: "Task activities retrieved successfully",
-      data: activities,
-    });
-  } catch (error) {
-    logger.error("Get Task Activities Error:", error);
-    return next(CustomError.internal("Failed to retrieve task activities", { error: error.message }));
+  // Filter by parent task if provided
+  if (parent) {
+    filter.parent = parent;
   }
-};
 
-export const getTaskActivity = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
+  let query = TaskActivity.find(filter);
 
-    const activity = await TaskActivity.findById(resourceId)
-      .populate("createdBy", "firstName lastName")
-      .populate("materials", "name unitType price")
-      .lean();
-
-    if (!activity) {
-      return next(CustomError.notFound("Task activity not found"));
-    }
-
-    // Organization scoping
-    if (activity.organization.toString() !== req.user.organization._id.toString()) {
-      return next(CustomError.authorization("You are not authorized to view this activity"));
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Task activity retrieved successfully",
-      data: activity,
-    });
-  } catch (error) {
-    logger.error("Get Task Activity Error:", error);
-    return next(CustomError.internal("Failed to retrieve task activity", { error: error.message }));
+  if (deleted === "true") {
+    query = query.withDeleted();
+  } else if (deleted === "only") {
+    query = query.onlyDeleted();
   }
-};
 
-export const createTaskActivity = async (req, res, next) => {
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { createdAt: -1 },
+    lean: true,
+    populate: [
+      { path: "createdBy", select: "firstName lastName" },
+      { path: "materials.material", select: "name unitType price" },
+    ],
+  };
+
+  const activities = await TaskActivity.paginate(query, options);
+
+  // Transform materials to friendly format
+  const transformedDocs = activities.docs.map((doc) => ({
+    ...doc,
+    materials: transformMaterialsArray(doc.materials),
+  }));
+
+  paginatedResponse(
+    res,
+    200,
+    "Task activities retrieved successfully",
+    transformedDocs,
+    {
+      total: activities.totalDocs,
+      page: activities.page,
+      limit: activities.limit,
+      totalPages: activities.totalPages,
+      hasNextPage: activities.hasNextPage,
+      hasPrevPage: activities.hasPrevPage,
+    }
+  );
+});
+
+export const getTaskActivity = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
+
+  const activity = await TaskActivity.findById(resourceId)
+    .populate("createdBy", "firstName lastName")
+    .populate("materials.material", "name unitType price")
+    .lean();
+
+  if (!activity) {
+    throw CustomError.notFound("Task activity not found");
+  }
+
+  // Organization scoping
+  if (
+    activity.organization.toString() !== req.user.organization._id.toString()
+  ) {
+    throw CustomError.authorization(
+      "You are not authorized to view this activity"
+    );
+  }
+
+  // Transform materials
+  activity.materials = transformMaterialsArray(activity.materials);
+
+  okResponse(res, "Task activity retrieved successfully", activity);
+});
+
+export const createTaskActivity = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -108,19 +131,24 @@ export const createTaskActivity = async (req, res, next) => {
     // Verify parent task exists and belongs to org
     const parentTask = await BaseTask.findById(parent).session(session);
     if (!parentTask) {
-      await session.abortTransaction();
-      return next(CustomError.validation("Parent task not found"));
+      throw CustomError.validation("Parent task not found");
     }
 
-    if (parentTask.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("Parent task belongs to another organization"));
+    if (
+      parentTask.organization.toString() !==
+      req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "Parent task belongs to another organization"
+      );
     }
 
     const activityData = {
       activity,
       parent,
-      parentModel: parentTask.taskType.includes("Task") ? "Task" : parentTask.taskType, // Simplification, model expects 'Task' usually for base ref
+      parentModel: parentTask.taskType.includes("Task")
+        ? "Task"
+        : parentTask.taskType, // Simplification, model expects 'Task' usually for base ref
       materials: materials || [],
       organization: req.user.organization._id,
       department: parentTask.department, // Inherit department from parent task
@@ -134,40 +162,51 @@ export const createTaskActivity = async (req, res, next) => {
     // Let's use the taskType from the parent.
     activityData.parentModel = "Task"; // Using 'Task' as generic parent model if discriminators are kept under BaseTask collection logic
 
-    const [newActivity] = await TaskActivity.create([activityData], { session });
+    const [newActivity] = await TaskActivity.create([activityData], {
+      session,
+    });
 
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${parentTask.organization}`, `department:${parentTask.department}`, `task:${parent}`],
+      [
+        `organization:${parentTask.organization}`,
+        `department:${parentTask.department}`,
+        `task:${parent}`,
+      ],
       "task_activity:created",
       {
         activityId: newActivity._id,
         taskId: parent,
-        organizationId: newActivity.organization
+        organizationId: newActivity.organization,
       }
     );
 
     const populatedActivity = await TaskActivity.findById(newActivity._id)
       .populate("createdBy", "firstName lastName")
-      .populate("materials", "name unitType")
+      .populate("materials.material", "name unitType price")
       .lean();
 
-    res.status(201).json({
-      success: true,
-      message: "Task activity created successfully",
-      data: populatedActivity,
-    });
+    // Transform materials
+    populatedActivity.materials = transformMaterialsArray(
+      populatedActivity.materials
+    );
+
+    createdResponse(
+      res,
+      "Task activity created successfully",
+      populatedActivity
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Task Activity Error:", error);
-    return next(CustomError.internal("Failed to create task activity", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const updateTaskActivity = async (req, res, next) => {
+export const updateTaskActivity = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -178,13 +217,15 @@ export const updateTaskActivity = async (req, res, next) => {
     const activity = await TaskActivity.findById(resourceId).session(session);
 
     if (!activity) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Task activity not found"));
+      throw CustomError.notFound("Task activity not found");
     }
 
-    if (activity.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to update this activity"));
+    if (
+      activity.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to update this activity"
+      );
     }
 
     // Apply updates
@@ -196,55 +237,62 @@ export const updateTaskActivity = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${activity.organization}`, `department:${activity.department}`, `task:${activity.parent}`],
+      [
+        `organization:${activity.organization}`,
+        `department:${activity.department}`,
+        `task:${activity.parent}`,
+      ],
       "task_activity:updated",
       { activityId: activity._id, taskId: activity.parent }
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)
       .populate("createdBy", "firstName lastName")
-      .populate("materials", "name unitType")
+      .populate("materials.material", "name unitType price")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Task activity updated successfully",
-      data: populatedActivity,
-    });
+    // Transform materials
+    populatedActivity.materials = transformMaterialsArray(
+      populatedActivity.materials
+    );
+
+    okResponse(res, "Task activity updated successfully", populatedActivity);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Update Task Activity Error:", error);
-    return next(CustomError.internal("Failed to update task activity", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const deleteTaskActivity = async (req, res, next) => {
+export const deleteTaskActivity = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { resourceId } = req.params;
 
-    const activity = await TaskActivity.findById(resourceId).withDeleted().session(session);
+    const activity = await TaskActivity.findById(resourceId)
+      .withDeleted()
+      .session(session);
 
     if (!activity) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Task activity not found"));
+      throw CustomError.notFound("Task activity not found");
     }
 
-    if (activity.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to delete this activity"));
+    if (
+      activity.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to delete this activity"
+      );
     }
 
     if (activity.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Task activity is already deleted",
-        data: { activityId: activity._id },
+      return okResponse(res, "Task activity is already deleted", {
+        activityId: activity._id,
       });
     }
 
@@ -258,58 +306,65 @@ export const deleteTaskActivity = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${activity.organization}`, `department:${activity.department}`, `task:${activity.parent}`],
+      [
+        `organization:${activity.organization}`,
+        `department:${activity.department}`,
+        `task:${activity.parent}`,
+      ],
       "task_activity:deleted",
       { activityId: activity._id, taskId: activity.parent }
     );
 
-    res.status(200).json({
-      success: true,
-      message: "Task activity deleted successfully",
-      data: { activityId: activity._id },
+    successResponse(res, 200, "Task activity deleted successfully", {
+      activityId: activity._id,
     });
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Task Activity Error:", error);
-    return next(CustomError.internal("Failed to delete task activity", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const restoreTaskActivity = async (req, res, next) => {
+export const restoreTaskActivity = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { resourceId } = req.params;
 
-    const activity = await TaskActivity.findById(resourceId).withDeleted().session(session);
+    const activity = await TaskActivity.findById(resourceId)
+      .withDeleted()
+      .session(session);
 
     if (!activity) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Task activity not found"));
+      throw CustomError.notFound("Task activity not found");
     }
 
-    if (activity.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to restore this activity"));
+    if (
+      activity.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to restore this activity"
+      );
     }
 
     if (!activity.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Task activity is already active",
-        data: { activityId: activity._id },
+      return okResponse(res, "Task activity is already active", {
+        activityId: activity._id,
       });
     }
 
     // Strict parent check: Parent Task must be active
-    const parentTask = await BaseTask.findById(activity.parent).withDeleted().session(session);
+    const parentTask = await BaseTask.findById(activity.parent)
+      .withDeleted()
+      .session(session);
     if (!parentTask || parentTask.isDeleted) {
-      await session.abortTransaction();
-      return next(CustomError.validation("Cannot restore activity. Parent task is deleted or missing."));
+      throw CustomError.validation(
+        "Cannot restore activity. Parent task is deleted or missing."
+      );
     }
 
     await activity.restore(req.user._id, { session });
@@ -317,26 +372,36 @@ export const restoreTaskActivity = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${activity.organization}`, `department:${activity.department}`, `task:${activity.parent}`],
+      [
+        `organization:${activity.organization}`,
+        `department:${activity.department}`,
+        `task:${activity.parent}`,
+      ],
       "task_activity:restored",
       { activityId: activity._id, taskId: activity.parent }
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)
       .populate("createdBy", "firstName lastName")
-      .populate("materials", "name unitType")
+      .populate("materials.material", "name unitType price")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Task activity restored successfully",
-      data: populatedActivity,
-    });
+    // Transform materials
+    populatedActivity.materials = transformMaterialsArray(
+      populatedActivity.materials
+    );
+
+    successResponse(
+      res,
+      200,
+      "Task activity restored successfully",
+      populatedActivity
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Task Activity Error:", error);
-    return next(CustomError.internal("Failed to restore task activity", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});

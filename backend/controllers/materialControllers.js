@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
+import asyncHandler from "express-async-handler";
 import { Material, Department, Organization } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
 import logger from "../utils/logger.js";
+import {
+  createdResponse,
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
 
 /**
  * Material Controllers
@@ -13,87 +20,76 @@ import logger from "../utils/logger.js";
  * CRITICAL: Socket.IO events emitted AFTER transaction commit
  */
 
-export const getMaterials = async (req, res, next) => {
-  try {
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      search,
-      category,
-      department,
-      deleted = "false",
-    } = req.query;
+export const getMaterials = asyncHandler(async (req, res) => {
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    search,
+    category,
+    department,
+    deleted = "false",
+  } = req.query;
 
-    const filter = { organization: req.user.organization._id };
+  const filter = { organization: req.user.organization._id };
 
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    if (category) filter.category = category;
-    if (department) filter.department = department;
-
-    let query = Material.find(filter);
-    if (deleted === "true") query = query.withDeleted();
-    else if (deleted === "only") query = query.onlyDeleted();
-
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort: { createdAt: -1 },
-      populate: [
-        { path: "department", select: "name" },
-        { path: "organization", select: "name" },
-        { path: "addedBy", select: "firstName lastName" },
-      ],
-    };
-
-    const materials = await Material.paginate(query, options);
-
-    res.status(200).json({
-      success: true,
-      message: "Materials retrieved successfully",
-      data: materials,
-    });
-  } catch (error) {
-    logger.error("Get Materials Error:", error);
-    return next(
-      CustomError.internal("Failed to retrieve materials", { error: error.message })
-    );
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
   }
-};
 
-export const getMaterial = async (req, res, next) => {
-  try {
-    const { resourceId } = req.params;
+  if (category) filter.category = category;
+  if (department) filter.department = department;
 
-    const material = await Material.findById(resourceId)
-      .populate("department", "name")
-      .populate("organization", "name")
-      .populate("addedBy", "firstName lastName")
-      .lean();
+  let query = Material.find(filter);
+  if (deleted === "true") query = query.withDeleted();
+  else if (deleted === "only") query = query.onlyDeleted();
 
-    if (!material) return next(CustomError.notFound("Material not found"));
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { createdAt: -1 },
+    populate: [
+      { path: "department", select: "name" },
+      { path: "organization", select: "name" },
+      { path: "addedBy", select: "firstName lastName" },
+    ],
+  };
 
-    if (material.organization._id.toString() !== req.user.organization._id.toString()) {
-      return next(CustomError.authorization("You are not authorized to view this material"));
-    }
+  const materials = await Material.paginate(query, options);
 
-    res.status(200).json({
-      success: true,
-      message: "Material retrieved successfully",
-      data: material,
-    });
-  } catch (error) {
-    logger.error("Get Material Error:", error);
-    return next(CustomError.internal("Failed to retrieve material", { error: error.message }));
+  paginatedResponse(res, 200, "Materials retrieved successfully", materials.docs, {
+    total: materials.totalDocs,
+    page: materials.page,
+    limit: materials.limit,
+    totalPages: materials.totalPages,
+    hasNextPage: materials.hasNextPage,
+    hasPrevPage: materials.hasPrevPage,
+  });
+});
+
+export const getMaterial = asyncHandler(async (req, res) => {
+  const { resourceId } = req.params;
+
+  const material = await Material.findById(resourceId)
+    .populate("department", "name")
+    .populate("organization", "name")
+    .populate("addedBy", "firstName lastName")
+    .lean();
+
+  if (!material) throw CustomError.notFound("Material not found");
+
+  if (
+    material.organization._id.toString() !== req.user.organization._id.toString()
+  ) {
+    throw CustomError.authorization("You are not authorized to view this material");
   }
-};
 
-export const createMaterial = async (req, res, next) => {
+  okResponse(res, "Material retrieved successfully", material);
+});
+
+export const createMaterial = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -115,9 +111,16 @@ export const createMaterial = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${material.organization}`, `department:${material.department}`],
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ],
       "material:created",
-      { materialId: material._id, organizationId: material.organization, departmentId: material.department }
+      {
+        materialId: material._id,
+        organizationId: material.organization,
+        departmentId: material.department,
+      }
     );
 
     const populatedMaterial = await Material.findById(material._id)
@@ -126,21 +129,17 @@ export const createMaterial = async (req, res, next) => {
       .populate("addedBy", "firstName lastName")
       .lean();
 
-    res.status(201).json({
-      success: true,
-      message: "Material created successfully",
-      data: populatedMaterial,
-    });
+    createdResponse(res, "Material created successfully", populatedMaterial);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Material Error:", error);
-    return next(CustomError.internal("Failed to create material", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const updateMaterial = async (req, res, next) => {
+export const updateMaterial = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -150,13 +149,15 @@ export const updateMaterial = async (req, res, next) => {
 
     const material = await Material.findById(resourceId).session(session);
     if (!material) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Material not found"));
+      throw CustomError.notFound("Material not found");
     }
 
-    if (material.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to update this material"));
+    if (
+      material.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to update this material"
+      );
     }
 
     Object.keys(updates).forEach((key) => {
@@ -169,9 +170,16 @@ export const updateMaterial = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${material.organization}`, `department:${material.department}`],
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ],
       "material:updated",
-      { materialId: material._id, organizationId: material.organization, departmentId: material.department }
+      {
+        materialId: material._id,
+        organizationId: material.organization,
+        departmentId: material.department,
+      }
     );
 
     const populatedMaterial = await Material.findById(material._id)
@@ -180,44 +188,42 @@ export const updateMaterial = async (req, res, next) => {
       .populate("addedBy", "firstName lastName")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Material updated successfully",
-      data: populatedMaterial,
-    });
+    okResponse(res, "Material updated successfully", populatedMaterial);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Update Material Error:", error);
-    return next(CustomError.internal("Failed to update material", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const deleteMaterial = async (req, res, next) => {
+export const deleteMaterial = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { resourceId } = req.params;
 
-    const material = await Material.findById(resourceId).withDeleted().session(session);
+    const material = await Material.findById(resourceId)
+      .withDeleted()
+      .session(session);
     if (!material) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Material not found"));
+      throw CustomError.notFound("Material not found");
     }
 
-    if (material.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to delete this material"));
+    if (
+      material.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to delete this material"
+      );
     }
 
     if (material.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Material is already deleted",
-        data: { materialId: material._id },
+      return okResponse(res, "Material is already deleted", {
+        materialId: material._id,
       });
     }
 
@@ -225,71 +231,91 @@ export const deleteMaterial = async (req, res, next) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${material.organization}`, `department:${material.department}`],
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ],
       "material:deleted",
-      { materialId: material._id, organizationId: material.organization, departmentId: material.department }
+      {
+        materialId: material._id,
+        organizationId: material.organization,
+        departmentId: material.department,
+      }
     );
 
-    res.status(200).json({
-      success: true,
-      message: "Material deleted successfully",
-      data: { materialId: material._id },
+    successResponse(res, 200, "Material deleted successfully", {
+      materialId: material._id,
     });
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Material Error:", error);
-    return next(CustomError.internal("Failed to delete material", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});
 
-export const restoreMaterial = async (req, res, next) => {
+export const restoreMaterial = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { resourceId } = req.params;
 
-    const material = await Material.findById(resourceId).withDeleted().session(session);
+    const material = await Material.findById(resourceId)
+      .withDeleted()
+      .session(session);
     if (!material) {
-      await session.abortTransaction();
-      return next(CustomError.notFound("Material not found"));
+      throw CustomError.notFound("Material not found");
     }
 
-    if (material.organization.toString() !== req.user.organization._id.toString()) {
-      await session.abortTransaction();
-      return next(CustomError.authorization("You are not authorized to restore this material"));
+    if (
+      material.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to restore this material"
+      );
     }
 
     if (!material.isDeleted) {
       await session.abortTransaction();
-      return res.status(200).json({
-        success: true,
-        message: "Material is already active",
-        data: { materialId: material._id },
+      return okResponse(res, "Material is already active", {
+        materialId: material._id,
       });
     }
 
-    const organization = await Organization.findById(material.organization).withDeleted().session(session);
+    const organization = await Organization.findById(material.organization)
+      .withDeleted()
+      .session(session);
     if (!organization || organization.isDeleted) {
-      await session.abortTransaction();
-      return next(CustomError.validation("Cannot restore material. Parent organization is deleted or missing."));
+      throw CustomError.validation(
+        "Cannot restore material. Parent organization is deleted or missing."
+      );
     }
 
-    const department = await Department.findById(material.department).withDeleted().session(session);
+    const department = await Department.findById(material.department)
+      .withDeleted()
+      .session(session);
     if (!department || department.isDeleted) {
-      await session.abortTransaction();
-      return next(CustomError.validation("Cannot restore material. Parent department is deleted or missing."));
+      throw CustomError.validation(
+        "Cannot restore material. Parent department is deleted or missing."
+      );
     }
 
     await material.restore(req.user._id, { session });
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${material.organization}`, `department:${material.department}`],
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ],
       "material:restored",
-      { materialId: material._id, organizationId: material.organization, departmentId: material.department }
+      {
+        materialId: material._id,
+        organizationId: material.organization,
+        departmentId: material.department,
+      }
     );
 
     const populatedMaterial = await Material.findById(material._id)
@@ -298,16 +324,12 @@ export const restoreMaterial = async (req, res, next) => {
       .populate("addedBy", "firstName lastName")
       .lean();
 
-    res.status(200).json({
-      success: true,
-      message: "Material restored successfully",
-      data: populatedMaterial,
-    });
+    successResponse(res, 200, "Material restored successfully", populatedMaterial);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Material Error:", error);
-    return next(CustomError.internal("Failed to restore material", { error: error.message }));
+    throw error;
   } finally {
     session.endSession();
   }
-};
+});

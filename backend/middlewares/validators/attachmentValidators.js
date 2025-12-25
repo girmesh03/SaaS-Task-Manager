@@ -3,12 +3,7 @@ import { handleValidationErrors } from "./validation.js";
 import { FILE_SIZE_LIMITS, FILE_TYPES } from "../../utils/constants.js";
 import mongoose from "mongoose";
 
-const allowedMimeTypes = [
-  ...FILE_TYPES.IMAGE.mimeTypes,
-  ...FILE_TYPES.VIDEO.mimeTypes,
-  ...FILE_TYPES.DOCUMENT.mimeTypes,
-  ...FILE_TYPES.AUDIO.mimeTypes,
-];
+// Mime types validation is handled inside checks if needed, but currently verifying fileType enum.
 
 export const createAttachmentValidator = [
   body("filename").trim().notEmpty().withMessage("Filename is required"),

@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
-import { Department, User } from "../models/index.js";
+import asyncHandler from "express-async-handler";
+import { Department, User, Organization } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
 import logger from "../utils/logger.js";
+import {
+  createdResponse,
+  okResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/responseTransform.js";
 
 /**
  * Department Controllers
@@ -12,43 +19,6 @@ import logger from "../utils/logger.js";
  * CRITICAL: Socket.IO events emitted AFTER transaction commit
  * CRITICAL: Organization scoping for Customer SuperAdmin/Admin
  * CRITICAL: Cascade delete/restore follows docs/softDelete-doc.md policy
- *
- * Cascade Policy for Department (per docs/softDelete-doc.md):
- * ===========================================================
- *
- * DELETION CASCADE:
- * - Parents: Organization
- * - Parent Fields: Department.organization
- * - Owned Children: User, ProjectTask, RoutineTask, AssignedTask, Material
- * - Cascade Order: Department → User → Tasks → Materials
- * - Weak Refs: None
- * - Critical Dependencies: None
- * - Idempotent: Skip if already deleted, preserve original deletedBy/deletedAt
- * - Organization Boundary: All cascades scoped to organizationId
- * - Transaction: All operations in single transaction
- *
- * RESTORATION POLICY:
- * - Strict Mode: Parent integrity check (organization.isDeleted === false)
- * - Critical Dependencies: None
- * - Weak Refs: None
- * - Non-blocking Repairs: If hod is missing/soft-deleted/cross-org, set hod = null and emit DEPT_HOD_PRUNED
- * - Children: NOT auto-restored (top-down orchestration only)
- * - Restore Prerequisites: organization.isDeleted === false
- *
- * LINKING/UNLINKING:
- * - No weak refs to manage
- * - Children maintain department reference (not unlinked on delete)
- *
- * DELETION CASCADE POLICY:
- * - deletionCascadePolicy.idempotent: true
- * - deletionCascadePolicy.scope: All documents with department == this._id
- * - deletionCascadePolicy.order: [Department, User, ProjectTask, RoutineTask, AssignedTask, Material]
- *
- * RESTORE POLICY:
- * - restorePolicy.strictParentCheck: true (organization must be active)
- * - restorePolicy.topDown: true
- * - restorePolicy.childrenNotAutoRestored: true
- * - repairOnRestore: If hod invalid, set to null and emit DEPT_HOD_PRUNED
  */
 
 /**
@@ -56,158 +26,134 @@ import logger from "../utils/logger.js";
  * GET /api/departments
  * Protected route (authorize Department read)
  */
-export const getDepartments = async (req, res, next) => {
-  try {
-    const user = req.user;
-    const allowedScopes = req.allowedScopes;
+export const getDepartments = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const allowedScopes = req.allowedScopes;
 
-    // Extract query parameters
-    const {
-      page = PAGINATION.DEFAULT_PAGE,
-      limit = PAGINATION.DEFAULT_LIMIT,
-      sortBy = PAGINATION.DEFAULT_SORT_BY,
-      sortOrder = PAGINATION.DEFAULT_SORT_ORDER,
-      search,
-      deleted,
-    } = req.query;
+  // Extract query parameters
+  const {
+    page = PAGINATION.DEFAULT_PAGE,
+    limit = PAGINATION.DEFAULT_LIMIT,
+    sortBy = PAGINATION.DEFAULT_SORT_BY,
+    sortOrder = PAGINATION.DEFAULT_SORT_ORDER,
+    search,
+    deleted,
+  } = req.query;
 
-    // Build query
-    let query = {};
+  // Build query
+  let query = {};
 
-    // Organization scoping
-    // Customer SuperAdmin/Admin can only see departments in their organization
-    query.organization = user.organization._id;
+  // Organization scoping
+  // Customer SuperAdmin/Admin can only see departments in their organization
+  query.organization = user.organization._id;
 
-    // Search filter (name, description)
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    // Deleted filter
-    if (deleted === "true") {
-      query.isDeleted = true;
-    } else if (deleted === "false") {
-      query.isDeleted = false;
-    }
-    // If deleted is not specified, default behavior excludes soft-deleted (via plugin)
-
-    // Pagination options
-    const options = {
-      page: parseInt(page, 10),
-      limit: Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT),
-      sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
-      populate: [
-        { path: "organization", select: "name email" },
-        { path: "hod", select: "firstName lastName email role" },
-        { path: "createdBy", select: "firstName lastName email" },
-      ],
-      lean: true,
-      leanWithId: false,
-    };
-
-    // Use withDeleted() if we want to include deleted records
-    let queryBuilder =
-      deleted === "true"
-        ? Department.find(query).withDeleted()
-        : Department.find(query);
-
-    const departments = await Department.paginate(queryBuilder, options);
-
-    logger.info({
-      message: "Departments retrieved successfully",
-      userId: user._id,
-      organizationId: user.organization._id,
-      count: departments.docs.length,
-      total: departments.totalDocs,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Departments retrieved successfully",
-      data: departments.docs,
-      pagination: {
-        total: departments.totalDocs,
-        page: departments.page,
-        limit: departments.limit,
-        totalPages: departments.totalPages,
-        hasNextPage: departments.hasNextPage,
-        hasPrevPage: departments.hasPrevPage,
-      },
-    });
-  } catch (error) {
-    logger.error({
-      message: "Get departments failed",
-      userId: req.user?._id,
-      error: error.message,
-      stack: error.stack,
-    });
-    next(error);
+  // Search filter (name, description)
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
   }
-};
+
+  // Deleted filter
+  if (deleted === "true") {
+    query.isDeleted = true;
+  } else if (deleted === "false") {
+    query.isDeleted = false;
+  }
+  // If deleted is not specified, default behavior excludes soft-deleted (via plugin)
+
+  // Pagination options
+  const options = {
+    page: parseInt(page, 10),
+    limit: Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT),
+    sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
+    populate: [
+      { path: "organization", select: "name email" },
+      { path: "hod", select: "firstName lastName email role" },
+      { path: "createdBy", select: "firstName lastName email" },
+    ],
+    lean: true,
+    leanWithId: false,
+  };
+
+  // Use withDeleted() if we want to include deleted records
+  let queryBuilder =
+    deleted === "true"
+      ? Department.find(query).withDeleted()
+      : Department.find(query);
+
+  const departments = await Department.paginate(queryBuilder, options);
+
+  logger.info({
+    message: "Departments retrieved successfully",
+    userId: user._id,
+    organizationId: user.organization._id,
+    count: departments.docs.length,
+    total: departments.totalDocs,
+  });
+
+  paginatedResponse(
+    res,
+    200,
+    "Departments retrieved successfully",
+    departments.docs,
+    {
+      total: departments.totalDocs,
+      page: departments.page,
+      limit: departments.limit,
+      totalPages: departments.totalPages,
+      hasNextPage: departments.hasNextPage,
+      hasPrevPage: departments.hasPrevPage,
+    }
+  );
+});
 
 /**
  * Get single department by ID
  * GET /api/departments/:resourceId
  * Protected route (authorize Department read)
  */
-export const getDepartment = async (req, res, next) => {
-  try {
-    const user = req.user;
-    const { resourceId } = req.params;
+export const getDepartment = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const { resourceId } = req.params;
 
-    // Find department (use withDeleted to allow viewing soft-deleted departments)
-    const department = await Department.findById(resourceId)
-      .withDeleted()
-      .populate("organization", "name email")
-      .populate("hod", "firstName lastName email role")
-      .populate("createdBy", "firstName lastName email")
-      .lean();
+  // Find department (use withDeleted to allow viewing soft-deleted departments)
+  const department = await Department.findById(resourceId)
+    .withDeleted()
+    .populate("organization", "name email")
+    .populate("hod", "firstName lastName email role")
+    .populate("createdBy", "firstName lastName email")
+    .lean();
 
-    if (!department) {
-      throw CustomError.notFound("Department not found");
-    }
-
-    // Check organization access
-    if (
-      department.organization._id.toString() !==
-      user.organization._id.toString()
-    ) {
-      throw CustomError.authorization(
-        "You do not have permission to access this department"
-      );
-    }
-
-    logger.info({
-      message: "Department retrieved successfully",
-      userId: user._id,
-      departmentId: department._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Department retrieved successfully",
-      data: department,
-    });
-  } catch (error) {
-    logger.error({
-      message: "Get department failed",
-      userId: req.user?._id,
-      departmentId: req.params.resourceId,
-      error: error.message,
-    });
-    next(error);
+  if (!department) {
+    throw CustomError.notFound("Department not found");
   }
-};
+
+  // Check organization access
+  if (
+    department.organization._id.toString() !== user.organization._id.toString()
+  ) {
+    throw CustomError.authorization(
+      "You do not have permission to access this department"
+    );
+  }
+
+  logger.info({
+    message: "Department retrieved successfully",
+    userId: user._id,
+    departmentId: department._id,
+  });
+
+  okResponse(res, "Department retrieved successfully", department);
+});
 
 /**
  * Create new department
  * POST /api/departments
  * Protected route (authorize Department create)
  */
-export const createDepartment = async (req, res, next) => {
+export const createDepartment = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -253,11 +199,7 @@ export const createDepartment = async (req, res, next) => {
       organizationId: user.organization._id,
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Department created successfully",
-      data: department,
-    });
+    createdResponse(res, "Department created successfully", department);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -269,16 +211,16 @@ export const createDepartment = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
 
 /**
  * Update department
  * PUT /api/departments/:resourceId
  * Protected route (authorize Department update)
  */
-export const updateDepartment = async (req, res, next) => {
+export const updateDepartment = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -340,11 +282,7 @@ export const updateDepartment = async (req, res, next) => {
       departmentId: department._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Department updated successfully",
-      data: department,
-    });
+    okResponse(res, "Department updated successfully", department);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -357,23 +295,16 @@ export const updateDepartment = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
 
 /**
  * Soft delete department with cascade
  * DELETE /api/departments/:resourceId
  * Protected route (authorize Department delete)
- *
- * Implements cascade deletion per docs/softDelete-doc.md:
- * - Idempotent: Skip if already deleted, preserve original deletedBy/deletedAt
- * - Cascade order: Department → User → Tasks → Materials
- * - Organization boundary: All cascades scoped to organizationId
- * - Transaction: All operations in single transaction
- * - Weak refs: None
  */
-export const deleteDepartment = async (req, res, next) => {
+export const deleteDepartment = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -421,9 +352,7 @@ export const deleteDepartment = async (req, res, next) => {
     // Soft delete department (idempotent - plugin handles this)
     await department.softDelete(user._id, { session });
 
-    // Cascade delete to all children (per docs/softDelete-doc.md)
-    // This follows the deletion order and organization boundary rules
-    // Order: Department → User → Tasks → Materials
+    // Cascade delete to all children
     await Department.cascadeDelete(department._id, user._id, { session });
 
     // Commit transaction
@@ -442,10 +371,8 @@ export const deleteDepartment = async (req, res, next) => {
       departmentId: department._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Department deleted successfully",
-      data: { _id: department._id },
+    successResponse(res, 200, "Department deleted successfully", {
+      _id: department._id,
     });
   } catch (error) {
     if (session.inTransaction()) {
@@ -459,24 +386,16 @@ export const deleteDepartment = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
 
 /**
  * Restore soft-deleted department
  * PATCH /api/departments/:resourceId/restore
  * Protected route (authorize Department update for restore)
- *
- * Implements restoration per docs/softDelete-doc.md:
- * - Strict mode: Parent integrity check (organization.isDeleted === false)
- * - Critical dependencies: None
- * - Weak refs: None
- * - Non-blocking repairs: If hod invalid, set to null and emit DEPT_HOD_PRUNED
- * - Children: NOT auto-restored (top-down orchestration only)
- * - Restore prerequisites: organization.isDeleted === false
  */
-export const restoreDepartment = async (req, res, next) => {
+export const restoreDepartment = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -508,7 +427,6 @@ export const restoreDepartment = async (req, res, next) => {
     }
 
     // Strict parent check: organization must be active (per docs/softDelete-doc.md)
-    const { default: Organization } = await import("../models/Organization.js");
     const organization = await Organization.findById(department.organization)
       .withDeleted()
       .session(session);
@@ -552,11 +470,6 @@ export const restoreDepartment = async (req, res, next) => {
     // Restore department
     await department.restore(user._id, { session });
 
-    // IMPORTANT: Children are NOT auto-restored (per docs/softDelete-doc.md)
-    // Users, Tasks, Materials must be restored explicitly in top-down order
-    // This is by design to allow selective restoration
-    // restorePolicy.childrenNotAutoRestored: true
-
     // Commit transaction
     await session.commitTransaction();
     session.endSession();
@@ -581,12 +494,12 @@ export const restoreDepartment = async (req, res, next) => {
       departmentId: department._id,
     });
 
-    res.status(200).json({
-      success: true,
-      message:
-        "Department restored successfully. Note: Child resources (users, tasks, materials) must be restored separately.",
-      data: department,
-    });
+    successResponse(
+      res,
+      200,
+      "Department restored successfully. Note: Child resources (users, tasks, materials) must be restored separately.",
+      department
+    );
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -599,6 +512,6 @@ export const restoreDepartment = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
     });
-    next(error);
+    throw error;
   }
-};
+});
