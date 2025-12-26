@@ -34,7 +34,8 @@ beforeAll(async () => {
       socketTimeoutMS: 45000,
     });
 
-    console.log("✅ Connected to test database:", MONGODB_URI_TEST);
+    // Suppress connection log in test output
+    // console.log("✅ Connected to test database:", MONGODB_URI_TEST);
   } catch (error) {
     console.error("❌ Failed to connect to test database:", error);
     throw error;
@@ -52,7 +53,8 @@ beforeEach(async () => {
       await collection.deleteMany({});
     }
 
-    console.log("🧹 Cleared all collections");
+    // Suppress clearing log in test output
+    // console.log("🧹 Cleared all collections");
   } catch (error) {
     console.error("❌ Failed to clear collections:", error);
     throw error;
@@ -65,7 +67,8 @@ beforeEach(async () => {
 afterAll(async () => {
   try {
     await mongoose.connection.close();
-    console.log("✅ Closed test database connection");
+    // Suppress closing log in test output
+    // console.log("✅ Closed test database connection");
   } catch (error) {
     console.error("❌ Failed to close test database connection:", error);
     throw error;
