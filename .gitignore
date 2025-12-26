@@ -1,5 +1,5 @@
 # .kiro
-.kiro/
+# .kiro/
 
 # kiro verification
 verification/
@@ -8,19 +8,19 @@ verification/
 .vscode/
 
 # docs
-docs/
+# docs/
 
 # Environment files
-.env
-.env.local
-.env.production
-.env.development
-*/*/\.env
-*/.env
-**/.env
+# .env
+# .env.local
+# .env.production
+# .env.development
+# */*/\.env
+# */.env
+# **/.env
 
 # mock files
-backend/mock
+# backend/mock
 
 # Build outputs
 node_modules
