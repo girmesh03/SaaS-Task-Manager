@@ -111,16 +111,16 @@ export const createMaterial = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [
-        `organization:${material.organization}`,
-        `department:${material.department}`,
-      ],
       "material:created",
       {
         materialId: material._id,
         organizationId: material.organization,
         departmentId: material.department,
-      }
+      },
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ]
     );
 
     const populatedMaterial = await Material.findById(material._id)
@@ -170,16 +170,16 @@ export const updateMaterial = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [
-        `organization:${material.organization}`,
-        `department:${material.department}`,
-      ],
       "material:updated",
       {
         materialId: material._id,
         organizationId: material.organization,
         departmentId: material.department,
-      }
+      },
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ]
     );
 
     const populatedMaterial = await Material.findById(material._id)
@@ -231,16 +231,16 @@ export const deleteMaterial = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [
-        `organization:${material.organization}`,
-        `department:${material.department}`,
-      ],
       "material:deleted",
       {
         materialId: material._id,
         organizationId: material.organization,
         departmentId: material.department,
-      }
+      },
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ]
     );
 
     successResponse(res, 200, "Material deleted successfully", {
@@ -306,16 +306,16 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [
-        `organization:${material.organization}`,
-        `department:${material.department}`,
-      ],
       "material:restored",
       {
         materialId: material._id,
         organizationId: material.organization,
         departmentId: material.department,
-      }
+      },
+      [
+        `organization:${material.organization}`,
+        `department:${material.department}`,
+      ]
     );
 
     const populatedMaterial = await Material.findById(material._id)

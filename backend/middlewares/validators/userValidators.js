@@ -181,6 +181,7 @@ export const createUserValidator = [
   body("profilePicture.publicId")
     .optional()
     .trim()
+    .isString()
     .withMessage("Invalid profile picture public ID"),
 
   handleValidationErrors,
@@ -415,6 +416,7 @@ export const updateUserValidator = [
   body("profilePicture.publicId")
     .optional()
     .trim()
+    .isString()
     .withMessage("Invalid profile picture public ID"),
 
   body("emailPreferences")

@@ -67,7 +67,7 @@ A **Customer Organization** is a regular tenant using the platform:
 **User (System Actor)**
 
 - Individual with authentication and role-based permissions
-- Contains: firstName, lastName, dateOfBirth. employeeId (4 digit, unique), skills [{skill, percentage}], role, password, email, position (if isHod, unique within organization)organization, department references, isHod, isPlatformUser, profilePicture {url, publicId}, lastLogin, passwordResetExpires,passwordResetToken,
+- Contains: firstName, lastName, dateOfBirth. employeeId (4 digit, unique), skills [{skill, percentage}], role, password, email, position (if isHod, unique within organization), organization, department, isHod, isPlatformUser, profilePicture {url, publicId}, lastLogin, passwordResetExpires, passwordResetToken,
 - Roles: SuperAdmin (highest), Admin, Manager, User (lowest)
 - HOD Status: Automatically set based on role (SuperAdmin/Admin = HOD)
 - Cascades to: Created tasks, activities, comments, attachments, notifications
@@ -75,7 +75,7 @@ A **Customer Organization** is a regular tenant using the platform:
 **BaseTask (Abstract Task Model)**
 
 - Base discriminator model for all task types
-- Contains: description, status, priority, organization and department references, attachments, watchers ([ref]), tags
+- Contains: description, status, priority, organization, department, attachments, watchers ([ref]), tags ([unique string])
 - Discriminator Key: taskType (ProjectTask, RoutineTask, AssignedTask)
 - Cascades to: Activities, Comments, Attachments, Notifications
 

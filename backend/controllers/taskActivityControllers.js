@@ -169,17 +169,17 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [
-        `organization:${parentTask.organization}`,
-        `department:${parentTask.department}`,
-        `task:${parent}`,
-      ],
       "task_activity:created",
       {
         activityId: newActivity._id,
         taskId: parent,
         organizationId: newActivity.organization,
-      }
+      },
+      [
+        `organization:${parentTask.organization}`,
+        `department:${parentTask.department}`,
+        `task:${parent}`,
+      ]
     );
 
     const populatedActivity = await TaskActivity.findById(newActivity._id)
@@ -237,13 +237,13 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
+      "task_activity:updated",
+      { activityId: activity._id, taskId: activity.parent },
       [
         `organization:${activity.organization}`,
         `department:${activity.department}`,
         `task:${activity.parent}`,
-      ],
-      "task_activity:updated",
-      { activityId: activity._id, taskId: activity.parent }
+      ]
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)
@@ -306,13 +306,13 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
+      "task_activity:deleted",
+      { activityId: activity._id, taskId: activity.parent },
       [
         `organization:${activity.organization}`,
         `department:${activity.department}`,
         `task:${activity.parent}`,
-      ],
-      "task_activity:deleted",
-      { activityId: activity._id, taskId: activity.parent }
+      ]
     );
 
     successResponse(res, 200, "Task activity deleted successfully", {
@@ -372,13 +372,13 @@ export const restoreTaskActivity = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
+      "task_activity:restored",
+      { activityId: activity._id, taskId: activity.parent },
       [
         `organization:${activity.organization}`,
         `department:${activity.department}`,
         `task:${activity.parent}`,
-      ],
-      "task_activity:restored",
-      { activityId: activity._id, taskId: activity.parent }
+      ]
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)

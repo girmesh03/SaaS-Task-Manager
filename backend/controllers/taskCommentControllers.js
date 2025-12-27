@@ -152,11 +152,15 @@ export const createTaskComment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "task_comment:created", {
-      commentId: newComment._id,
-      taskId: taskId, // optional
-      organizationId: newComment.organization,
-    });
+    emitToRooms(
+      "task_comment:created",
+      {
+        commentId: newComment._id,
+        taskId: taskId, // optional
+        organizationId: newComment.organization,
+      },
+      rooms
+    );
 
     const populatedComment = await TaskComment.findById(newComment._id)
       .populate("createdBy", "firstName lastName")
@@ -216,10 +220,14 @@ export const updateTaskComment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "task_comment:updated", {
-      commentId: comment._id,
-      taskId: taskId,
-    });
+    emitToRooms(
+      "task_comment:updated",
+      {
+        commentId: comment._id,
+        taskId: taskId,
+      },
+      rooms
+    );
 
     const populatedComment = await TaskComment.findById(comment._id)
       .populate("createdBy", "firstName lastName")
@@ -285,10 +293,14 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "task_comment:deleted", {
-      commentId: comment._id,
-      taskId: taskId,
-    });
+    emitToRooms(
+      "task_comment:deleted",
+      {
+        commentId: comment._id,
+        taskId: comment.parent,
+      },
+      rooms
+    );
 
     successResponse(res, 200, "Comment deleted successfully", {
       commentId: comment._id,
@@ -362,10 +374,14 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "task_comment:restored", {
-      commentId: comment._id,
-      taskId: taskId,
-    });
+    emitToRooms(
+      "task_comment:restored",
+      {
+        commentId: comment._id,
+        taskId: comment.parent,
+      },
+      rooms
+    );
 
     const populatedComment = await TaskComment.findById(comment._id)
       .populate("createdBy", "firstName lastName")

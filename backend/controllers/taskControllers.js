@@ -173,14 +173,14 @@ export const createTask = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${task.organization}`, `department:${task.department}`],
       "task:created",
       {
         taskId: task._id,
         taskType: task.taskType,
         organizationId: task.organization,
         departmentId: task.department,
-      }
+      },
+      [`organization:${task.organization}`, `department:${task.department}`]
     );
 
     const populatedTask = await BaseTask.findById(task._id)
@@ -233,14 +233,14 @@ export const updateTask = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${task.organization}`, `department:${task.department}`],
       "task:updated",
       {
         taskId: task._id,
         taskType: task.taskType,
         organizationId: task.organization,
         departmentId: task.department,
-      }
+      },
+      [`organization:${task.organization}`, `department:${task.department}`]
     );
 
     const populatedTask = await BaseTask.findById(task._id)
@@ -294,14 +294,14 @@ export const deleteTask = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${task.organization}`, `department:${task.department}`],
       "task:deleted",
       {
         taskId: task._id,
         taskType: task.taskType,
         organizationId: task.organization,
         departmentId: task.department,
-      }
+      },
+      [`organization:${task.organization}`, `department:${task.department}`]
     );
 
     successResponse(res, 200, "Task deleted successfully", {
@@ -413,14 +413,14 @@ export const restoreTask = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     emitToRooms(
-      [`organization:${task.organization}`, `department:${task.department}`],
       "task:restored",
       {
         taskId: task._id,
         taskType: task.taskType,
         organizationId: task.organization,
         departmentId: task.department,
-      }
+      },
+      [`organization:${task.organization}`, `department:${task.department}`]
     );
 
     const populatedTask = await BaseTask.findById(task._id)

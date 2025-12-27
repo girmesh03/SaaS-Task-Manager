@@ -72,8 +72,11 @@ export const createTaskValidator = [
       if (value.length > LIMITS.MAX_ASSIGNEES) {
         throw new Error(`Cannot have more than ${LIMITS.MAX_ASSIGNEES} assignees`);
       }
-      return value.every(id => mongoose.Types.ObjectId.isValid(id));
-    }).withMessage("Invalid assignee ID(s)")
+      if (!value.every(id => mongoose.Types.ObjectId.isValid(id))) {
+        throw new Error("Invalid assignee ID(s)");
+      }
+      return true;
+    })
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const users = await User.find({ _id: { $in: value } }).lean();

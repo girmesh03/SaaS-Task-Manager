@@ -193,16 +193,13 @@ export const createUser = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-      ],
       "user:created",
       {
         userId: user._id,
         organizationId: user.organization,
         departmentId: user.department,
-      }
+      },
+      [`organization:${user.organization}`, `department:${user.department}`]
     );
 
     // Fetch populated user
@@ -271,17 +268,17 @@ export const updateUser = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-        `user:${user._id}`,
-      ],
       "user:updated",
       {
         userId: user._id,
         organizationId: user.organization,
         departmentId: user.department,
-      }
+      },
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+        `user:${user._id}`,
+      ]
     );
 
     // Fetch populated user
@@ -355,11 +352,11 @@ export const updateProfile = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     // Emit Socket.IO event AFTER commit
-    emitToRooms([`user:${user._id}`], "user:updated", {
+    emitToRooms("user:updated", {
       userId: user._id,
       organizationId: user.organization,
       departmentId: user.department,
-    });
+    }, [`user:${user._id}`]);
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
@@ -515,13 +512,13 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
       // Emit HOD pruned event
       emitToRooms(
-        [`department:${department._id}`],
         "department:hod_pruned",
         {
           departmentId: department._id,
           userId: user._id,
           reason: "User deleted",
-        }
+        },
+        [`department:${department._id}`]
       );
     }
 
@@ -536,16 +533,16 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-      ],
       "user:deleted",
       {
         userId: user._id,
         organizationId: user.organization,
         departmentId: user.department,
-      }
+      },
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+      ]
     );
 
     successResponse(res, 200, "User deleted successfully", {
@@ -625,16 +622,16 @@ export const restoreUser = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-      ],
       "user:restored",
       {
         userId: user._id,
         organizationId: user.organization,
         departmentId: user.department,
-      }
+      },
+      [
+        `organization:${user.organization}`,
+        `department:${user.department}`,
+      ]
     );
 
     // Fetch populated user

@@ -19,7 +19,7 @@ dayjs.extend(timezone);
  */
 export const toUTC = (date) => {
   if (!date) return null;
-  return dayjs(date).utc().toDate();
+  return dayjs.utc(date).toDate();
 };
 
 /**
@@ -29,7 +29,7 @@ export const toUTC = (date) => {
  */
 export const toISOString = (date) => {
   if (!date) return null;
-  return dayjs(date).utc().toISOString();
+  return dayjs.utc(date).toISOString();
 };
 
 /**
@@ -75,7 +75,7 @@ export const isPastDate = (date) => {
  * @returns {boolean} True if date1 is after date2
  */
 export const isAfter = (date1, date2) => {
-  return dayjs(date1).utc().isAfter(dayjs(date2).utc());
+  return dayjs.utc(date1).isAfter(dayjs.utc(date2));
 };
 
 /**
@@ -85,7 +85,7 @@ export const isAfter = (date1, date2) => {
  * @returns {boolean} True if date1 is before date2
  */
 export const isBefore = (date1, date2) => {
-  return dayjs(date1).utc().isBefore(dayjs(date2).utc());
+  return dayjs.utc(date1).isBefore(dayjs.utc(date2));
 };
 
 /**
@@ -104,7 +104,7 @@ export const getCurrentUTC = () => {
  * @returns {Date} New UTC Date object
  */
 export const addTime = (date, amount, unit) => {
-  return dayjs(date).utc().add(amount, unit).toDate();
+  return dayjs.utc(date).add(amount, unit).toDate();
 };
 
 /**
@@ -115,7 +115,7 @@ export const addTime = (date, amount, unit) => {
  * @returns {Date} New UTC Date object
  */
 export const subtractTime = (date, amount, unit) => {
-  return dayjs(date).utc().subtract(amount, unit).toDate();
+  return dayjs.utc(date).subtract(amount, unit).toDate();
 };
 
 /**
@@ -126,7 +126,7 @@ export const subtractTime = (date, amount, unit) => {
  * @returns {number} Difference in specified unit
  */
 export const getDifference = (date1, date2, unit = "day") => {
-  return dayjs(date1).utc().diff(dayjs(date2).utc(), unit);
+  return dayjs.utc(date1).diff(dayjs.utc(date2), unit);
 };
 
 /**
@@ -136,7 +136,7 @@ export const getDifference = (date1, date2, unit = "day") => {
  * @returns {boolean} True if same day
  */
 export const isSameDay = (date1, date2) => {
-  return dayjs(date1).utc().isSame(dayjs(date2).utc(), "day");
+  return dayjs.utc(date1).isSame(dayjs.utc(date2), "day");
 };
 
 /**
@@ -145,7 +145,7 @@ export const isSameDay = (date1, date2) => {
  * @returns {Date} Start of day in UTC
  */
 export const startOfDay = (date) => {
-  return dayjs(date).utc().startOf("day").toDate();
+  return dayjs.utc(date).startOf("day").toDate();
 };
 
 /**
@@ -154,7 +154,7 @@ export const startOfDay = (date) => {
  * @returns {Date} End of day in UTC
  */
 export const endOfDay = (date) => {
-  return dayjs(date).utc().endOf("day").toDate();
+  return dayjs.utc(date).endOf("day").toDate();
 };
 
 /**
@@ -165,9 +165,9 @@ export const endOfDay = (date) => {
  */
 export const parseDate = (dateString, format) => {
   if (format) {
-    return dayjs(dateString, format).utc().toDate();
+    return dayjs.utc(dateString, format).toDate();
   }
-  return dayjs(dateString).utc().toDate();
+  return dayjs.utc(dateString).toDate();
 };
 
 /**
@@ -177,5 +177,5 @@ export const parseDate = (dateString, format) => {
  * @returns {string} Formatted date string
  */
 export const formatWithPattern = (date, format) => {
-  return dayjs(date).utc().format(format);
+  return dayjs.utc(date).format(format);
 };

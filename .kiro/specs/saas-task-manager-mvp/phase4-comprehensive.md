@@ -203,7 +203,7 @@
     - Validate logic: verify against requirements, check retry logic (3 attempts), connection pooling (min: 2, max: 10)
     - Validate CORS: development origins (localhost:3000, localhost:5173), production (CLIENT_URL + ALLOWED_ORIGINS)
     - Validate authorization matrix: Platform SuperAdmin (crossOrg for Organization, crossDept for others), Customer SuperAdmin (crossDept), Admin (crossDept), Manager (ownDept), User (own)
-    - Action: correct/update if needed (document changes)
+    - Action: correct/update if needed
     - Verification: run `npm run dev` to verify config loads correctly
     - List all tests to be done:
       - Unit: MongoDB connection success/failure, retry logic (3 attempts), connection pooling
@@ -322,7 +322,7 @@
     - Validate error codes: VALIDATION_ERROR (400), AUTHENTICATION_ERROR (401), AUTHORIZATION_ERROR (403), NOT_FOUND_ERROR (404), CONFLICT_ERROR (409), INTERNAL_SERVER_ERROR (500)
     - Validate context: ensure context object included in all errors
     - Validate isOperational: ensure all CustomErrors have isOperational: true
-    - Action: correct/update if needed (document changes)
+    - Action: correct/update if needed
     - Verification: grep for `new CustomError` (should be ZERO occurrences, only static methods)
     - List all tests to be done:
       - Unit: CustomError.validation() creates correct error
@@ -401,9 +401,9 @@
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 31. Test Utility Functions (utils/\*)
+- [x] 31. Test Utility Functions (utils/*)
 
-  - [ ] 31.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 31.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/utils/logger.js` - Winston configuration
     - Read `backend/utils/helpers.js` - Utility helper functions, dateTransform, convertDatesToUTC
@@ -419,17 +419,18 @@
     - Document findings: utility patterns, timezone handling (UTC storage), JWT configuration
     - _Requirements: 26.1-26.10, 10.1-10.10_
 
-  - [ ] 31.2 Search, Validation, Action, Verification
+  - [x] 31.2 Search, Validation, Action, Verification
 
     - Pick files: all files in `backend/utils/`
     - For each line: analyze why it's written, logic behind it
     - Search codebase: find all utility function usage
     - Validate dateUtils: verify all dates converted to UTC, toUTC(), toISOString(), isAfter() for date comparison
     - Validate helpers: verify dateTransform converts dates to ISO strings, convertDatesToUTC converts to UTC in pre-save hooks
+    - Validate zero offset: verify all dates are stored in UTC and zero offset b/n utc and local
     - Validate generateTokens: verify JWT_ACCESS_SECRET (15min expiry), JWT_REFRESH_SECRET (7 days expiry)
     - Validate logger: verify Winston configuration (file and console transports)
     - Validate authorizationMatrix: verify scope checks (own, ownDept, crossDept, crossOrg)
-    - Action: correct/update if needed (document changes)
+    - Action: correct/update if needed
     - Verification: run `npm run dev` and check logs, verify timezone is UTC
     - List all tests to be done:
       - Unit: logger writes to file and console
@@ -445,13 +446,13 @@
       - Property: Any user/resource/operation returns correct authorization
     - _Requirements: 26.1-26.10, 10.1-10.10_
 
-  - [ ] 31.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 31.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 31.4 Write Unit Tests for Utility Functions
+  - [x] 31.4 Write Unit Tests for Utility Functions
 
     - Create `backend/tests/unit/utils/logger.test.js`:
       - Test logger writes to file transport
@@ -488,7 +489,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 10.1-10.10_
 
-  - [ ] 31.5 Write Property-Based Tests for Utilities
+  - [x] 31.5 Write Property-Based Tests for Utilities
 
     - Create `backend/tests/property/utils.property.test.js`:
       - **Property 6: Timezone Round Trip**
@@ -511,7 +512,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.4, 13.5, 13.9_
 
-  - [ ] 31.6 Run Utility Tests and Verify Coverage
+  - [x] 31.6 Run Utility Tests and Verify Coverage
 
     - Run unit tests: `npm test -- utils`
     - Run property tests: `npm run test:property -- utils`
@@ -521,15 +522,15 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 31.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 31.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(utils): Add comprehensive tests for utility functions"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 32. Test Middleware (middlewares/\*)
+- [x] 32. Test Middleware (middlewares/*)
 
-  - [ ] 32.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 32.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/middlewares/authMiddleware.js` - JWT verification (verifyJWT, verifyRefreshToken)
     - Read `backend/middlewares/authorization.js` - Role-based authorization
@@ -538,7 +539,7 @@
     - Document findings: JWT verification, authorization scope, rate limiting configuration
     - _Requirements: 26.1-26.10, 3.5, 11.3, 11.4, 22.1_
 
-  - [ ] 32.2 Search, Validation, Action, Verification
+  - [x] 32.2 Search, Validation, Action, Verification
 
     - Pick files: `backend/middlewares/authMiddleware.js`, `authorization.js`, `rateLimiter.js`
     - For each line: analyze why it's written, logic behind it
@@ -564,13 +565,13 @@
       - Property: Any user/resource/operation returns correct authorization
     - _Requirements: 26.1-26.10, 3.5, 11.3, 11.4, 22.1_
 
-  - [ ] 32.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 32.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 32.4 Write Unit Tests for Middleware
+  - [x] 32.4 Write Unit Tests for Middleware
 
     - Create `backend/tests/unit/middlewares/authMiddleware.test.js`:
       - Test verifyJWT extracts JWT from HTTP-only cookie (access_token)
@@ -601,7 +602,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 3.5, 11.3, 11.4, 22.1_
 
-  - [ ] 32.5 Write Property-Based Tests for Middleware
+  - [x] 32.5 Write Property-Based Tests for Middleware
 
     - Create `backend/tests/property/middlewares.property.test.js`:
       - **Property 9: JWT Verification**
@@ -619,7 +620,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.5, 13.9_
 
-  - [ ] 32.6 Run Middleware Tests and Verify Coverage
+  - [x] 32.6 Run Middleware Tests and Verify Coverage
 
     - Run unit tests: `npm test -- middlewares`
     - Run property tests: `npm run test:property -- middlewares`
@@ -629,22 +630,22 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 32.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 32.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(middlewares): Add comprehensive tests for auth, authorization, and rate limiter"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 33. Test Validators (middlewares/validators/\*)
+- [x] 33. Test Validators (middlewares/validators/\*)
 
-  - [ ] 33.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 33.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read all validator files in `backend/middlewares/validators/`
     - Read `.kiro/specs/saas-task-manager-mvp/requirements.md` - Requirements 18.1-18.9
     - Document findings: validation rules, uniqueness checks with withDeleted(), field constraints
     - _Requirements: 26.1-26.10, 18.1-18.9_
 
-  - [ ] 33.2 Search, Validation, Action, Verification
+  - [x] 33.2 Search, Validation, Action, Verification
 
     - Pick files: all validator files
     - For each line: analyze validation rules
@@ -661,13 +662,13 @@
       - Property: Any invalid data fails validation
     - _Requirements: 26.1-26.10, 18.1-18.9_
 
-  - [ ] 33.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 33.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 33.4 Write Unit Tests for Validators
+  - [x] 33.4 Write Unit Tests for Validators
 
     - Create unit tests for each validator file:
       - `backend/tests/unit/middlewares/validators/authValidators.test.js`
@@ -693,7 +694,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 18.1-18.9_
 
-  - [ ] 33.5 Write Property-Based Tests for Validators
+  - [x] 33.5 Write Property-Based Tests for Validators
 
     - Create `backend/tests/property/validators.property.test.js`:
       - **Property 11: Validation Consistency**
@@ -711,7 +712,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.8, 13.9_
 
-  - [ ] 33.6 Run Validator Tests and Verify Coverage
+  - [x] 33.6 Run Validator Tests and Verify Coverage
 
     - Run unit tests: `npm test -- validators`
     - Run property tests: `npm run test:property -- validators`
@@ -721,15 +722,15 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 33.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 33.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(validators): Add comprehensive tests for all validators"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 34. Test Services (services/_, templates/_)
+- [x] 34. Test Services (services/*, templates/*)
 
-  - [ ] 34.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 34.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/services/emailService.js` - Nodemailer, Gmail SMTP, queue-based email sending
     - Read `backend/services/notificationService.js` - Notification creation and management
@@ -738,7 +739,7 @@
     - Document findings: email configuration, queue-based sending, notification types
     - _Requirements: 26.1-26.10, 14.1-14.6_
 
-  - [ ] 34.2 Search, Validation, Action, Verification
+  - [x] 34.2 Search, Validation, Action, Verification
 
     - Pick files: `backend/services/emailService.js`, `notificationService.js`, `templates/emailTemplates.js`
     - For each line: analyze email sending logic, notification creation
@@ -760,13 +761,13 @@
       - Property: Any notification data creates valid notification
     - _Requirements: 26.1-26.10, 14.1-14.6_
 
-  - [ ] 34.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 34.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 34.4 Write Unit Tests for Services
+  - [x] 34.4 Write Unit Tests for Services
 
     - Create `backend/tests/unit/services/emailService.test.js`:
       - Test sendEmail sends email via Nodemailer
@@ -792,7 +793,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 14.1-14.6_
 
-  - [ ] 34.5 Write Property-Based Tests for Services
+  - [x] 34.5 Write Property-Based Tests for Services
 
     - Create `backend/tests/property/services.property.test.js`:
       - **Property 13: Email Generation**
@@ -810,7 +811,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.9_
 
-  - [ ] 34.6 Run Service Tests and Verify Coverage
+  - [x] 34.6 Run Service Tests and Verify Coverage
 
     - Run unit tests: `npm test -- services`
     - Run property tests: `npm run test:property -- services`
@@ -820,7 +821,7 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 34.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 34.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(services): Add comprehensive tests for email and notification services"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`

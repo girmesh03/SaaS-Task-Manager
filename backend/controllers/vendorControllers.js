@@ -185,12 +185,12 @@ export const createVendor = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [`organization:${vendor.organization}`],
       "vendor:created",
       {
         vendorId: vendor._id,
         organizationId: vendor.organization,
-      }
+      },
+      [`organization:${vendor.organization}`]
     );
 
     // Fetch populated vendor
@@ -258,12 +258,12 @@ export const updateVendor = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [`organization:${vendor.organization}`],
       "vendor:updated",
       {
         vendorId: vendor._id,
         organizationId: vendor.organization,
-      }
+      },
+      [`organization:${vendor.organization}`]
     );
 
     // Fetch populated vendor
@@ -361,12 +361,12 @@ export const deleteVendor = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [`organization:${vendor.organization}`],
       "vendor:deleted",
       {
         vendorId: vendor._id,
         organizationId: vendor.organization,
-      }
+      },
+      [`organization:${vendor.organization}`]
     );
 
     successResponse(res, 200, "Vendor deleted successfully", {
@@ -444,12 +444,12 @@ export const restoreVendor = asyncHandler(async (req, res) => {
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
-      [`organization:${vendor.organization}`],
       "vendor:restored",
       {
         vendorId: vendor._id,
         organizationId: vendor.organization,
-      }
+      },
+      [`organization:${vendor.organization}`]
     );
 
     // Fetch populated vendor

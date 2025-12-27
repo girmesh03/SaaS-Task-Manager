@@ -20,7 +20,7 @@ export const dateTransform = (doc, ret) => {
   // Convert all Date fields to ISO strings
   Object.keys(ret).forEach((key) => {
     if (ret[key] instanceof Date) {
-      ret[key] = dayjs(ret[key]).utc().toISOString();
+      ret[key] = dayjs.utc(ret[key]).toISOString();
     }
   });
 
@@ -39,7 +39,7 @@ export const dateTransform = (doc, ret) => {
 export const convertDatesToUTC = (doc, dateFields) => {
   dateFields.forEach((field) => {
     if (doc[field]) {
-      doc[field] = dayjs(doc[field]).utc().toDate();
+      doc[field] = dayjs.utc(doc[field]).toDate();
     }
   });
 };

@@ -159,11 +159,15 @@ export const createAttachment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "attachment:created", {
-      attachmentId: newAttachment._id,
-      taskId: taskId,
-      organizationId: newAttachment.organization,
-    });
+    emitToRooms(
+      "attachment:created",
+      {
+        attachmentId: newAttachment._id,
+        taskId: taskId,
+        organizationId: newAttachment.organization,
+      },
+      rooms
+    );
 
     const populatedAttachment = await Attachment.findById(newAttachment._id)
       .populate("uploadedBy", "firstName lastName")
@@ -232,10 +236,14 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "attachment:deleted", {
-      attachmentId: attachment._id,
-      taskId: taskId,
-    });
+    emitToRooms(
+      "attachment:deleted",
+      {
+        attachmentId: attachment._id,
+        taskId: taskId,
+      },
+      rooms
+    );
 
     successResponse(res, 200, "Attachment deleted successfully", {
       attachmentId: attachment._id,
@@ -311,10 +319,14 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
     ];
     if (taskId) rooms.push(`task:${taskId}`);
 
-    emitToRooms(rooms, "attachment:restored", {
-      attachmentId: attachment._id,
-      taskId: taskId,
-    });
+    emitToRooms(
+      "attachment:restored",
+      {
+        attachmentId: attachment._id,
+        taskId: taskId,
+      },
+      rooms
+    );
 
     const populatedAttachment = await Attachment.findById(attachment._id)
       .populate("uploadedBy", "firstName lastName")
