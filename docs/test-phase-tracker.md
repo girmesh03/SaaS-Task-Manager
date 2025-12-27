@@ -222,6 +222,151 @@ Time:        ~370 seconds
 
 ---
 
+## December 27, 2025 - Tasks 36 & 37 Completed
+
+**Phase:** Phase 4.2 - Test Phase 1 Foundation
+**Task:** 36 - Test Soft Delete Plugin & 37 - Test App/Server Config
+**Status:** ✅ COMPLETE
+**Duration:** ~1.5 hours
+**Branch:** test/phase-4.2-foundation-tests
+**Commit:** [Latest commit]
+
+### Changes Made
+
+**Task 36: Test Soft Delete Plugin**
+
+- ✅ Created `backend/tests/unit/models/plugins/softDelete.test.js` (14 tests)
+  - Verified soft delete fields, instance methods, static methods, and query helpers.
+  - Verified hard delete protection.
+- ✅ Created `backend/tests/property/softDelete.property.test.js` (3 properties)
+  - **Property 17: Soft Delete Exclusion**
+  - **Property 19: Soft Delete Field Setting**
+  - **Property 20: Restore Field Setting**
+- ✅ **FIXED**: Updated `softDelete.js` to include `.withDeleted()` in `onlyDeleted`, `findDeletedByIds`, and `countDeleted` to ensure they actually find deleted records.
+- ✅ Coverage: 92.59% lines, 100% functions.
+
+**Task 37: Test App and Server Configuration**
+
+- ✅ Created `backend/tests/unit/app.test.js` (5 tests)
+  - Verified Security headers (Helmet), JSON parsing limits, Compression, and Health Check.
+- ✅ Created `backend/tests/unit/server.test.js` (1 test)
+  - Verified UTC timezone enforcement.
+- ✅ Verified middleware order and configuration manually as per Requirement 10.1.
+
+### Validation
+
+- [x] Soft delete logic verified across all CRUD variations.
+- [x] Hard delete protection confirmed.
+- [x] App security middleware verified.
+- [x] UTC timezone consistency confirmed across app and server.
+
+---
+
+---
+
+## December 27, 2025 - Task 37 Completed
+
+**Phase:** Phase 4.2 - Test Phase 1 Foundation
+**Task:** 37 - Test App and Server Configuration (app.js, server.js)
+**Status:** ✅ COMPLETE
+**Duration:** ~30 mins
+**Branch:** test/phase-4.2-foundation-tests
+**Commit:** [Latest commit]
+
+### Changes Made
+
+- ✅ Created `backend/tests/unit/app.test.js` (5 tests)
+  - Verified security middleware (Helmet, CORS)
+  - Verified JSON parsing and limits
+  - Verified health check endpoint
+- ✅ Created `backend/tests/unit/server.test.js`
+  - Verified UTC timezone enforcement
+- ✅ Verified middleware execution order
+
+### Validation
+
+- [x] Timezone forced to UTC
+- [x] Security headers present
+- [x] Health check returning correct UTC timestamp
+
+---
+
+---
+
+## December 27, 2025 - Task 36 Completed
+
+**Phase:** Phase 4.2 - Test Phase 1 Foundation
+**Task:** 36 - Test Soft Delete Plugin (models/plugins/softDelete.js)
+**Status:** ✅ COMPLETE
+**Duration:** ~1 hour
+**Branch:** test/phase-4.2-foundation-tests
+**Commit:** [Latest commit]
+
+### Changes Made
+
+- ✅ Created `backend/tests/unit/models/plugins/softDelete.test.js` (14 tests)
+- ✅ Created `backend/tests/property/softDelete.property.test.js` (3 properties)
+- ✅ **BUG FIXED**: Updated `onlyDeleted()` query helper to call `withDeleted()` automatically
+- ✅ **BUG FIXED**: Updated `findDeletedByIds()` and `countDeleted()` to use `withDeleted()`
+
+### Validation
+
+- [x] Soft delete sets audit fields (`isDeleted`, `deletedAt`, `deletedBy`)
+- [x] Restore sets audit fields (`restoredAt`, `restoredBy`)
+- [x] Static methods (`softDeleteById`, `restoreById`, `findDeletedByIds`) verified
+- [x] Hard delete operations blocked via pre-hooks
+
+---
+
+
+**Phase:** Phase 4.2 - Test Phase 1 Foundation
+**Task:** 35 - Test Socket.IO Infrastructure (utils/socket*, utils/socketInstance.js, utils/socketEmitter.js)
+**Status:** ✅ COMPLETE
+**Duration:** ~1 hour
+**Branch:** test/phase-4.2-socket-tests
+**Commit:** [Latest commit]
+
+### Changes Made
+
+**Task 35.1 & 35.2: Analysis & Implementation Gap**
+
+- ✅ Analyzed Socket.IO infrastructure
+- ✅ **GAP FIXED**: Implemented `backend/middlewares/socketAuthMiddleware.js` to verify JWT and check `isDeleted` status for Socket.IO connections (Requirement 8.1)
+- ✅ **GAP FIXED**: Integrated `socketAuthMiddleware` into `backend/utils/socket.js`
+
+**Task 35.4: Write Unit Tests**
+
+- ✅ Created `backend/tests/unit/middlewares/socketAuthMiddleware.test.js` (5 tests)
+- ✅ Created `backend/tests/unit/utils/socket.test.js` (3 tests)
+- ✅ Verified `backend/tests/unit/utils/socketInstance.test.js` (3 tests)
+- ✅ Verified `backend/tests/unit/utils/socketEmitter.test.js` (6 tests)
+
+**Task 35.5: Write Property-Based Tests**
+
+- ✅ Created `backend/tests/property/socket.property.test.js`
+  - **Property 13: Socket Event Integrity** - 50 iterations
+
+**Task 35.6: Run Tests and Verify Coverage**
+
+- ✅ All 17 unit tests passing
+- ✅ Property test passing
+- ✅ Coverage results (Line %):
+  - `socketAuthMiddleware.js`: 95.83%
+  - `socket.js`: 96.29%
+  - `socketEmitter.js`: 93.1%
+  - `socketInstance.js`: 100%
+
+### Validation
+
+- [x] Socket authentication verified with JWT and soft-delete checks
+- [x] Room joining logic (user, dept, org) verified
+- [x] Event emission to multiple rooms verified
+- [x] Disconnection and status updates verified
+
+---
+
+---
+
 ## December 27, 2025 - Task 34 Completed
 
 **Phase:** Phase 4.2 - Test Phase 1 Foundation

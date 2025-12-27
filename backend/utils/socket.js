@@ -1,6 +1,7 @@
 import { getIO } from "./socketInstance.js";
 import { setUserStatus, removeUserStatus } from "./userStatus.js";
 import { USER_STATUS, SOCKET_EVENTS } from "./constants.js";
+import socketAuthMiddleware from "../middlewares/socketAuthMiddleware.js";
 import logger from "./logger.js";
 
 /**
@@ -14,6 +15,9 @@ import logger from "./logger.js";
  */
 export const setupSocketHandlers = () => {
   const io = getIO();
+
+  // Apply authentication middleware
+  io.use(socketAuthMiddleware);
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     logger.info(`Socket connected: ${socket.id}`);

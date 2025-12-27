@@ -49,7 +49,7 @@ const softDeletePlugin = (schema, options = {}) => {
   };
 
   schema.query.onlyDeleted = function () {
-    return this.where({ isDeleted: true });
+    return this.withDeleted().where({ isDeleted: true });
   };
 
   // Automatic filtering middleware
@@ -164,14 +164,14 @@ const softDeletePlugin = (schema, options = {}) => {
 
   // Static method: find deleted by IDs
   schema.statics.findDeletedByIds = async function (ids, { session } = {}) {
-    return await this.find({ _id: { $in: ids }, isDeleted: true }).session(
-      session
-    );
+    return await this.find({ _id: { $in: ids }, isDeleted: true })
+      .withDeleted()
+      .session(session);
   };
 
   // Static method: count deleted
   schema.statics.countDeleted = async function (filter = {}) {
-    return await this.countDocuments({ ...filter, isDeleted: true });
+    return await this.countDocuments({ ...filter, isDeleted: true }).withDeleted();
   };
 
   // Static method: ensure TTL index

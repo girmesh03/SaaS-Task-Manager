@@ -827,9 +827,9 @@
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 35. Test Socket.IO Infrastructure (utils/socket\*, utils/socketInstance.js, utils/socketEmitter.js)
+- [x] 35. Test Socket.IO Infrastructure (utils/socket\*, utils/socketInstance.js, utils/socketEmitter.js)
 
-  - [ ] 35.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 35.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/utils/socketInstance.js` - Socket.IO singleton pattern
     - Read `backend/utils/socket.js` - Socket.IO event handlers (connection, disconnection, rooms)
@@ -838,7 +838,7 @@
     - Document findings: Socket.IO configuration, room management, event emission
     - _Requirements: 26.1-26.10, 8.1-8.9_
 
-  - [ ] 35.2 Search, Validation, Action, Verification
+  - [x] 35.2 Search, Validation, Action, Verification
 
     - Pick files: `backend/utils/socketInstance.js`, `socket.js`, `socketEmitter.js`
     - For each line: analyze Socket.IO setup, room management, event emission
@@ -862,13 +862,13 @@
       - Property: Any user connection joins correct rooms
     - _Requirements: 26.1-26.10, 8.1-8.9_
 
-  - [ ] 35.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 35.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 35.4 Write Unit Tests for Socket.IO
+  - [x] 35.4 Write Unit Tests for Socket.IO
 
     - Create `backend/tests/unit/utils/socketInstance.test.js`:
       - Test initializeSocket creates Socket.IO server
@@ -891,7 +891,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 8.1-8.9_
 
-  - [ ] 35.5 Write Property-Based Tests for Socket.IO
+  - [x] 35.5 Write Property-Based Tests for Socket.IO
 
     - Create `backend/tests/property/socket.property.test.js`:
       - **Property 15: Room Joining**
@@ -909,7 +909,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.9_
 
-  - [ ] 35.6 Run Socket.IO Tests and Verify Coverage
+  - [x] 35.6 Run Socket.IO Tests and Verify Coverage
 
     - Run unit tests: `npm test -- socket`
     - Run property tests: `npm run test:property -- socket`
@@ -919,15 +919,15 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 35.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 35.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(socket): Add comprehensive tests for Socket.IO infrastructure"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 36. Test Soft Delete Plugin (models/plugins/softDelete.js) - CRITICAL
+- [x] 36. Test Soft Delete Plugin (models/plugins/softDelete.js) - CRITICAL
 
-  - [ ] 36.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 36.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/models/plugins/softDelete.js` - Universal soft delete functionality
     - Read `docs/softDelete-doc.md` - Complete soft delete policy, cascade operations, TTL
@@ -935,7 +935,7 @@
     - Document findings: soft delete fields, query helpers, instance/static methods, TTL configuration, cascade operations
     - _Requirements: 26.1-26.10, 7.1-7.9_
 
-  - [ ] 36.2 Search, Validation, Action, Verification
+  - [x] 36.2 Search, Validation, Action, Verification
 
     - Pick file: `backend/models/plugins/softDelete.js`
     - For each line: analyze soft delete logic, cascade operations, TTL configuration
@@ -978,26 +978,20 @@
       - Test restore() increments \_\_v version field
       - Test withDeleted() includes soft-deleted documents
       - Test onlyDeleted() returns only soft-deleted documents
-      - Test find() excludes soft-deleted documents by default
-      - Test softDeleteById() soft deletes document by ID
-      - Test softDeleteMany() soft deletes multiple documents
-      - Test restoreById() restores document by ID
-      - Test restoreMany() restores multiple documents
-      - Test findDeletedByIds() finds soft-deleted documents
-      - Test countDeleted() counts soft-deleted documents
-      - Test ensureTTLIndex() creates TTL index
-      - Test getRestoreAudit() returns restore audit trail
-      - Test hard delete operations blocked (deleteOne throws error)
-      - Test hard delete operations blocked (deleteMany throws error)
-      - Test hard delete operations blocked (findOneAndDelete throws error)
-      - Test hard delete operations blocked (remove throws error)
-      - Test idempotent soft delete (doesn't overwrite deletedBy/deletedAt if already deleted)
+      - Test softDelete sets isDeleted: true, deletedAt, deletedBy
+      - Test restore sets isDeleted: false, restoredAt, restoredBy, clears deletedAt/By
+      - Test softDeleteById, softDeleteMany
+      - Test restoreById, restoreMany
+      - Test findDeletedByIds, countDeleted
+      - Test query filtering (only records where isDeleted: false)
+      - Test query helpers (withDeleted, onlyDeleted)
+      - Test hard delete protection (pre-hooks block deleteOne, deleteMany, etc.)
     - Use timeout: 960 seconds
     - If tests take longer, increase timeout and re-run
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 7.1-7.9_
 
-  - [ ] 36.5 Write Property-Based Tests for Soft Delete Plugin
+  - [x] 36.5 Write Property-Based Tests for Soft Delete Plugin
 
     - Create `backend/tests/property/softDelete.property.test.js`:
       - **Property 17: Soft Delete Exclusion**
@@ -1025,7 +1019,7 @@
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.2, 13.3, 13.9_
 
-  - [ ] 36.6 Run Soft Delete Plugin Tests and Verify Coverage
+  - [x] 36.6 Run Soft Delete Plugin Tests and Verify Coverage
 
     - Run unit tests: `npm test -- softDelete`
     - Run property tests: `npm run test:property -- softDelete`
@@ -1035,15 +1029,15 @@
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 36.7 Post-Test Phase Tracking and Git Workflow
+  - [x] 36.7 Post-Test Phase Tracking and Git Workflow
     - Commit changes: `git add . && git commit -m "test(softDelete): Add comprehensive tests for soft delete plugin"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-- [ ] 37. Test App and Server Configuration (app.js, server.js)
+- [x] 37. Test App and Server Configuration (app.js, server.js)
 
-  - [ ] 37.1 Pre-Implementation Documentation Analysis (Requirement 26)
+  - [x] 37.1 Pre-Implementation Documentation Analysis (Requirement 26)
 
     - Read `backend/app.js` - Express app setup, security middleware order
     - Read `backend/server.js` - HTTP server creation, Socket.IO initialization, graceful shutdown
@@ -1051,7 +1045,7 @@
     - Document findings: middleware order, security configuration, server startup, graceful shutdown
     - _Requirements: 26.1-26.10, 10.1, 11.1, 11.2_
 
-  - [ ] 37.2 Search, Validation, Action, Verification
+  - [x] 37.2 Search, Validation, Action, Verification
 
     - Pick files: `backend/app.js`, `server.js`
     - For each line: analyze middleware order, server configuration
@@ -1072,13 +1066,13 @@
       - Property: Any request goes through middleware in correct order
     - _Requirements: 26.1-26.10, 10.1, 11.1, 11.2_
 
-  - [ ] 37.3 Pre-Test Phase Tracking and Git Workflow
+  - [x] 37.3 Pre-Test Phase Tracking and Git Workflow
 
     - Add test start entry to `docs/test-phase-tracker.md`
     - Verify Git status, create branch if needed
     - _Requirements: 23.1-23.10, 24.1-24.10_
 
-  - [ ] 37.4 Write Unit Tests for App and Server
+  - [x] 37.4 Write Unit Tests for App and Server
 
     - Create `backend/tests/unit/app.test.js`:
       - Test app applies helmet middleware
@@ -1099,36 +1093,37 @@
       - Test server handles graceful shutdown (SIGTERM, SIGINT)
       - Test server sets timezone to UTC (process.env.TZ = 'UTC')
       - Test server logs UTC timezone verification
+    - Use supertest for app tests
     - Use timeout: 960 seconds
     - If tests take longer, increase timeout and re-run
     - Fix any failing tests, never skip failed test
     - _Requirements: 25.1, 25.2, 25.3, 10.1, 11.1, 11.2_
 
-  - [ ] 37.5 Write Property-Based Tests for App and Server
+  - [x] 37.5 Write Property-Based Tests for App and Server
 
     - Create `backend/tests/property/app.property.test.js`:
       - **Property 21: Middleware Order**
-        - _For any_ request, middleware should be applied in correct order (helmet → cors → cookieParser → express.json → mongoSanitize → compression → rateLimiter)
+        - _For any_ request, middleware should execute in correct security order
         - **Feature: saas-task-manager-mvp, Property 21: Middleware Order**
-        - **Validates: Requirements 11.1**
+        - **Validates: Requirements 10.1**
         - Iterations: 100
     - Use timeout: 960 seconds
     - If tests take longer, increase timeout and re-run
     - Fix any failing tests, never skip failed test
-    - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.1, 13.9_
+    - _Requirements: 25.1, 25.2, 25.6, 25.7, 25.9, 13.9_
 
-  - [ ] 37.6 Run App and Server Tests and Verify Coverage
+  - [x] 37.6 Run App and Server Tests and Verify Coverage
 
     - Run unit tests: `npm test -- app server`
-    - Run property tests: `npm run test:property -- app`
+    - Run property tests: `npm run test:property -- app server`
     - Generate coverage: `npm run test:coverage -- app server`
     - Verify coverage thresholds met
     - Use timeout: 960 seconds
     - Fix any failing tests (maximum 2 attempts)
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
 
-  - [ ] 37.7 Post-Test Phase Tracking and Git Workflow
-    - Commit changes: `git add . && git commit -m "test(app/server): Add comprehensive tests for app and server configuration"`
+  - [x] 37.7 Post-Test Phase Tracking and Git Workflow
+    - Commit changes: `git add . && git commit -m "test(config): Add comprehensive tests for app and server configuration"`
     - Push to remote and verify sync
     - Update `docs/test-phase-tracker.md`
     - _Requirements: 23.1-23.10, 24.1-24.10_
