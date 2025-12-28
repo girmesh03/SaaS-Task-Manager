@@ -52,15 +52,15 @@ export const createTaskValidator = [
     .notEmpty().withMessage("Due date required for RoutineTask").isISO8601().withMessage("Invalid due date"),
   body("status").if(body("taskType").equals(TASK_TYPES.ROUTINE_TASK))
     .custom((value) => {
-      if (value && ![TASK_STATUS.TO_DO, TASK_STATUS.COMPLETED].includes(value)) {
-        throw new Error("RoutineTask can only be 'To Do' or 'Completed'");
+      if (value && value === TASK_STATUS.TO_DO) {
+        throw new Error('RoutineTask status cannot be "To Do". Must be In Progress, Completed, or Pending');
       }
       return true;
     }),
   body("priority").if(body("taskType").equals(TASK_TYPES.ROUTINE_TASK))
     .custom((value) => {
-      if (value && value !== TASK_PRIORITY.MEDIUM) {
-        throw new Error("RoutineTask priority must be 'Medium'");
+      if (value && value === TASK_PRIORITY.LOW) {
+        throw new Error('RoutineTask priority cannot be "Low". Must be Medium, High, or Urgent');
       }
       return true;
     }),
