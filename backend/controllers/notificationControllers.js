@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
 import { Notification } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
@@ -12,8 +13,9 @@ import {
  * Notification Controllers
  *
  * CRITICAL: SCOPED TO RECIPIENT (req.user._id)
- * CRITICAL: No Soft Delete (Ephemeral)
+ * CRITICAL: Ephemeral with Soft Delete TTL
  */
+
 
 export const getNotifications = asyncHandler(async (req, res) => {
   const {
@@ -21,7 +23,7 @@ export const getNotifications = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     isRead,
     type,
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { recipient: req.user._id };
 
@@ -57,11 +59,11 @@ export const getNotifications = asyncHandler(async (req, res) => {
 });
 
 export const getNotification = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { notificationId } = req.validated.params;
 
-  const notification = await Notification.findById(resourceId).lean();
+  const notification = await Notification.findById(notificationId).lean();
 
-  if (!notification) throw CustomError.notFound("Notification not found");
+  if (!notification) throw CustomError.notFound("Notification", notificationId);
 
   if (notification.recipient.toString() !== req.user._id.toString()) {
     throw CustomError.authorization(
@@ -73,53 +75,97 @@ export const getNotification = asyncHandler(async (req, res) => {
 });
 
 export const markAsRead = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const notification = await Notification.findById(resourceId);
+  try {
+    const { notificationId } = req.validated.params;
 
-  if (!notification) throw CustomError.notFound("Notification not found");
+    const notification = await Notification.findById(notificationId).session(session);
 
-  if (notification.recipient.toString() !== req.user._id.toString()) {
-    throw CustomError.authorization(
-      "You are not authorized to update this notification"
-    );
+    if (!notification) throw CustomError.notFound("Notification", notificationId);
+
+    if (notification.recipient.toString() !== req.user._id.toString()) {
+      throw CustomError.authorization(
+        "You are not authorized to update this notification"
+      );
+    }
+
+    if (!notification.isRead) {
+      notification.isRead = true;
+      await notification.save({ session });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    okResponse(res, "Notification marked as read", notification);
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
   }
-
-  if (!notification.isRead) {
-    notification.isRead = true;
-    await notification.save();
-  }
-
-  okResponse(res, "Notification marked as read", notification);
 });
 
 export const markAllAsRead = asyncHandler(async (req, res) => {
-  const result = await Notification.updateMany(
-    { recipient: req.user._id, isRead: false },
-    { $set: { isRead: true } }
-  );
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  okResponse(res, "All notifications marked as read", {
-    modifiedCount: result.modifiedCount,
-  });
+  try {
+    const result = await Notification.updateMany(
+      { recipient: req.user._id, isRead: false },
+      { $set: { isRead: true } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    okResponse(res, "All notifications marked as read", {
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
+  }
 });
 
 export const deleteNotification = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const notification = await Notification.findById(resourceId);
+  try {
+    const { notificationId } = req.validated.params;
 
-  if (!notification) throw CustomError.notFound("Notification not found");
+    const notification = await Notification.findById(notificationId).session(session);
 
-  if (notification.recipient.toString() !== req.user._id.toString()) {
-    throw CustomError.authorization(
-      "You are not authorized to delete this notification"
-    );
+    if (!notification) throw CustomError.notFound("Notification", notificationId);
+
+    if (notification.recipient.toString() !== req.user._id.toString()) {
+      throw CustomError.authorization(
+        "You are not authorized to delete this notification"
+      );
+    }
+
+    // Use softDelete as required by the universal plugin
+    await notification.softDelete(req.user._id, { session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    successResponse(res, 200, "Notification deleted successfully", {
+      notificationId: notificationId,
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
   }
-
-  await notification.deleteOne();
-
-  successResponse(res, 200, "Notification deleted successfully", {
-    notificationId: resourceId,
-  });
 });

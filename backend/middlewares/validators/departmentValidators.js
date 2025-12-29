@@ -24,6 +24,7 @@ export const createDepartmentValidator = [
     .withMessage(
       `Department name cannot exceed ${LIMITS.DEPARTMENT_NAME_MAX} characters`
     )
+    .escape()
     .custom(async (value, { req }) => {
       const { default: Department } = await import(
         "../../models/Department.js"
@@ -49,7 +50,8 @@ export const createDepartmentValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Department description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("hod")
     .optional()
@@ -104,17 +106,18 @@ export const updateDepartmentValidator = [
     .withMessage(
       `Department name cannot exceed ${LIMITS.DEPARTMENT_NAME_MAX} characters`
     )
+    .escape()
     .custom(async (value, { req }) => {
       const { default: Department } = await import(
         "../../models/Department.js"
       );
-      const resourceId = req.params.resourceId;
+      const departmentId = req.params.departmentId;
       const organizationId = req.user.organization._id;
 
       const existing = await Department.findOne({
         name: value,
         organization: organizationId,
-        _id: { $ne: resourceId },
+        _id: { $ne: departmentId },
       })
         .withDeleted()
         .lean();
@@ -131,7 +134,8 @@ export const updateDepartmentValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Department description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("hod")
     .optional()
@@ -177,7 +181,7 @@ export const updateDepartmentValidator = [
  * Validates MongoDB ObjectId
  */
 export const departmentIdValidator = [
-  param("resourceId")
+  param("departmentId")
     .trim()
     .notEmpty()
     .withMessage("Department ID is required")
@@ -185,6 +189,24 @@ export const departmentIdValidator = [
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid department ID");
       }
+      return true;
+    })
+    .custom(async (value, { req }) => {
+      const { default: Department } = await import("../../models/Department.js");
+      const organizationId = req.user.organization._id;
+
+      const department = await Department.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!department) {
+        throw new Error("Department not found");
+      }
+
+      if (department.organization.toString() !== organizationId.toString()) {
+        throw new Error("Department belongs to another organization");
+      }
+
       return true;
     }),
 

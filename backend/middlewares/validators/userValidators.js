@@ -1,7 +1,8 @@
 import { body, param } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
-import { LIMITS, USER_ROLES } from "../../utils/constants.js";
+import { USER_ROLES, LIMITS } from "../../utils/constants.js";
 import mongoose from "mongoose";
+import { isValidDate, isFutureDate } from "../../utils/dateUtils.js";
 
 /**
  * User Validators
@@ -24,20 +25,23 @@ export const createUserValidator = [
     .isLength({ max: LIMITS.FIRST_NAME_MAX })
     .withMessage(
       `First name cannot exceed ${LIMITS.FIRST_NAME_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("lastName")
     .trim()
     .notEmpty()
     .withMessage("Last name is required")
     .isLength({ max: LIMITS.LAST_NAME_MAX })
-    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`),
+    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`)
+    .escape(),
 
   body("position")
     .optional()
     .trim()
     .isLength({ max: LIMITS.POSITION_MAX })
-    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`),
+    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`)
+    .escape(),
 
   body("role")
     .optional()
@@ -78,7 +82,9 @@ export const createUserValidator = [
     .isLength({ min: LIMITS.PASSWORD_MIN })
     .withMessage(
       `Password must be at least ${LIMITS.PASSWORD_MIN} characters`
-    ),
+    )
+    .isStrongPassword()
+    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
   body("department")
     .trim()
@@ -117,6 +123,8 @@ export const createUserValidator = [
     .trim()
     .notEmpty()
     .withMessage("Employee ID is required")
+    .matches(/^[1-9]\d{3}$/)
+    .withMessage("Employee ID must be a 4-digit number between 1000-9999")
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const organizationId = req.user.organization._id;
@@ -136,15 +144,15 @@ export const createUserValidator = [
 
   body("dateOfBirth")
     .optional()
-    .isISO8601()
-    .withMessage("Invalid date of birth format (use ISO 8601)"),
+    .custom((value) => isValidDate(value)).withMessage("Invalid date of birth format")
+    .custom((value) => !isFutureDate(value)).withMessage("Date of birth cannot be in the future"),
 
   body("joinedAt")
     .trim()
     .notEmpty()
     .withMessage("Joined date is required")
-    .isISO8601()
-    .withMessage("Invalid joined date format (use ISO 8601)"),
+    .custom((value) => isValidDate(value)).withMessage("Invalid joined date format")
+    .custom((value) => !isFutureDate(value)).withMessage("Joined date cannot be in the future"),
 
   body("skills")
     .optional()
@@ -163,7 +171,8 @@ export const createUserValidator = [
     .notEmpty()
     .withMessage("Skill name is required")
     .isLength({ max: LIMITS.SKILL_MAX })
-    .withMessage(`Skill cannot exceed ${LIMITS.SKILL_MAX} characters`),
+    .withMessage(`Skill cannot exceed ${LIMITS.SKILL_MAX} characters`)
+    .escape(),
 
   body("skills.*.percentage")
     .if(body("skills").exists())
@@ -184,6 +193,46 @@ export const createUserValidator = [
     .isString()
     .withMessage("Invalid profile picture public ID"),
 
+  body("emailPreferences")
+    .optional()
+    .isObject()
+    .withMessage("Email preferences must be an object"),
+
+  body("emailPreferences.enabled")
+    .optional()
+    .isBoolean()
+    .withMessage("Email preferences enabled must be a boolean"),
+
+  body("emailPreferences.taskNotifications")
+    .optional()
+    .isBoolean()
+    .withMessage("Task notifications must be a boolean"),
+
+  body("emailPreferences.taskReminders")
+    .optional()
+    .isBoolean()
+    .withMessage("Task reminders must be a boolean"),
+
+  body("emailPreferences.mentions")
+    .optional()
+    .isBoolean()
+    .withMessage("Mentions must be a boolean"),
+
+  body("emailPreferences.announcements")
+    .optional()
+    .isBoolean()
+    .withMessage("Announcements must be a boolean"),
+
+  body("emailPreferences.welcomeEmails")
+    .optional()
+    .isBoolean()
+    .withMessage("Welcome emails must be a boolean"),
+
+  body("emailPreferences.passwordReset")
+    .optional()
+    .isBoolean()
+    .withMessage("Password reset must be a boolean"),
+
   handleValidationErrors,
 ];
 
@@ -200,7 +249,8 @@ export const updateUserValidator = [
     .isLength({ max: LIMITS.FIRST_NAME_MAX })
     .withMessage(
       `First name cannot exceed ${LIMITS.FIRST_NAME_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("lastName")
     .optional()
@@ -208,13 +258,15 @@ export const updateUserValidator = [
     .notEmpty()
     .withMessage("Last name cannot be empty")
     .isLength({ max: LIMITS.LAST_NAME_MAX })
-    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`),
+    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`)
+    .escape(),
 
   body("position")
     .optional()
     .trim()
     .isLength({ max: LIMITS.POSITION_MAX })
-    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`),
+    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`)
+    .escape(),
 
   body("role")
     .optional()
@@ -294,7 +346,9 @@ export const updateUserValidator = [
     .isLength({ min: LIMITS.PASSWORD_MIN })
     .withMessage(
       `Password must be at least ${LIMITS.PASSWORD_MIN} characters`
-    ),
+    )
+    .isStrongPassword()
+    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
   body("department")
     .optional()
@@ -352,6 +406,8 @@ export const updateUserValidator = [
     .trim()
     .notEmpty()
     .withMessage("Employee ID cannot be empty")
+    .matches(/^[1-9]\d{3}$/)
+    .withMessage("Employee ID must be a 4-digit number between 1000-9999")
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const userId = req.params.userId;
@@ -373,13 +429,13 @@ export const updateUserValidator = [
 
   body("dateOfBirth")
     .optional()
-    .isISO8601()
-    .withMessage("Invalid date of birth format (use ISO 8601)"),
+    .custom((value) => isValidDate(value)).withMessage("Invalid date of birth format")
+    .custom((value) => !isFutureDate(value)).withMessage("Date of birth cannot be in the future"),
 
   body("joinedAt")
     .optional()
-    .isISO8601()
-    .withMessage("Invalid joined date format (use ISO 8601)"),
+    .custom((value) => isValidDate(value)).withMessage("Invalid joined date format")
+    .custom((value) => !isFutureDate(value)).withMessage("Joined date cannot be in the future"),
 
   body("skills")
     .optional()
@@ -398,7 +454,8 @@ export const updateUserValidator = [
     .notEmpty()
     .withMessage("Skill name is required")
     .isLength({ max: LIMITS.SKILL_MAX })
-    .withMessage(`Skill cannot exceed ${LIMITS.SKILL_MAX} characters`),
+    .withMessage(`Skill cannot exceed ${LIMITS.SKILL_MAX} characters`)
+    .escape(),
 
   body("skills.*.percentage")
     .if(body("skills").exists())
@@ -475,6 +532,24 @@ export const userIdValidator = [
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid user ID");
       }
+      return true;
+    })
+    .custom(async (value, { req }) => {
+      const { default: User } = await import("../../models/User.js");
+      const organizationId = req.user.organization._id;
+
+      const user = await User.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      if (user.organization.toString() !== organizationId.toString()) {
+        throw new Error("User belongs to another organization");
+      }
+
       return true;
     }),
 

@@ -5,7 +5,8 @@ import mongoose from "mongoose";
 
 export const createTaskCommentValidator = [
   body("comment").trim().notEmpty().withMessage("Comment is required")
-    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`),
+    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
+    .escape(),
 
   body("parent").trim().notEmpty().withMessage("Parent ID is required")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid parent ID"); })()),
@@ -53,15 +54,54 @@ export const createTaskCommentValidator = [
 
 export const updateTaskCommentValidator = [
   body("comment").optional().trim().notEmpty().withMessage("Comment cannot be empty")
-    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`),
+    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
+    .escape(),
 
-  body("mentions").optional().isArray().withMessage("Mentions must be an array"),
+  body("mentions").optional().isArray().withMessage("Mentions must be an array")
+    .custom((value) => value.length <= LIMITS.MAX_MENTIONS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`); })())
+    .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid user ID in mentions"); })())
+    .custom(async (value, { req }) => {
+      if (!value || value.length === 0) return true;
+      const { default: User } = await import("../../models/User.js");
+      const organizationId = req.user.organization._id;
+      const users = await User.find({
+        _id: { $in: value },
+        organization: organizationId
+      }).withDeleted().lean();
+
+      if (users.length !== new Set(value).size) {
+        throw new Error("One or more mentioned users not found or belong to another organization");
+      }
+      if (users.some(u => u.isDeleted)) throw new Error("One or more mentioned users are deleted");
+      return true;
+    }),
 
   handleValidationErrors,
 ];
 
 export const taskCommentIdValidator = [
-  param("resourceId").trim().notEmpty().withMessage("TaskComment ID is required")
-    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid comment ID"); })()),
+  param("taskCommentId")
+    .trim()
+    .notEmpty()
+    .withMessage("TaskComment ID is required")
+    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid comment ID"); })())
+    .custom(async (value, { req }) => {
+      const { default: TaskComment } = await import("../../models/TaskComment.js");
+      const organizationId = req.user.organization._id;
+
+      const comment = await TaskComment.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!comment) {
+        throw new Error("Task comment not found");
+      }
+
+      if (comment.organization.toString() !== organizationId.toString()) {
+        throw new Error("Task comment belongs to another organization");
+      }
+
+      return true;
+    }),
   handleValidationErrors,
 ];

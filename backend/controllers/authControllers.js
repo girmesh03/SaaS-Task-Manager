@@ -54,6 +54,7 @@ export const register = asyncHandler(async (req, res) => {
           phone: orgData.phone,
           address: orgData.address,
           industry: orgData.industry,
+          logo: orgData.logo,
           isPlatformOrg: false, // Customer organization
         },
       ],
@@ -109,7 +110,7 @@ export const register = asyncHandler(async (req, res) => {
 
     // Populate user for response
     await user.populate("organization", "_id name isPlatformOrg isDeleted");
-    await user.populate("department", "_id name isDeleted");
+    await user.populate("department", "_id name isDeleted hod");
 
     // Send welcome email (async, non-blocking)
     sendWelcomeEmail(user);
@@ -177,84 +178,99 @@ export const register = asyncHandler(async (req, res) => {
  * Public route with rate limiting (5/15min)
  */
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.validated.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // Find user by email with password field
-  const user = await User.findOne({ email })
-    .select("+password")
-    .populate("organization", "_id name isPlatformOrg isDeleted")
-    .populate("department", "_id name isDeleted");
+  try {
+    const { email, password } = req.validated.body;
 
-  if (!user) {
-    throw CustomError.authentication("Invalid email or password");
-  }
+    // Find user by email with password field
+    const user = await User.findOne({ email }).session(session)
+      .select("+password")
+      .populate("organization", "_id name isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod");
 
-  // Check if user is soft-deleted
-  if (user.isDeleted) {
-    throw CustomError.authentication("User account has been deactivated");
-  }
+    if (!user) {
+      throw CustomError.authentication("Invalid email or password");
+    }
 
-  // Check if organization is soft-deleted
-  if (!user.organization || user.organization.isDeleted) {
-    throw CustomError.authentication("Organization has been deactivated");
-  }
+    // Check if user is soft-deleted
+    if (user.isDeleted) {
+      throw CustomError.authentication("User account has been deactivated");
+    }
 
-  // Check if department is soft-deleted
-  if (!user.department || user.department.isDeleted) {
-    throw CustomError.authentication("Department has been deactivated");
-  }
+    // Check if organization is soft-deleted
+    if (!user.organization || user.organization.isDeleted) {
+      throw CustomError.authentication("Organization has been deactivated");
+    }
 
-  // Verify password
-  const isPasswordValid = await user.comparePassword(password);
-  if (!isPasswordValid) {
-    throw CustomError.authentication("Invalid email or password");
-  }
+    // Check if department is soft-deleted
+    if (!user.department || user.department.isDeleted) {
+      throw CustomError.authentication("Department has been deactivated");
+    }
 
-  // Generate JWT tokens
-  const { accessToken, refreshToken } = generateTokens(user._id);
+    // Verify password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      throw CustomError.authentication("Invalid email or password");
+    }
 
-  // Set HTTP-only cookies
-  setTokenCookies(res, accessToken, refreshToken);
+    // Update lastLogin
+    user.lastLogin = new Date();
+    await user.save({ session });
 
-  // Update lastLogin
-  user.lastLogin = new Date();
-  await user.save();
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
 
-  // Remove password from response
-  user.password = undefined;
+    // Generate JWT tokens
+    const { accessToken, refreshToken } = generateTokens(user._id);
 
-  // Emit user:online event
-  emitToRooms(
-    "user:online",
-    { userId: user._id, status: USER_STATUS.ONLINE },
-    [
-      `user:${user._id}`,
-      `department:${user.department._id}`,
-      `organization:${user.organization._id}`,
-    ]
-  );
+    // Set HTTP-only cookies
+    setTokenCookies(res, accessToken, refreshToken);
 
-  logger.info({
-    message: "User logged in successfully",
-    userId: user._id,
-    email: user.email,
-  });
+    // Remove password from response
+    user.password = undefined;
 
-  successResponse(res, 200, "Login successful", {
-    user: {
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: user.fullName,
+    // Emit user:online event
+    emitToRooms(
+      "user:online",
+      { userId: user._id, status: USER_STATUS.ONLINE },
+      [
+        `user:${user._id}`,
+        `department:${user.department._id}`,
+        `organization:${user.organization._id}`,
+      ]
+    );
+
+    logger.info({
+      message: "User logged in successfully",
+      userId: user._id,
       email: user.email,
-      role: user.role,
-      organization: user.organization,
-      department: user.department,
-      isHod: user.isHod,
-      isPlatformUser: user.isPlatformUser,
-      lastLogin: user.lastLogin,
-    },
-  });
+    });
+
+    successResponse(res, 200, "Login successful", {
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        organization: user.organization,
+        department: user.department,
+        isHod: user.isHod,
+        isPlatformUser: user.isPlatformUser,
+        lastLogin: user.lastLogin,
+      },
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
+  }
 });
 
 /**
@@ -314,44 +330,62 @@ export const refreshToken = asyncHandler(async (req, res) => {
  * Public route with rate limiting (5/15min)
  */
 export const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.validated.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // Find user by email
-  const user = await User.findOne({ email });
+  try {
+    const { email } = req.validated.body;
 
-  // CRITICAL: Always return success to prevent email enumeration
-  // Even if user doesn't exist, return success message
-  if (!user || user.isDeleted) {
+    // Find user by email
+    const user = await User.findOne({ email }).session(session);
+
+    // CRITICAL: Always return success to prevent email enumeration
+    // Even if user doesn't exist, return success message
+    if (!user || user.isDeleted) {
+      await session.abortTransaction();
+      session.endSession();
+
+      logger.info({
+        message: "Password reset requested for non-existent/deleted user",
+        email,
+      });
+
+      return successResponse(
+        res,
+        200,
+        "If an account with that email exists, a password reset link has been sent"
+      );
+    }
+
+    // Generate reset token
+    const resetToken = await user.generatePasswordResetToken();
+    await user.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Send password reset email (async, non-blocking)
+    sendPasswordResetEmail(user, resetToken);
+
     logger.info({
-      message: "Password reset requested for non-existent/deleted user",
-      email,
+      message: "Password reset email sent",
+      userId: user._id,
+      email: user.email,
     });
 
-    return successResponse(
+    successResponse(
       res,
       200,
       "If an account with that email exists, a password reset link has been sent"
     );
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
   }
-
-  // Generate reset token
-  const resetToken = await user.generatePasswordResetToken();
-  await user.save();
-
-  // Send password reset email (async, non-blocking)
-  sendPasswordResetEmail(user, resetToken);
-
-  logger.info({
-    message: "Password reset email sent",
-    userId: user._id,
-    email: user.email,
-  });
-
-  successResponse(
-    res,
-    200,
-    "If an account with that email exists, a password reset link has been sent"
-  );
 });
 
 /**
@@ -360,41 +394,56 @@ export const forgotPassword = asyncHandler(async (req, res) => {
  * Public route with rate limiting (5/15min)
  */
 export const resetPassword = asyncHandler(async (req, res) => {
-  const { token, password } = req.validated.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // Find user with valid reset token
-  const user = await User.findOne({
-    passwordResetExpires: { $gt: new Date() },
-  }).select("+passwordResetToken +passwordResetExpires");
+  try {
+    const { token, password } = req.validated.body;
 
-  if (!user) {
-    throw CustomError.validation("Invalid or expired reset token");
+    // Find user with valid reset token
+    const user = await User.findOne({
+      passwordResetExpires: { $gt: new Date() },
+    }).session(session).select("+passwordResetToken +passwordResetExpires");
+
+    if (!user) {
+      throw CustomError.validation("Invalid or expired reset token");
+    }
+
+    // Verify reset token
+    const isTokenValid = await user.verifyPasswordResetToken(token);
+    if (!isTokenValid) {
+      throw CustomError.validation("Invalid or expired reset token");
+    }
+
+    // Update password
+    user.password = password;
+    user.clearPasswordResetToken();
+    await user.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Send confirmation email (async, non-blocking)
+    sendPasswordResetConfirmation(user);
+
+    logger.info({
+      message: "Password reset successful",
+      userId: user._id,
+      email: user.email,
+    });
+
+    successResponse(
+      res,
+      200,
+      "Password reset successful. You can now login with your new password"
+    );
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    throw error;
   }
-
-  // Verify reset token
-  const isTokenValid = await user.verifyPasswordResetToken(token);
-  if (!isTokenValid) {
-    throw CustomError.validation("Invalid or expired reset token");
-  }
-
-  // Update password
-  user.password = password;
-  user.clearPasswordResetToken();
-  await user.save();
-
-  // Send confirmation email (async, non-blocking)
-  sendPasswordResetConfirmation(user);
-
-  logger.info({
-    message: "Password reset successful",
-    userId: user._id,
-    email: user.email,
-  });
-
-  successResponse(
-    res,
-    200,
-    "Password reset successful. You can now login with your new password"
-  );
 });
 

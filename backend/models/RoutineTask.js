@@ -6,6 +6,7 @@ import {
   TASK_STATUS,
   TASK_PRIORITY,
 } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 // RoutineTask discriminator schema
 const routineTaskSchema = new mongoose.Schema({
@@ -52,48 +53,28 @@ routineTaskSchema.pre("save", async function (next) {
 
   // Validate status is NOT "To Do"
   if (this.status === TASK_STATUS.TO_DO) {
-    const error = new Error(
-      'RoutineTask status cannot be "To Do". Must be In Progress, Completed, or Pending'
+    return next(
+      CustomError.validation(
+        'RoutineTask status cannot be "To Do". Must be In Progress, Completed, or Pending'
+      )
     );
-    error.name = "ValidationError";
-    return next(error);
   }
 
   // Validate priority is NOT "Low"
   if (this.priority === TASK_PRIORITY.LOW) {
-    const error = new Error(
-      'RoutineTask priority cannot be "Low". Must be Medium, High, or Urgent'
+    return next(
+      CustomError.validation(
+        'RoutineTask priority cannot be "Low". Must be Medium, High, or Urgent'
+      )
     );
-    error.name = "ValidationError";
-    return next(error);
   }
 
   // Validate dueDate is after startDate
   if (this.startDate && this.dueDate && this.dueDate <= this.startDate) {
-    const error = new Error("Due date must be after start date");
-    error.name = "ValidationError";
-    return next(error);
+    return next(CustomError.validation("Due date must be after start date"));
   }
 
-  // Validate startDate is not in future
-  if (this.isModified("startDate") && this.startDate) {
-    const now = new Date();
-    if (this.startDate > now) {
-      const error = new Error("Start date cannot be in the future");
-      error.name = "ValidationError";
-      return next(error);
-    }
-  }
-
-  // Validate dueDate is not in future
-  if (this.isModified("dueDate") && this.dueDate) {
-    const now = new Date();
-    if (this.dueDate > now) {
-      const error = new Error("Due date cannot be in the future");
-      error.name = "ValidationError";
-      return next(error);
-    }
-  }
+  // NOTE: Removed future date checks as they are not explicitly required and may block scheduling.
 
   // Validate materials exist and are not deleted
   if (
@@ -109,19 +90,17 @@ routineTaskSchema.pre("save", async function (next) {
 
     // Check all materials exist
     if (materials.length !== materialIds.length) {
-      const error = new Error("One or more materials not found");
-      error.name = "ValidationError";
-      return next(error);
+      return next(CustomError.validation("One or more materials not found"));
     }
 
     // Check no materials are deleted
     for (const material of materials) {
       if (material.isDeleted) {
-        const error = new Error(
-          `Material ${material.name} is deleted and cannot be used`
+        return next(
+          CustomError.validation(
+            `Material ${material.name} is deleted and cannot be used`
+          )
         );
-        error.name = "ValidationError";
-        return next(error);
       }
     }
   }
@@ -134,5 +113,48 @@ const RoutineTask = BaseTask.discriminator(
   TASK_TYPES.ROUTINE_TASK,
   routineTaskSchema
 );
+
+// Strict Restore Mode: Validate Critical Dependencies
+RoutineTask.validateCriticalDependencies = async function (
+  doc,
+  { session } = {}
+) {
+  if (doc.materials && doc.materials.length > 0) {
+    const Material = mongoose.model("Material");
+    const materialIds = doc.materials.map((m) => m.material);
+    const materials = await Material.find({ _id: { $in: materialIds } })
+      .withDeleted()
+      .session(session);
+
+    for (const material of materials) {
+      if (material.isDeleted) {
+        throw CustomError.validation(
+          `Cannot restore routine task: Material "${material.name}" is deleted. Restore the material first.`,
+          "RESTORE_BLOCKED_DEPENDENCY_DELETED"
+        );
+      }
+    }
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+RoutineTask.repairOnRestore = async function (doc, { session } = {}) {
+  if (doc.materials && doc.materials.length > 0) {
+    const Material = mongoose.model("Material");
+    const materialIds = doc.materials.map((m) => m.material);
+    const validMaterials = await Material.find({
+      _id: { $in: materialIds },
+      isDeleted: false,
+    })
+      .session(session)
+      .select("_id")
+      .lean();
+
+    const validMaterialIds = validMaterials.map((m) => m._id.toString());
+    doc.materials = doc.materials.filter((m) =>
+      validMaterialIds.includes(m.material.toString())
+    );
+  }
+};
 
 export default RoutineTask;

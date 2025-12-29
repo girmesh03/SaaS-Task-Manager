@@ -1,5 +1,6 @@
 import cookie from "cookie";
 import { verifyAccessToken } from "../utils/generateTokens.js";
+import CustomError from "../errorHandler/CustomError.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -13,14 +14,14 @@ export const socketAuthMiddleware = async (socket, next) => {
     const cookies = socket.handshake.headers.cookie;
 
     if (!cookies) {
-      return next(new Error("Authentication error: No cookies found"));
+      return next(CustomError.authentication("No cookies found"));
     }
 
     const parsedCookies = cookie.parse(cookies);
     const token = parsedCookies.access_token;
 
     if (!token) {
-      return next(new Error("Authentication error: Access token not found"));
+      return next(CustomError.authentication("Access token not found"));
     }
 
     // Verify token
@@ -32,24 +33,24 @@ export const socketAuthMiddleware = async (socket, next) => {
     // Get user with organization and department
     const user = await User.findById(decoded.userId)
       .populate("organization", "_id name isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
     if (!user) {
-      return next(new Error("Authentication error: User not found"));
+      return next(CustomError.authentication("User not found"));
     }
 
     if (user.isDeleted) {
-      return next(new Error("Authentication error: User account deactivated"));
+      return next(CustomError.authentication("User account deactivated"));
     }
 
     if (!user.organization || user.organization.isDeleted) {
-      return next(new Error("Authentication error: Organization deactivated"));
+      return next(CustomError.authentication("Organization deactivated"));
     }
 
     if (!user.department || user.department.isDeleted) {
-      return next(new Error("Authentication error: Department deactivated"));
+      return next(CustomError.authentication("Department deactivated"));
     }
 
     // Attach user to handshake auth
@@ -58,7 +59,13 @@ export const socketAuthMiddleware = async (socket, next) => {
     next();
   } catch (error) {
     logger.error(`Socket auth failed: ${error.message}`);
-    next(new Error("Authentication error: Invalid token"));
+    if (error.name === "JsonWebTokenError") {
+      return next(CustomError.authentication("Invalid token"));
+    }
+    if (error.name === "TokenExpiredError") {
+      return next(CustomError.authentication("Token expired"));
+    }
+    next(CustomError.authentication("Authentication failed"));
   }
 };
 

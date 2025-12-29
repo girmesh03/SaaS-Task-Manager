@@ -27,12 +27,12 @@ logger.info(`Current UTC time: ${dayjs().utc().format()}`);
 
 const app = express();
 
-// Security middleware (MUST be in this order)
+// Security middleware (MUST be in this order as per requirements)
 app.use(helmet()); // Security headers
-app.use(cors(corsOptions)); // CORS with validation
-app.use(cookieParser()); // Parse cookies
 app.use(express.json({ limit: "10mb" })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded bodies
+app.use(cookieParser()); // Parse cookies
+app.use(cors(corsOptions)); // CORS with validation
 app.use(mongoSanitize()); // Prevent NoSQL injection
 app.use(compression()); // Compress responses
 

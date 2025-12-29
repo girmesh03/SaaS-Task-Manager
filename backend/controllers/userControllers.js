@@ -37,7 +37,7 @@ export const getUsers = asyncHandler(async (req, res) => {
     role,
     department,
     deleted = "false", // Show only active users by default
-  } = req.query;
+  } = req.validated.query;
 
   // Build filter query
   const filter = {
@@ -80,8 +80,8 @@ export const getUsers = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "organization", select: "name" },
-      { path: "department", select: "name" },
+      { path: "organization", select: "name isPlatformOrg isDeleted" },
+      { path: "department", select: "name isDeleted hod" },
     ],
     select: "-password -passwordResetToken -passwordResetExpires",
   };
@@ -104,16 +104,16 @@ export const getUsers = asyncHandler(async (req, res) => {
  * Protected route (authorize User read)
  */
 export const getUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.validated.params;
 
   const user = await User.findById(userId)
-    .populate("organization", "name email")
-    .populate("department", "name")
+    .populate("organization", "_id name email isPlatformOrg isDeleted")
+    .populate("department", "_id name isDeleted hod")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
   if (!user) {
-    throw CustomError.notFound("User not found");
+    throw CustomError.notFound("User", userId);
   }
 
   // Organization scoping
@@ -149,7 +149,7 @@ export const createUser = asyncHandler(async (req, res) => {
       joinedAt,
       skills,
       profilePicture,
-    } = req.body;
+    } = req.validated.body;
 
     // Create user (organization is automatically set from req.user)
     const userData = {
@@ -175,8 +175,8 @@ export const createUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user for email
     const populatedUserForEmail = await User.findById(user._id)
-      .populate("organization", "name")
-      .populate("department", "name")
+      .populate("organization", "_id name isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .lean();
 
     // Send welcome email AFTER commit
@@ -204,8 +204,8 @@ export const createUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "name email")
-      .populate("department", "name")
+      .populate("organization", "_id name email isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -235,13 +235,13 @@ export const updateUser = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { userId } = req.params;
-    const updates = req.body;
+    const { userId } = req.validated.params;
+    const updates = req.validated.body;
 
     const user = await User.findById(userId).session(session);
 
     if (!user) {
-      throw CustomError.notFound("User not found");
+      throw CustomError.notFound("User", userId);
     }
 
     // Organization scoping
@@ -283,8 +283,8 @@ export const updateUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "name email")
-      .populate("department", "name")
+      .populate("organization", "_id name email isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -314,7 +314,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { userId } = req.params;
+    const { userId } = req.validated.params;
 
     // Verify user is updating their own profile
     if (userId !== req.user._id.toString()) {
@@ -324,7 +324,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(userId).session(session);
 
     if (!user) {
-      throw CustomError.notFound("User not found");
+      throw CustomError.notFound("User", userId);
     }
 
     // Allowed fields for profile update
@@ -340,9 +340,9 @@ export const updateProfile = asyncHandler(async (req, res) => {
     ];
 
     // Apply updates only for allowed fields
-    Object.keys(req.body).forEach((key) => {
+    Object.keys(req.validated.body).forEach((key) => {
       if (allowedFields.includes(key)) {
-        user[key] = req.body[key];
+        user[key] = req.validated.body[key];
       }
     });
 
@@ -360,8 +360,8 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "name email")
-      .populate("department", "name")
+      .populate("organization", "_id name email isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -381,7 +381,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
  * Protected route (authorize User read own)
  */
 export const getAccount = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.validated.params;
 
   // Verify user is accessing their own account
   if (userId !== req.user._id.toString()) {
@@ -389,13 +389,13 @@ export const getAccount = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findById(userId)
-    .populate("organization", "name email phone address industry logoUrl")
-    .populate("department", "name description")
+    .populate("organization", "_id name email phone address industry logoUrl isPlatformOrg isDeleted")
+    .populate("department", "_id name description isDeleted hod")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
   if (!user) {
-    throw CustomError.notFound("User not found");
+    throw CustomError.notFound("User", userId);
   }
 
   okResponse(res, "Account information retrieved successfully", user);
@@ -407,7 +407,7 @@ export const getAccount = asyncHandler(async (req, res) => {
  * Protected route (authorize User read own)
  */
 export const getProfile = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.validated.params;
 
   // Verify user is accessing their own profile
   if (userId !== req.user._id.toString()) {
@@ -415,13 +415,13 @@ export const getProfile = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findById(userId)
-    .populate("organization", "name")
-    .populate("department", "name")
+    .populate("organization", "_id name isPlatformOrg isDeleted")
+    .populate("department", "_id name isDeleted hod")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
   if (!user) {
-    throw CustomError.notFound("User not found");
+    throw CustomError.notFound("User", userId);
   }
 
   // Get dashboard stats
@@ -461,14 +461,14 @@ export const deleteUser = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { userId } = req.params;
+    const { userId } = req.validated.params;
 
     const user = await User.findById(userId)
       .withDeleted()
       .session(session);
 
     if (!user) {
-      throw CustomError.notFound("User not found");
+      throw CustomError.notFound("User", userId);
     }
 
     // Organization scoping
@@ -506,9 +506,11 @@ export const deleteUser = asyncHandler(async (req, res) => {
     }).session(session);
 
     if (department) {
-      // Nullify department.hod
+      // Nullify department.hod and user.isHod
       department.hod = null;
       await department.save({ session });
+      user.isHod = false;
+      // We don't save user here yet because softDelete will save it later
 
       // Emit HOD pruned event
       emitToRooms(
@@ -522,11 +524,8 @@ export const deleteUser = asyncHandler(async (req, res) => {
       );
     }
 
-    // Soft delete user
+    // Soft delete user (idempotent - plugin handles this and automatic cascade)
     await user.softDelete(req.user._id, { session });
-
-    // Cascade delete: Remove from weak refs and cascade to created resources
-    await User.cascadeDelete(user._id, req.user._id, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -567,14 +566,14 @@ export const restoreUser = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { userId } = req.params;
+    const { userId } = req.validated.params;
 
     const user = await User.findById(userId)
       .withDeleted()
       .session(session);
 
     if (!user) {
-      throw CustomError.notFound("User not found");
+      throw CustomError.notFound("User", userId);
     }
 
     // Organization scoping
@@ -592,29 +591,7 @@ export const restoreUser = asyncHandler(async (req, res) => {
       return okResponse(res, "User is already active", { userId: user._id });
     }
 
-    // Strict parent check: organization must be active
-    const organization = await Organization.findById(user.organization)
-      .withDeleted()
-      .session(session);
-
-    if (!organization || organization.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore user. Parent organization is deleted or missing."
-      );
-    }
-
-    // Strict parent check: department must be active
-    const department = await Department.findById(user.department)
-      .withDeleted()
-      .session(session);
-
-    if (!department || department.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore user. Parent department is deleted or missing."
-      );
-    }
-
-    // Restore user
+    // Restore user (idempotent - plugin handles this, including hooks for parent checks/repairs)
     await user.restore(req.user._id, { session });
 
     // Commit transaction
@@ -636,8 +613,8 @@ export const restoreUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "name email")
-      .populate("department", "name")
+      .populate("organization", "_id name email isPlatformOrg isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 

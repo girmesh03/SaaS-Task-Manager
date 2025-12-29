@@ -20,7 +20,8 @@ export const createVendorValidator = [
     .notEmpty()
     .withMessage("Vendor name is required")
     .isLength({ max: LIMITS.NAME_MAX })
-    .withMessage(`Vendor name cannot exceed ${LIMITS.NAME_MAX} characters`),
+    .withMessage(`Vendor name cannot exceed ${LIMITS.NAME_MAX} characters`)
+    .escape(),
 
   body("description")
     .optional()
@@ -28,7 +29,8 @@ export const createVendorValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("contactPerson")
     .optional()
@@ -36,7 +38,8 @@ export const createVendorValidator = [
     .isLength({ max: LIMITS.CONTACT_PERSON_MAX })
     .withMessage(
       `Contact person cannot exceed ${LIMITS.CONTACT_PERSON_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("email")
     .optional()
@@ -57,7 +60,8 @@ export const createVendorValidator = [
     .optional()
     .trim()
     .isLength({ max: LIMITS.ADDRESS_MAX })
-    .withMessage(`Address cannot exceed ${LIMITS.ADDRESS_MAX} characters`),
+    .withMessage(`Address cannot exceed ${LIMITS.ADDRESS_MAX} characters`)
+    .escape(),
 
   handleValidationErrors,
 ];
@@ -73,7 +77,8 @@ export const updateVendorValidator = [
     .notEmpty()
     .withMessage("Vendor name cannot be empty")
     .isLength({ max: LIMITS.NAME_MAX })
-    .withMessage(`Vendor name cannot exceed ${LIMITS.NAME_MAX} characters`),
+    .withMessage(`Vendor name cannot exceed ${LIMITS.NAME_MAX} characters`)
+    .escape(),
 
   body("description")
     .optional()
@@ -81,7 +86,8 @@ export const updateVendorValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("contactPerson")
     .optional()
@@ -89,7 +95,8 @@ export const updateVendorValidator = [
     .isLength({ max: LIMITS.CONTACT_PERSON_MAX })
     .withMessage(
       `Contact person cannot exceed ${LIMITS.CONTACT_PERSON_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("email")
     .optional()
@@ -110,7 +117,8 @@ export const updateVendorValidator = [
     .optional()
     .trim()
     .isLength({ max: LIMITS.ADDRESS_MAX })
-    .withMessage(`Address cannot exceed ${LIMITS.ADDRESS_MAX} characters`),
+    .withMessage(`Address cannot exceed ${LIMITS.ADDRESS_MAX} characters`)
+    .escape(),
 
   handleValidationErrors,
 ];
@@ -120,7 +128,7 @@ export const updateVendorValidator = [
  * Validates MongoDB ObjectId
  */
 export const vendorIdValidator = [
-  param("resourceId")
+  param("vendorId")
     .trim()
     .notEmpty()
     .withMessage("Vendor ID is required")
@@ -128,6 +136,24 @@ export const vendorIdValidator = [
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid vendor ID");
       }
+      return true;
+    })
+    .custom(async (value, { req }) => {
+      const { default: Vendor } = await import("../../models/Vendor.js");
+      const organizationId = req.user.organization._id;
+
+      const vendor = await Vendor.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+
+      if (vendor.organization.toString() !== organizationId.toString()) {
+        throw new Error("Vendor belongs to another organization");
+      }
+
       return true;
     }),
 

@@ -3,6 +3,7 @@ import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import { TTL, ATTACHMENT_TYPES, FILE_SIZE_LIMITS } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const attachmentSchema = new mongoose.Schema(
   {
@@ -41,7 +42,7 @@ const attachmentSchema = new mongoose.Schema(
       type: String,
       required: [true, "Parent model is required"],
       enum: {
-        values: ["Task", "TaskActivity", "TaskComment"],
+        values: ["BaseTask", "TaskActivity", "TaskComment"],
         message: "{VALUE} is not a valid parent model",
       },
     },
@@ -104,7 +105,7 @@ attachmentSchema.pre("save", function (next) {
 
   if (this.fileSize > maxSize) {
     return next(
-      new Error(
+      CustomError.validation(
         `File size exceeds maximum allowed for ${this.fileType} (${maxSize} bytes)`
       )
     );
@@ -113,6 +114,24 @@ attachmentSchema.pre("save", function (next) {
   convertDatesToUTC(this, []);
   next();
 });
+
+// Strict Restore Mode: Check parent integrity
+attachmentSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const ParentModel = mongoose.model(doc.parentModel);
+  const parent = await ParentModel.findById(doc.parent)
+    .withDeleted()
+    .session(session);
+
+  if (!parent || parent.isDeleted) {
+    throw CustomError.validation(
+      `Cannot restore attachment because its parent ${doc.parentModel} is deleted. Restore the parent first.`,
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
 
 // Apply plugins
 attachmentSchema.plugin(mongoosePaginate);

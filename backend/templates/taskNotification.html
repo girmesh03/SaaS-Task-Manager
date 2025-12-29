@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #1a1a1a; background-color: #f4f7f9; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
+    .header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: #ffffff; padding: 30px; text-align: center; }
+    .content { padding: 40px 30px; }
+    .footer { background-color: #fafbfc; padding: 20px; text-align: center; font-size: 13px; color: #6c757d; border-top: 1px solid #edf2f7; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #007bff; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 25px 0; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .priority-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Task Notification</h1>
+    </div>
+    <div class="content">
+      <h2>Hello {{firstName}},</h2>
+      <p>{{actionMessage}}</p>
+
+      <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #007bff;">
+        <p style="margin: 0; font-size: 18px; font-weight: 600; color: #007bff;">{{taskTitle}}</p>
+        <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">{{taskDescription}}</p>
+        <div style="margin-top: 15px;">
+          <span class="status-badge" style="background-color: #e2e8f0; color: #475569;">Status: {{status}}</span>
+          <span class="priority-badge" style="background-color: #fee2e2; color: #991b1b;">Priority: {{priority}}</span>
+        </div>
+        {{dueDateText}}
+      </div>
+
+      <div style="text-align: center;">
+        <a href="{{taskUrl}}" class="button">View Task Details</a>
+      </div>
+
+      <p>Best regards,<br>The Task Manager Team</p>
+    </div>
+    <div class="footer">
+      <p>&copy; {{year}} Task Manager Pro. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

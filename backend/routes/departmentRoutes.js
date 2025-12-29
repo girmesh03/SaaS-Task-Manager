@@ -33,12 +33,12 @@ const router = express.Router();
 router.get("/", verifyJWT, authorize("Department", "read"), getDepartments);
 
 /**
- * @route   GET /api/departments/:resourceId
+ * @route   GET /api/departments/:departmentId
  * @desc    Get single department by ID
  * @access  Protected (authorize Department read)
  */
 router.get(
-  "/:resourceId",
+  "/:departmentId",
   verifyJWT,
   departmentIdValidator,
   authorize("Department", "read"),
@@ -59,12 +59,12 @@ router.post(
 );
 
 /**
- * @route   PUT /api/departments/:resourceId
+ * @route   PUT /api/departments/:departmentId
  * @desc    Update department
  * @access  Protected (authorize Department update)
  */
 router.put(
-  "/:resourceId",
+  "/:departmentId",
   verifyJWT,
   departmentIdValidator,
   updateDepartmentValidator,
@@ -73,12 +73,12 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/departments/:resourceId
+ * @route   DELETE /api/departments/:departmentId
  * @desc    Soft delete department with cascade
  * @access  Protected (authorize Department delete)
  */
 router.delete(
-  "/:resourceId",
+  "/:departmentId",
   verifyJWT,
   departmentIdValidator,
   authorize("Department", "delete"),
@@ -86,12 +86,12 @@ router.delete(
 );
 
 /**
- * @route   PATCH /api/departments/:resourceId/restore
+ * @route   PATCH /api/departments/:departmentId/restore
  * @desc    Restore soft-deleted department
  * @access  Protected (authorize Department update for restore)
  */
 router.patch(
-  "/:resourceId/restore",
+  "/:departmentId/restore",
   verifyJWT,
   departmentIdValidator,
   authorize("Department", "update"),

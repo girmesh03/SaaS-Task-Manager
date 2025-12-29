@@ -52,7 +52,7 @@ export const getAttachments = asyncHandler(async (req, res) => {
     parent,
     parentModel,
     deleted = "false",
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
   if (parent) filter.parent = parent;
@@ -89,13 +89,13 @@ export const getAttachments = asyncHandler(async (req, res) => {
 });
 
 export const getAttachment = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { attachmentId } = req.validated.params;
 
-  const attachment = await Attachment.findById(resourceId)
+  const attachment = await Attachment.findById(attachmentId)
     .populate("uploadedBy", "firstName lastName")
     .lean();
 
-  if (!attachment) throw CustomError.notFound("Attachment not found");
+  if (!attachment) throw CustomError.notFound("Attachment", attachmentId);
 
   if (
     attachment.organization.toString() !== req.user.organization._id.toString()
@@ -114,22 +114,22 @@ export const createAttachment = asyncHandler(async (req, res) => {
 
   try {
     const { filename, fileUrl, fileType, fileSize, parent, parentModel } =
-      req.body;
+      req.validated.body;
 
     // Resolve Department from Parent for scoping
     let departmentId = null;
 
     if (parentModel === "BaseTask") {
       const p = await BaseTask.findById(parent).session(session);
-      if (!p) throw new Error("Parent task not found");
+      if (!p) throw CustomError.notFound("BaseTask", parent);
       departmentId = p.department;
     } else if (parentModel === "TaskActivity") {
       const p = await TaskActivity.findById(parent).session(session);
-      if (!p) throw new Error("Parent activity not found");
+      if (!p) throw CustomError.notFound("TaskActivity", parent);
       departmentId = p.department;
     } else if (parentModel === "TaskComment") {
       const p = await TaskComment.findById(parent).session(session);
-      if (!p) throw new Error("Parent comment not found");
+      if (!p) throw CustomError.notFound("TaskComment", parent);
       departmentId = p.department;
     }
 
@@ -188,13 +188,13 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { attachmentId } = req.validated.params;
 
-    const attachment = await Attachment.findById(resourceId)
+    const attachment = await Attachment.findById(attachmentId)
       .withDeleted()
       .session(session);
     if (!attachment) {
-      throw CustomError.notFound("Attachment not found");
+      throw CustomError.notFound("Attachment", attachmentId);
     }
 
     if (
@@ -212,7 +212,7 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
       });
     }
 
-    // Soft delete
+    // Soft delete attachment (idempotent - plugin handles this and automatic cascade)
     await attachment.softDelete(req.user._id, { session });
 
     // Deleting an attachment usually means removing it from Cloudinary too,
@@ -262,13 +262,13 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { attachmentId } = req.validated.params;
 
-    const attachment = await Attachment.findById(resourceId)
+    const attachment = await Attachment.findById(attachmentId)
       .withDeleted()
       .session(session);
     if (!attachment) {
-      throw CustomError.notFound("Attachment not found");
+      throw CustomError.notFound("Attachment", attachmentId);
     }
 
     if (
@@ -286,23 +286,7 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check Parent Existence
-    let ParentModel;
-    if (attachment.parentModel === "BaseTask") ParentModel = BaseTask;
-    else if (attachment.parentModel === "TaskActivity")
-      ParentModel = TaskActivity;
-    else if (attachment.parentModel === "TaskComment")
-      ParentModel = TaskComment;
-
-    const parent = await ParentModel.findById(attachment.parent)
-      .withDeleted()
-      .session(session);
-    if (!parent || parent.isDeleted) {
-      throw CustomError.validation(
-        `Cannot restore attachment. Parent ${attachment.parentModel} is deleted or missing.`
-      );
-    }
-
+    // Restore attachment (idempotent - plugin handles this, including hooks for parent checks)
     await attachment.restore(req.user._id, { session });
 
     const taskId = await resolveTaskId(

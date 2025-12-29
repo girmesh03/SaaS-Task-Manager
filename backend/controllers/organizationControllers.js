@@ -40,7 +40,7 @@ export const getOrganizations = asyncHandler(async (req, res) => {
     search,
     industry,
     deleted,
-  } = req.query;
+  } = req.validated.query;
 
   // Build query
   let query = {};
@@ -122,15 +122,15 @@ export const getOrganizations = asyncHandler(async (req, res) => {
 export const getOrganization = asyncHandler(async (req, res) => {
   const user = req.user;
   const allowedScopes = req.allowedScopes;
-  const { resourceId } = req.params;
+  const { organizationId } = req.validated.params;
 
   // Find organization (use withDeleted to allow viewing soft-deleted orgs)
-  const organization = await Organization.findById(resourceId)
+  const organization = await Organization.findById(organizationId)
     .withDeleted()
     .lean();
 
   if (!organization) {
-    throw CustomError.notFound("Organization not found");
+      throw CustomError.notFound("Organization", organizationId);
   }
 
   // Check access based on scope
@@ -165,16 +165,16 @@ export const updateOrganization = asyncHandler(async (req, res) => {
   try {
     const user = req.user;
     const allowedScopes = req.allowedScopes;
-    const { resourceId } = req.params;
+    const { organizationId } = req.validated.params;
     const updateData = req.validated.body;
 
     // Find organization
-    const organization = await Organization.findById(resourceId).session(
+    const organization = await Organization.findById(organizationId).session(
       session
     );
 
     if (!organization) {
-      throw CustomError.notFound("Organization not found");
+        throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if organization is soft-deleted
@@ -253,15 +253,15 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
   try {
     const user = req.user;
     const allowedScopes = req.allowedScopes;
-    const { resourceId } = req.params;
+    const { organizationId } = req.validated.params;
 
     // Find organization
-    const organization = await Organization.findById(resourceId).session(
+    const organization = await Organization.findById(organizationId).session(
       session
     );
 
     if (!organization) {
-      throw CustomError.notFound("Organization not found");
+        throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if already deleted (idempotent per docs/softDelete-doc.md)
@@ -289,11 +289,8 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
       }
     }
 
-    // Soft delete organization (idempotent - plugin handles this)
+    // Soft delete organization (idempotent - plugin handles this and automatic cascade)
     await organization.softDelete(user._id, { session });
-
-    // Cascade delete to all children
-    await Organization.cascadeDelete(organization._id, user._id, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -341,15 +338,15 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
   try {
     const user = req.user;
     const allowedScopes = req.allowedScopes;
-    const { resourceId } = req.params;
+    const { organizationId } = req.validated.params;
 
     // Find organization (including soft-deleted)
-    const organization = await Organization.findById(resourceId)
+    const organization = await Organization.findById(organizationId)
       .withDeleted()
       .session(session);
 
     if (!organization) {
-      throw CustomError.notFound("Organization not found");
+        throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if not deleted

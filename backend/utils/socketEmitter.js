@@ -33,8 +33,8 @@ export const emitToRooms = (event, data, rooms) => {
  */
 export const emitTaskEvent = (event, task) => {
   const rooms = [
-    `department:${task.department}`,
-    `organization:${task.organization}`,
+    `department:${task.department?._id || task.department}`,
+    `organization:${task.organization?._id || task.organization}`,
   ];
   emitToRooms(event, task, rooms);
 };
@@ -46,8 +46,8 @@ export const emitTaskEvent = (event, task) => {
  */
 export const emitActivityEvent = (event, activity) => {
   const rooms = [
-    `department:${activity.department}`,
-    `organization:${activity.organization}`,
+    `department:${activity.department?._id || activity.department}`,
+    `organization:${activity.organization?._id || activity.organization}`,
   ];
   emitToRooms(event, activity, rooms);
 };
@@ -59,8 +59,8 @@ export const emitActivityEvent = (event, activity) => {
  */
 export const emitCommentEvent = (event, comment) => {
   const rooms = [
-    `department:${comment.department}`,
-    `organization:${comment.organization}`,
+    `department:${comment.department?._id || comment.department}`,
+    `organization:${comment.organization?._id || comment.organization}`,
   ];
   emitToRooms(event, comment, rooms);
 };
@@ -71,7 +71,7 @@ export const emitCommentEvent = (event, comment) => {
  * @param {object} notification - Notification object
  */
 export const emitNotificationEvent = (event, notification) => {
-  const rooms = [`user:${notification.recipient}`];
+  const rooms = [`user:${notification.recipient?._id || notification.recipient}`];
   emitToRooms(event, notification, rooms);
 };
 

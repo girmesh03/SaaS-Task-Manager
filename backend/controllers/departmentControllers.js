@@ -38,7 +38,7 @@ export const getDepartments = asyncHandler(async (req, res) => {
     sortOrder = PAGINATION.DEFAULT_SORT_ORDER,
     search,
     deleted,
-  } = req.query;
+  } = req.validated.query;
 
   // Build query
   let query = {};
@@ -69,7 +69,7 @@ export const getDepartments = asyncHandler(async (req, res) => {
     limit: Math.min(parseInt(limit, 10), PAGINATION.MAX_LIMIT),
     sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
     populate: [
-      { path: "organization", select: "name email" },
+      { path: "organization", select: "name email isPlatformOrg isDeleted" },
       { path: "hod", select: "firstName lastName email role" },
       { path: "createdBy", select: "firstName lastName email" },
     ],
@@ -116,18 +116,18 @@ export const getDepartments = asyncHandler(async (req, res) => {
  */
 export const getDepartment = asyncHandler(async (req, res) => {
   const user = req.user;
-  const { resourceId } = req.params;
+  const { departmentId } = req.validated.params;
 
   // Find department (use withDeleted to allow viewing soft-deleted departments)
-  const department = await Department.findById(resourceId)
+  const department = await Department.findById(departmentId)
     .withDeleted()
-    .populate("organization", "name email")
+    .populate("organization", "name email isPlatformOrg isDeleted")
     .populate("hod", "firstName lastName email role")
     .populate("createdBy", "firstName lastName email")
     .lean();
 
   if (!department) {
-    throw CustomError.notFound("Department not found");
+      throw CustomError.notFound("Department", departmentId);
   }
 
   // Check organization access
@@ -175,13 +175,18 @@ export const createDepartment = asyncHandler(async (req, res) => {
       { session }
     );
 
+    // Update User.isHod if HOD provided
+    if (hod) {
+      await User.findByIdAndUpdate(hod, { isHod: true }).session(session);
+    }
+
     // Commit transaction
     await session.commitTransaction();
     session.endSession();
 
     // Populate references for response
     await department.populate([
-      { path: "organization", select: "name email" },
+      { path: "organization", select: "name email isPlatformOrg isDeleted" },
       { path: "hod", select: "firstName lastName email role" },
       { path: "createdBy", select: "firstName lastName email" },
     ]);
@@ -226,14 +231,14 @@ export const updateDepartment = asyncHandler(async (req, res) => {
 
   try {
     const user = req.user;
-    const { resourceId } = req.params;
+    const { departmentId } = req.validated.params;
     const updateData = req.validated.body;
 
     // Find department
-    const department = await Department.findById(resourceId).session(session);
+    const department = await Department.findById(departmentId).session(session);
 
     if (!department) {
-      throw CustomError.notFound("Department not found");
+        throw CustomError.notFound("Department", departmentId);
     }
 
     // Check if department is soft-deleted
@@ -252,6 +257,19 @@ export const updateDepartment = asyncHandler(async (req, res) => {
       );
     }
 
+    // Handle HOD change synchronization
+    if (updateData.hod !== undefined && updateData.hod !== (department.hod ? department.hod.toString() : null)) {
+      // 1. Reset old HOD if exists
+      if (department.hod) {
+        await User.findByIdAndUpdate(department.hod, { isHod: false }).session(session);
+      }
+
+      // 2. Set new HOD if provided
+      if (updateData.hod) {
+        await User.findByIdAndUpdate(updateData.hod, { isHod: true }).session(session);
+      }
+    }
+
     // Update fields
     Object.keys(updateData).forEach((key) => {
       department[key] = updateData[key];
@@ -265,7 +283,7 @@ export const updateDepartment = asyncHandler(async (req, res) => {
 
     // Populate references for response
     await department.populate([
-      { path: "organization", select: "name email" },
+      { path: "organization", select: "name email isPlatformOrg isDeleted" },
       { path: "hod", select: "firstName lastName email role" },
       { path: "createdBy", select: "firstName lastName email" },
     ]);
@@ -310,13 +328,13 @@ export const deleteDepartment = asyncHandler(async (req, res) => {
 
   try {
     const user = req.user;
-    const { resourceId } = req.params;
+    const { departmentId } = req.validated.params;
 
     // Find department
-    const department = await Department.findById(resourceId).session(session);
+    const department = await Department.findById(departmentId).session(session);
 
     if (!department) {
-      throw CustomError.notFound("Department not found");
+        throw CustomError.notFound("Department", departmentId);
     }
 
     // Check if already deleted (idempotent per docs/softDelete-doc.md)
@@ -349,11 +367,8 @@ export const deleteDepartment = asyncHandler(async (req, res) => {
       }
     }
 
-    // Soft delete department (idempotent - plugin handles this)
+    // Soft delete department (idempotent - plugin handles this and automatic cascade)
     await department.softDelete(user._id, { session });
-
-    // Cascade delete to all children
-    await Department.cascadeDelete(department._id, user._id, { session });
 
     // Commit transaction
     await session.commitTransaction();
@@ -401,15 +416,15 @@ export const restoreDepartment = asyncHandler(async (req, res) => {
 
   try {
     const user = req.user;
-    const { resourceId } = req.params;
+    const { departmentId } = req.validated.params;
 
     // Find department (including soft-deleted)
-    const department = await Department.findById(resourceId)
+    const department = await Department.findById(departmentId)
       .withDeleted()
       .session(session);
 
     if (!department) {
-      throw CustomError.notFound("Department not found");
+        throw CustomError.notFound("Department", departmentId);
     }
 
     // Check if not deleted
@@ -426,48 +441,7 @@ export const restoreDepartment = asyncHandler(async (req, res) => {
       );
     }
 
-    // Strict parent check: organization must be active (per docs/softDelete-doc.md)
-    const organization = await Organization.findById(department.organization)
-      .withDeleted()
-      .session(session);
-
-    if (!organization) {
-      throw CustomError.validation(
-        "Cannot restore department: organization not found",
-        { errorCode: "RESTORE_BLOCKED_PARENT_DELETED" }
-      );
-    }
-
-    if (organization.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore department: organization is deleted",
-        { errorCode: "RESTORE_BLOCKED_PARENT_DELETED" }
-      );
-    }
-
-    // Non-blocking repair: If hod is invalid, set to null (per docs/softDelete-doc.md)
-    if (department.hod) {
-      const hod = await User.findById(department.hod)
-        .withDeleted()
-        .session(session);
-
-      if (
-        !hod ||
-        hod.isDeleted ||
-        hod.organization.toString() !== department.organization.toString() ||
-        !hod.isHod
-      ) {
-        department.hod = null;
-        logger.warn({
-          message: "Department HOD pruned during restore (invalid reference)",
-          departmentId: department._id,
-          hodId: department.hod,
-          event: "DEPT_HOD_PRUNED",
-        });
-      }
-    }
-
-    // Restore department
+    // Restore department (idempotent - plugin handles this, including hooks for parent checks/repairs)
     await department.restore(user._id, { session });
 
     // Commit transaction
@@ -476,7 +450,7 @@ export const restoreDepartment = asyncHandler(async (req, res) => {
 
     // Populate references for response
     await department.populate([
-      { path: "organization", select: "name email" },
+      { path: "organization", select: "name email isPlatformOrg isDeleted" },
       { path: "hod", select: "firstName lastName email role" },
       { path: "createdBy", select: "firstName lastName email" },
     ]);

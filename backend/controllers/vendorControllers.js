@@ -64,7 +64,7 @@ export const getVendors = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     search,
     deleted = "false", // Show only active vendors by default
-  } = req.query;
+  } = req.validated.query;
 
   // Build filter query (organization scoped, NOT department)
   const filter = {
@@ -97,7 +97,7 @@ export const getVendors = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "organization", select: "name" },
+      { path: "organization", select: "name isPlatformOrg isDeleted" },
       { path: "createdBy", select: "firstName lastName" },
     ],
   };
@@ -120,15 +120,15 @@ export const getVendors = asyncHandler(async (req, res) => {
  * Protected route (authorize Vendor read)
  */
 export const getVendor = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { vendorId } = req.validated.params;
 
-  const vendor = await Vendor.findById(resourceId)
-    .populate("organization", "name email")
+  const vendor = await Vendor.findById(vendorId)
+    .populate("organization", "name email isPlatformOrg isDeleted")
     .populate("createdBy", "firstName lastName")
     .lean();
 
   if (!vendor) {
-    throw CustomError.notFound("Vendor not found");
+    throw CustomError.notFound("Vendor", vendorId);
   }
 
   // Organization scoping
@@ -141,7 +141,7 @@ export const getVendor = asyncHandler(async (req, res) => {
   // Get linked ProjectTasks count
   const ProjectTask = mongoose.model("ProjectTask");
   const linkedTasksCount = await ProjectTask.countDocuments({
-    vendor: resourceId,
+    vendor: vendorId,
     isDeleted: false,
   });
 
@@ -164,7 +164,7 @@ export const createVendor = asyncHandler(async (req, res) => {
 
   try {
     const { name, description, contactPerson, email, phone, address } =
-      req.body;
+      req.validated.body;
 
     // Create vendor (organization is automatically set from req.user)
     const vendorData = {
@@ -195,7 +195,7 @@ export const createVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .lean();
 
@@ -225,13 +225,13 @@ export const updateVendor = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
-    const updates = req.body;
+    const { vendorId } = req.validated.params;
+    const updates = req.validated.body;
 
-    const vendor = await Vendor.findById(resourceId).session(session);
+    const vendor = await Vendor.findById(vendorId).session(session);
 
     if (!vendor) {
-      throw CustomError.notFound("Vendor not found");
+      throw CustomError.notFound("Vendor", vendorId);
     }
 
     // Organization scoping
@@ -268,7 +268,7 @@ export const updateVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .lean();
 
@@ -306,14 +306,14 @@ export const deleteVendor = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { vendorId } = req.validated.params;
 
-    const vendor = await Vendor.findById(resourceId)
+    const vendor = await Vendor.findById(vendorId)
       .withDeleted()
       .session(session);
 
     if (!vendor) {
-      throw CustomError.notFound("Vendor not found");
+      throw CustomError.notFound("Vendor", vendorId);
     }
 
     // Organization scoping
@@ -336,7 +336,7 @@ export const deleteVendor = asyncHandler(async (req, res) => {
     // Check for linked ProjectTasks
     const ProjectTask = mongoose.model("ProjectTask");
     const linkedTasks = await ProjectTask.find({
-      vendor: resourceId,
+      vendor: vendorId,
       isDeleted: false,
     })
       .session(session)
@@ -398,14 +398,14 @@ export const restoreVendor = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { vendorId } = req.validated.params;
 
-    const vendor = await Vendor.findById(resourceId)
+    const vendor = await Vendor.findById(vendorId)
       .withDeleted()
       .session(session);
 
     if (!vendor) {
-      throw CustomError.notFound("Vendor not found");
+      throw CustomError.notFound("Vendor", vendorId);
     }
 
     // Organization scoping
@@ -425,18 +425,7 @@ export const restoreVendor = asyncHandler(async (req, res) => {
       });
     }
 
-    // Strict parent check: organization must be active
-    const organization = await Organization.findById(vendor.organization)
-      .withDeleted()
-      .session(session);
-
-    if (!organization || organization.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore vendor. Parent organization is deleted or missing."
-      );
-    }
-
-    // Restore vendor
+    // Restore vendor (idempotent - plugin handles this, including hooks for parent checks)
     await vendor.restore(req.user._id, { session });
 
     // Commit transaction
@@ -454,7 +443,7 @@ export const restoreVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .lean();
 

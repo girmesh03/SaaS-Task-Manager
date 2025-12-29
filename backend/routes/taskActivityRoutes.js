@@ -18,10 +18,10 @@ import { authorize } from "../middlewares/authorization.js";
 const router = express.Router();
 
 router.get("/", verifyJWT, authorize("TaskActivity", "read"), getTaskActivities);
-router.get("/:resourceId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "read"), getTaskActivity);
+router.get("/:taskActivityId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "read"), getTaskActivity);
 router.post("/", verifyJWT, createTaskActivityValidator, authorize("TaskActivity", "create"), createTaskActivity);
-router.put("/:resourceId", verifyJWT, taskActivityIdValidator, updateTaskActivityValidator, authorize("TaskActivity", "update"), updateTaskActivity);
-router.delete("/:resourceId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "delete"), deleteTaskActivity);
-router.patch("/:resourceId/restore", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "update"), restoreTaskActivity);
+router.put("/:taskActivityId", verifyJWT, taskActivityIdValidator, updateTaskActivityValidator, authorize("TaskActivity", "update"), updateTaskActivity);
+router.delete("/:taskActivityId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "delete"), deleteTaskActivity);
+router.patch("/:taskActivityId/restore", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "update"), restoreTaskActivity);
 
 export default router;

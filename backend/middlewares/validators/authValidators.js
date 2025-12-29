@@ -1,6 +1,7 @@
 import { body } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
-import { USER_ROLES, LIMITS } from "../../utils/constants.js";
+import { USER_ROLES, LIMITS, PHONE_REGEX } from "../../utils/constants.js";
+import { isValidDate, isFutureDate } from "../../utils/dateUtils.js";
 
 /**
  * Authentication Validators
@@ -25,6 +26,7 @@ export const registerValidator = [
       `Organization name cannot exceed ${LIMITS.ORGANIZATION_NAME_MAX} characters`
     )
     .toLowerCase()
+    .escape()
     .custom(async (value) => {
       const { default: Organization } = await import(
         "../../models/Organization.js"
@@ -44,7 +46,8 @@ export const registerValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Organization description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("organization.email")
     .trim()
@@ -74,7 +77,7 @@ export const registerValidator = [
     .trim()
     .notEmpty()
     .withMessage("Organization phone is required")
-    .matches(/^(\+251\d{9}|0\d{9})$/)
+    .matches(PHONE_REGEX)
     .withMessage("Invalid phone format. Use +251XXXXXXXXX or 0XXXXXXXXX")
     .custom(async (value) => {
       const { default: Organization } = await import(
@@ -95,13 +98,25 @@ export const registerValidator = [
     .isLength({ max: LIMITS.ADDRESS_MAX })
     .withMessage(
       `Organization address cannot exceed ${LIMITS.ADDRESS_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("organization.industry")
     .optional()
     .trim()
     .isLength({ max: LIMITS.INDUSTRY_MAX })
-    .withMessage(`Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`),
+    .withMessage(`Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`)
+    .escape(),
+
+  body("organization.logo.url")
+    .optional()
+    .trim()
+    .isURL()
+    .withMessage("Invalid logo URL"),
+
+  body("organization.logo.publicId")
+    .optional()
+    .trim(),
 
   // Department fields
   body("department.name")
@@ -111,7 +126,8 @@ export const registerValidator = [
     .isLength({ max: LIMITS.DEPARTMENT_NAME_MAX })
     .withMessage(
       `Department name cannot exceed ${LIMITS.DEPARTMENT_NAME_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("department.description")
     .optional()
@@ -119,7 +135,8 @@ export const registerValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Department description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   // User fields
   body("user.firstName")
@@ -129,20 +146,23 @@ export const registerValidator = [
     .isLength({ max: LIMITS.FIRST_NAME_MAX })
     .withMessage(
       `First name cannot exceed ${LIMITS.FIRST_NAME_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("user.lastName")
     .trim()
     .notEmpty()
     .withMessage("Last name is required")
     .isLength({ max: LIMITS.LAST_NAME_MAX })
-    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`),
+    .withMessage(`Last name cannot exceed ${LIMITS.LAST_NAME_MAX} characters`)
+    .escape(),
 
   body("user.position")
     .optional()
     .trim()
     .isLength({ max: LIMITS.POSITION_MAX })
-    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`),
+    .withMessage(`Position cannot exceed ${LIMITS.POSITION_MAX} characters`)
+    .escape(),
 
   body("user.email")
     .trim()
@@ -159,7 +179,9 @@ export const registerValidator = [
     .notEmpty()
     .withMessage("Password is required")
     .isLength({ min: LIMITS.PASSWORD_MIN })
-    .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`),
+    .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`)
+    .isStrongPassword()
+    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
   body("user.employeeId")
     .trim()
@@ -170,26 +192,13 @@ export const registerValidator = [
 
   body("user.dateOfBirth")
     .optional()
-    .isISO8601()
-    .withMessage("Invalid date format")
-    .custom((value) => {
-      if (new Date(value) > new Date()) {
-        throw new Error("Date of birth cannot be in the future");
-      }
-      return true;
-    }),
+    .custom((value) => isValidDate(value)).withMessage("Invalid date of birth format")
+    .custom((value) => !isFutureDate(value)).withMessage("Date of birth cannot be in the future"),
 
   body("user.joinedAt")
-    .notEmpty()
-    .withMessage("Joined date is required")
-    .isISO8601()
-    .withMessage("Invalid date format")
-    .custom((value) => {
-      if (new Date(value) > new Date()) {
-        throw new Error("Joined date cannot be in the future");
-      }
-      return true;
-    }),
+    .notEmpty().withMessage("Joined date is required")
+    .custom((value) => isValidDate(value)).withMessage("Invalid joined date format")
+    .custom((value) => !isFutureDate(value)).withMessage("Joined date cannot be in the future"),
 
   handleValidationErrors,
 ];
@@ -240,7 +249,9 @@ export const resetPasswordValidator = [
     .notEmpty()
     .withMessage("Password is required")
     .isLength({ min: LIMITS.PASSWORD_MIN })
-    .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`),
+    .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`)
+    .isStrongPassword()
+    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
   handleValidationErrors,
 ];

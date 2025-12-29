@@ -8,6 +8,7 @@ import {
   MATERIAL_CATEGORIES,
   UNIT_TYPES,
 } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const materialSchema = new mongoose.Schema(
   {
@@ -86,6 +87,37 @@ materialSchema.pre("save", function (next) {
   convertDatesToUTC(this, []);
   next();
 });
+
+// Strict Restore Mode: Check parent integrity
+materialSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore material because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore material because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
 
 // Apply plugins
 materialSchema.plugin(mongoosePaginate);

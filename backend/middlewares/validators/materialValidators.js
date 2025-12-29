@@ -9,13 +9,15 @@ export const createMaterialValidator = [
     .notEmpty()
     .withMessage("Material name is required")
     .isLength({ max: LIMITS.NAME_MAX })
-    .withMessage(`Material name cannot exceed ${LIMITS.NAME_MAX} characters`),
+    .withMessage(`Material name cannot exceed ${LIMITS.NAME_MAX} characters`)
+    .escape(),
 
   body("description")
     .optional()
     .trim()
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
-    .withMessage(`Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`),
+    .withMessage(`Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`)
+    .escape(),
 
   body("category")
     .trim()
@@ -67,13 +69,15 @@ export const updateMaterialValidator = [
     .notEmpty()
     .withMessage("Material name cannot be empty")
     .isLength({ max: LIMITS.NAME_MAX })
-    .withMessage(`Material name cannot exceed ${LIMITS.NAME_MAX} characters`),
+    .withMessage(`Material name cannot exceed ${LIMITS.NAME_MAX} characters`)
+    .escape(),
 
   body("description")
     .optional()
     .trim()
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
-    .withMessage(`Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`),
+    .withMessage(`Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`)
+    .escape(),
 
   body("category")
     .optional()
@@ -118,7 +122,7 @@ export const updateMaterialValidator = [
 ];
 
 export const materialIdValidator = [
-  param("resourceId")
+  param("materialId")
     .trim()
     .notEmpty()
     .withMessage("Material ID is required")
@@ -126,6 +130,24 @@ export const materialIdValidator = [
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid material ID");
       }
+      return true;
+    })
+    .custom(async (value, { req }) => {
+      const { default: Material } = await import("../../models/Material.js");
+      const organizationId = req.user.organization._id;
+
+      const material = await Material.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!material) {
+        throw new Error("Material not found");
+      }
+
+      if (material.organization.toString() !== organizationId.toString()) {
+        throw new Error("Material belongs to another organization");
+      }
+
       return true;
     }),
 

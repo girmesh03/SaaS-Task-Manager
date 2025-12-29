@@ -31,12 +31,12 @@ const router = express.Router();
 router.get("/", verifyJWT, authorize("Organization", "read"), getOrganizations);
 
 /**
- * @route   GET /api/organizations/:resourceId
+ * @route   GET /api/organizations/:organizationId
  * @desc    Get single organization by ID
  * @access  Protected (authorize Organization read)
  */
 router.get(
-  "/:resourceId",
+  "/:organizationId",
   verifyJWT,
   organizationIdValidator,
   authorize("Organization", "read"),
@@ -44,12 +44,12 @@ router.get(
 );
 
 /**
- * @route   PUT /api/organizations/:resourceId
+ * @route   PUT /api/organizations/:organizationId
  * @desc    Update organization
  * @access  Protected (authorize Organization update)
  */
 router.put(
-  "/:resourceId",
+  "/:organizationId",
   verifyJWT,
   organizationIdValidator,
   updateOrganizationValidator,
@@ -58,12 +58,12 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/organizations/:resourceId
+ * @route   DELETE /api/organizations/:organizationId
  * @desc    Soft delete organization (prevent platform org deletion)
  * @access  Protected (authorize Organization delete)
  */
 router.delete(
-  "/:resourceId",
+  "/:organizationId",
   verifyJWT,
   organizationIdValidator,
   authorize("Organization", "delete"),
@@ -71,12 +71,12 @@ router.delete(
 );
 
 /**
- * @route   PATCH /api/organizations/:resourceId/restore
+ * @route   PATCH /api/organizations/:organizationId/restore
  * @desc    Restore soft-deleted organization
  * @access  Protected (authorize Organization update for restore)
  */
 router.patch(
-  "/:resourceId/restore",
+  "/:organizationId/restore",
   verifyJWT,
   organizationIdValidator,
   authorize("Organization", "update"),

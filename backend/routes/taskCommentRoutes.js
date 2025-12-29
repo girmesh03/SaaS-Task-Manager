@@ -18,10 +18,10 @@ import { authorize } from "../middlewares/authorization.js";
 const router = express.Router();
 
 router.get("/", verifyJWT, authorize("TaskComment", "read"), getTaskComments);
-router.get("/:resourceId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "read"), getTaskComment);
+router.get("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "read"), getTaskComment);
 router.post("/", verifyJWT, createTaskCommentValidator, authorize("TaskComment", "create"), createTaskComment);
-router.put("/:resourceId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);
-router.delete("/:resourceId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "delete"), deleteTaskComment);
-router.patch("/:resourceId/restore", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "update"), restoreTaskComment);
+router.put("/:taskCommentId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);
+router.delete("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "delete"), deleteTaskComment);
+router.patch("/:taskCommentId/restore", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "update"), restoreTaskComment);
 
 export default router;

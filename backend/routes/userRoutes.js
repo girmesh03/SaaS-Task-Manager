@@ -86,7 +86,7 @@ router.put(
   verifyJWT,
   userIdValidator,
   updateUserValidator,
-  authorize("User", "update", "own"),
+  authorize("User", "update"),
   updateProfile
 );
 
@@ -99,7 +99,7 @@ router.get(
   "/:userId/account",
   verifyJWT,
   userIdValidator,
-  authorize("User", "read", "own"),
+  authorize("User", "read"),
   getAccount
 );
 
@@ -112,7 +112,7 @@ router.get(
   "/:userId/profile",
   verifyJWT,
   userIdValidator,
-  authorize("User", "read", "own"),
+  authorize("User", "read"),
   getProfile
 );
 

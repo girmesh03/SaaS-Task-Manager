@@ -6,7 +6,8 @@ import mongoose from "mongoose";
 // Mime types validation is handled inside checks if needed, but currently verifying fileType enum.
 
 export const createAttachmentValidator = [
-  body("filename").trim().notEmpty().withMessage("Filename is required"),
+  body("filename").trim().notEmpty().withMessage("Filename is required")
+    .escape(),
 
   body("fileUrl").trim().notEmpty().withMessage("File URL is required")
     .isURL().withMessage("File URL must be a valid URL"),
@@ -63,7 +64,25 @@ export const createAttachmentValidator = [
 ];
 
 export const attachmentIdValidator = [
-  param("resourceId").trim().notEmpty().withMessage("Attachment ID is required")
-    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid attachment ID"); })()),
+  param("attachmentId").trim().notEmpty().withMessage("Attachment ID is required")
+    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid attachment ID"); })())
+    .custom(async (value, { req }) => {
+      const { default: Attachment } = await import("../../models/Attachment.js");
+      const organizationId = req.user.organization._id;
+
+      const attachment = await Attachment.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!attachment) {
+        throw new Error("Attachment not found");
+      }
+
+      if (attachment.organization.toString() !== organizationId.toString()) {
+        throw new Error("Attachment belongs to another organization");
+      }
+
+      return true;
+    }),
   handleValidationErrors,
 ];

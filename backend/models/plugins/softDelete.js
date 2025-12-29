@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import logger from "../../utils/logger.js";
+import CustomError from "../../errorHandler/CustomError.js";
 
 /**
  * Soft Delete Plugin for Mongoose
@@ -66,10 +67,21 @@ const softDeletePlugin = (schema, options = {}) => {
   schema.pre("countDocuments", excludeDeletedMiddleware);
   schema.pre("count", excludeDeletedMiddleware);
 
+  // Aggregate middleware
+  schema.pre("aggregate", function (next) {
+    if (!this.options || !this.options.withDeleted) {
+      this.pipeline().unshift({ $match: { isDeleted: false } });
+    }
+    next();
+  });
+
   // Instance method: soft delete
   schema.methods.softDelete = async function (deletedBy, { session } = {}) {
     if (this.isDeleted) {
-      // Already deleted, preserve original audit
+      // Already deleted, but requirement says: "Still traverse the subtree for already-deleted docs"
+      if (typeof this.constructor.cascadeDelete === "function") {
+        await this.constructor.cascadeDelete(this._id, deletedBy, { session });
+      }
       return this;
     }
 
@@ -79,7 +91,14 @@ const softDeletePlugin = (schema, options = {}) => {
     this.restoredAt = null;
     this.restoredBy = null;
 
-    return await this.save({ session });
+    const savedDoc = await this.save({ session });
+
+    // Automated cascade deletion
+    if (typeof this.constructor.cascadeDelete === "function") {
+      await this.constructor.cascadeDelete(this._id, deletedBy, { session });
+    }
+
+    return savedDoc;
   };
 
   // Instance method: restore
@@ -87,6 +106,21 @@ const softDeletePlugin = (schema, options = {}) => {
     if (!this.isDeleted) {
       // Not deleted, nothing to restore
       return this;
+    }
+
+    // Strict Parent Check
+    if (typeof this.constructor.strictParentCheck === "function") {
+      await this.constructor.strictParentCheck(this, { session });
+    }
+
+    // Validate Critical Dependencies
+    if (typeof this.constructor.validateCriticalDependencies === "function") {
+      await this.constructor.validateCriticalDependencies(this, { session });
+    }
+
+    // Repair Non-Blocking on Restore
+    if (typeof this.constructor.repairOnRestore === "function") {
+      await this.constructor.repairOnRestore(this, { session });
     }
 
     this.isDeleted = false;
@@ -106,7 +140,7 @@ const softDeletePlugin = (schema, options = {}) => {
   ) {
     const doc = await this.findById(id).session(session);
     if (!doc) {
-      throw new Error("Document not found");
+      throw CustomError.notFound(this.modelName, id);
     }
     return await doc.softDelete(deletedBy, { session });
   };
@@ -117,14 +151,14 @@ const softDeletePlugin = (schema, options = {}) => {
     deletedBy,
     { session } = {}
   ) {
-    const docs = await this.find(filter).session(session);
+    // using withDeleted() to catch nodes that might have active subtrees
+    // but the node itself is isDeleted (idempotent traverse)
+    const docs = await this.find(filter).withDeleted().session(session);
     const results = [];
 
     for (const doc of docs) {
-      if (!doc.isDeleted) {
-        await doc.softDelete(deletedBy, { session });
-        results.push(doc);
-      }
+      await doc.softDelete(deletedBy, { session });
+      results.push(doc);
     }
 
     return results;
@@ -138,7 +172,7 @@ const softDeletePlugin = (schema, options = {}) => {
   ) {
     const doc = await this.findById(id).withDeleted().session(session);
     if (!doc) {
-      throw new Error("Document not found");
+      throw CustomError.notFound(this.modelName, id);
     }
     return await doc.restore(restoredBy, { session });
   };
@@ -222,7 +256,7 @@ const softDeletePlugin = (schema, options = {}) => {
 
   // Hard delete protection
   const blockHardDelete = function () {
-    throw new Error(
+    throw CustomError.validation(
       "Hard delete operations are not allowed. Use soft delete instead."
     );
   };

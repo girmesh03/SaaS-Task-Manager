@@ -40,7 +40,7 @@ export const verifyJWT = async (req, res, next) => {
     // CRITICAL: Populate with _id, name, isPlatformOrg, and isDeleted
     const user = await User.findById(decoded.userId)
       .populate("organization", "_id name isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires");
 
     if (!user) {
@@ -118,7 +118,7 @@ export const verifyRefreshTokenMiddleware = async (req, res, next) => {
     // CRITICAL: Populate with _id, name, isPlatformOrg, and isDeleted
     const user = await User.findById(decoded.userId)
       .populate("organization", "_id name isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted")
+      .populate("department", "_id name isDeleted hod")
       .select("-password -passwordResetToken -passwordResetExpires");
 
     if (!user) {

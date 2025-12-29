@@ -29,7 +29,12 @@ export const checkPermission = (user, resource, operation) => {
   }
 
   // Get allowed scopes for operation
-  const allowedScopes = authMatrix[resource][role][operation] || [];
+  let allowedScopes = authMatrix[resource][role][operation] || [];
+
+  // CRITICAL: Only Platform Users can have crossOrg scope
+  if (!user.isPlatformUser) {
+    allowedScopes = allowedScopes.filter((scope) => scope !== SCOPES.CROSS_ORG);
+  }
 
   return {
     hasPermission: allowedScopes.length > 0,
@@ -105,6 +110,11 @@ export const canAccessResource = (
 
       case SCOPES.CROSS_DEPT:
         // SuperAdmin/Admin can access all departments in their organization
+        // Platform SuperAdmin can access across organizations
+        if (user.isPlatformUser && user.role === "SuperAdmin") {
+          return true;
+        }
+
         if (
           resourceDoc.organization &&
           resourceDoc.organization.toString() ===
@@ -130,11 +140,18 @@ export const canAccessResource = (
       case SCOPES.OWN:
         // User can access their own resources
         if (
+          resourceType === "User" &&
+          resourceDoc._id.toString() === user._id.toString()
+        ) {
+          return true;
+        }
+        if (
           resourceDoc.createdBy &&
           resourceDoc.createdBy.toString() === user._id.toString()
         ) {
           return true;
         }
+
         // Check other ownership fields
         if (
           resourceDoc.addedBy &&

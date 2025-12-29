@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
-import { INDUSTRIES, TTL } from "../utils/constants.js";
+import { INDUSTRIES, TTL, LIMITS, PHONE_REGEX } from "../utils/constants.js";
 
 /**
  * Organization Schema
@@ -27,29 +27,42 @@ const organizationSchema = new mongoose.Schema(
       required: [true, "Organization name is required"],
       trim: true,
       lowercase: true,
-      maxlength: [100, "Organization name cannot exceed 100 characters"],
+      maxlength: [
+        LIMITS.ORGANIZATION_NAME_MAX,
+        `Organization name cannot exceed ${LIMITS.ORGANIZATION_NAME_MAX} characters`,
+      ],
     },
     description: {
       type: String,
       trim: true,
-      maxlength: [2000, "Description cannot exceed 2000 characters"],
+      maxlength: [
+        LIMITS.DESCRIPTION_MAX,
+        `Description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`,
+      ],
     },
     email: {
       type: String,
       required: [true, "Email is required"],
       trim: true,
       lowercase: true,
-      maxlength: [50, "Email cannot exceed 50 characters"],
+      maxlength: [
+        LIMITS.EMAIL_MAX,
+        `Email cannot exceed ${LIMITS.EMAIL_MAX} characters`,
+      ],
     },
     phone: {
       type: String,
       required: [true, "Phone number is required"],
       trim: true,
+      match: [PHONE_REGEX, "Please provide a valid phone number"],
     },
     address: {
       type: String,
       trim: true,
-      maxlength: [500, "Address cannot exceed 500 characters"],
+      maxlength: [
+        LIMITS.ADDRESS_MAX,
+        `Address cannot exceed ${LIMITS.ADDRESS_MAX} characters`,
+      ],
     },
     industry: {
       type: String,
@@ -57,7 +70,10 @@ const organizationSchema = new mongoose.Schema(
         values: Object.values(INDUSTRIES),
         message: "{VALUE} is not a valid industry",
       },
-      maxlength: [100, "Industry cannot exceed 100 characters"],
+      maxlength: [
+        LIMITS.INDUSTRY_MAX,
+        `Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`,
+      ],
     },
     logo: {
       url: {

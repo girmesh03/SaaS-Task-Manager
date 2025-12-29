@@ -28,7 +28,7 @@ export const getMaterials = asyncHandler(async (req, res) => {
     category,
     department,
     deleted = "false",
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
 
@@ -51,8 +51,8 @@ export const getMaterials = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "department", select: "name" },
-      { path: "organization", select: "name" },
+      { path: "department", select: "name isDeleted hod" },
+      { path: "organization", select: "name isPlatformOrg isDeleted" },
       { path: "addedBy", select: "firstName lastName" },
     ],
   };
@@ -70,15 +70,15 @@ export const getMaterials = asyncHandler(async (req, res) => {
 });
 
 export const getMaterial = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { materialId } = req.validated.params;
 
-  const material = await Material.findById(resourceId)
-    .populate("department", "name")
-    .populate("organization", "name")
+  const material = await Material.findById(materialId)
+    .populate("department", "name isDeleted hod")
+    .populate("organization", "name isPlatformOrg isDeleted")
     .populate("addedBy", "firstName lastName")
     .lean();
 
-  if (!material) throw CustomError.notFound("Material not found");
+  if (!material)      throw CustomError.notFound("Material", materialId);
 
   if (
     material.organization._id.toString() !== req.user.organization._id.toString()
@@ -94,7 +94,7 @@ export const createMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, description, category, unitType, price, department } = req.body;
+    const { name, description, category, unitType, price, department } = req.validated.body;
 
     const materialData = {
       name,
@@ -124,8 +124,8 @@ export const createMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("addedBy", "firstName lastName")
       .lean();
 
@@ -144,12 +144,12 @@ export const updateMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
-    const updates = req.body;
+    const { materialId } = req.validated.params;
+    const updates = req.validated.body;
 
-    const material = await Material.findById(resourceId).session(session);
+    const material = await Material.findById(materialId).session(session);
     if (!material) {
-      throw CustomError.notFound("Material not found");
+           throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -183,8 +183,8 @@ export const updateMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("addedBy", "firstName lastName")
       .lean();
 
@@ -203,13 +203,13 @@ export const deleteMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { materialId } = req.validated.params;
 
-    const material = await Material.findById(resourceId)
+    const material = await Material.findById(materialId)
       .withDeleted()
       .session(session);
     if (!material) {
-      throw CustomError.notFound("Material not found");
+           throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -260,13 +260,13 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { materialId } = req.validated.params;
 
-    const material = await Material.findById(resourceId)
+    const material = await Material.findById(materialId)
       .withDeleted()
       .session(session);
     if (!material) {
-      throw CustomError.notFound("Material not found");
+           throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -284,24 +284,7 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
       });
     }
 
-    const organization = await Organization.findById(material.organization)
-      .withDeleted()
-      .session(session);
-    if (!organization || organization.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore material. Parent organization is deleted or missing."
-      );
-    }
-
-    const department = await Department.findById(material.department)
-      .withDeleted()
-      .session(session);
-    if (!department || department.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore material. Parent department is deleted or missing."
-      );
-    }
-
+    // Restore material (idempotent - plugin handles this, including hooks for parent checks)
     await material.restore(req.user._id, { session });
     await session.commitTransaction();
 
@@ -319,8 +302,8 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("addedBy", "firstName lastName")
       .lean();
 

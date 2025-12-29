@@ -9,6 +9,7 @@ import {
   TASK_PRIORITY,
   TASK_TYPES,
 } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const baseTaskSchema = new mongoose.Schema(
   {
@@ -161,13 +162,16 @@ baseTaskSchema.statics.cascadeDelete = async function (
   const Notification = mongoose.model("Notification");
 
   // Soft delete all activities for this task
-  const activities = await TaskActivity.find({ parent: taskId }).session(
-    session
-  );
+  const activities = await TaskActivity.find({ parent: taskId })
+    .withDeleted()
+    .session(session);
   for (const activity of activities) {
     if (!activity.isDeleted) {
       await activity.softDelete(deletedBy, { session });
       // Cascade delete activity children
+      await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
       await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
     }
   }
@@ -176,11 +180,16 @@ baseTaskSchema.statics.cascadeDelete = async function (
   const comments = await TaskComment.find({
     parent: taskId,
     parentModel: "BaseTask",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
       await comment.softDelete(deletedBy, { session });
       // Cascade delete comment children
+      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
       await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     }
   }
@@ -189,7 +198,9 @@ baseTaskSchema.statics.cascadeDelete = async function (
   const attachments = await Attachment.find({
     parent: taskId,
     parentModel: "BaseTask",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
       await attachment.softDelete(deletedBy, { session });
@@ -200,11 +211,64 @@ baseTaskSchema.statics.cascadeDelete = async function (
   const notifications = await Notification.find({
     entity: taskId,
     entityModel: "BaseTask",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const notification of notifications) {
     if (!notification.isDeleted) {
       await notification.softDelete(deletedBy, { session });
     }
+  }
+};
+
+// Strict Restore Mode: Check parent integrity
+baseTaskSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+baseTaskSchema.statics.repairOnRestore = async function (
+  doc,
+  { session } = {}
+) {
+  // Prune deleted watchers
+  if (doc.watchers && doc.watchers.length > 0) {
+    const User = mongoose.model("User");
+    const validWatchers = await User.find({
+      _id: { $in: doc.watchers },
+      isDeleted: false,
+    })
+      .session(session)
+      .select("_id")
+      .lean();
+
+    doc.watchers = validWatchers.map((u) => u._id);
   }
 };
 

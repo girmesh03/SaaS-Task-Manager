@@ -3,6 +3,7 @@ import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import { TTL, LIMITS } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const taskCommentSchema = new mongoose.Schema(
   {
@@ -101,7 +102,7 @@ taskCommentSchema.pre("save", async function (next) {
         );
 
         if (!parentComment) {
-          return next(new Error("Parent comment not found"));
+          return next(CustomError.notFound("TaskComment", currentParent));
         }
 
         depth++;
@@ -112,7 +113,7 @@ taskCommentSchema.pre("save", async function (next) {
       // Check if depth exceeds 3
       if (depth > 3) {
         return next(
-          new Error(
+          CustomError.validation(
             "Comment depth cannot exceed 3 levels (comment → reply → reply to reply)"
           )
         );
@@ -138,12 +139,17 @@ taskCommentSchema.statics.cascadeDelete = async function (
   const childComments = await TaskComment.find({
     parent: commentId,
     parentModel: "TaskComment",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
 
   for (const childComment of childComments) {
     if (!childComment.isDeleted) {
       await childComment.softDelete(deletedBy, { session });
       // Recursively cascade delete child comment's children
+      await TaskComment.cascadeDelete(childComment._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
       await TaskComment.cascadeDelete(childComment._id, deletedBy, { session });
     }
   }
@@ -152,12 +158,32 @@ taskCommentSchema.statics.cascadeDelete = async function (
   const attachments = await Attachment.find({
     parent: commentId,
     parentModel: "TaskComment",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
 
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
       await attachment.softDelete(deletedBy, { session });
     }
+  }
+};
+
+// Strict Restore Mode: Check parent integrity
+taskCommentSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const ParentModel = mongoose.model(doc.parentModel);
+  const parent = await ParentModel.findById(doc.parent)
+    .withDeleted()
+    .session(session);
+
+  if (!parent || parent.isDeleted) {
+    throw CustomError.validation(
+      `Cannot restore comment because its parent ${doc.parentModel} is deleted. Restore the parent first.`,
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
   }
 };
 

@@ -25,14 +25,15 @@ export const updateOrganizationValidator = [
       `Organization name cannot exceed ${LIMITS.ORGANIZATION_NAME_MAX} characters`
     )
     .toLowerCase()
+    .escape()
     .custom(async (value, { req }) => {
       const { default: Organization } = await import(
         "../../models/Organization.js"
       );
-      const resourceId = req.params.resourceId;
+      const organizationIdParam = req.params.organizationId;
       const existing = await Organization.findOne({
         name: value,
-        _id: { $ne: resourceId },
+        _id: { $ne: organizationIdParam },
       })
         .withDeleted()
         .lean();
@@ -48,7 +49,8 @@ export const updateOrganizationValidator = [
     .isLength({ max: LIMITS.DESCRIPTION_MAX })
     .withMessage(
       `Organization description cannot exceed ${LIMITS.DESCRIPTION_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("email")
     .optional()
@@ -66,10 +68,10 @@ export const updateOrganizationValidator = [
       const { default: Organization } = await import(
         "../../models/Organization.js"
       );
-      const resourceId = req.params.resourceId;
+      const organizationIdParam = req.params.organizationId;
       const existing = await Organization.findOne({
         email: value,
-        _id: { $ne: resourceId },
+        _id: { $ne: organizationIdParam },
       })
         .withDeleted()
         .lean();
@@ -90,10 +92,10 @@ export const updateOrganizationValidator = [
       const { default: Organization } = await import(
         "../../models/Organization.js"
       );
-      const resourceId = req.params.resourceId;
+      const organizationIdParam = req.params.organizationId;
       const existing = await Organization.findOne({
         phone: value,
-        _id: { $ne: resourceId },
+        _id: { $ne: organizationIdParam },
       })
         .withDeleted()
         .lean();
@@ -109,7 +111,8 @@ export const updateOrganizationValidator = [
     .isLength({ max: LIMITS.ADDRESS_MAX })
     .withMessage(
       `Organization address cannot exceed ${LIMITS.ADDRESS_MAX} characters`
-    ),
+    )
+    .escape(),
 
   body("industry")
     .optional()
@@ -117,7 +120,8 @@ export const updateOrganizationValidator = [
     .isIn(Object.values(INDUSTRIES))
     .withMessage("Invalid industry")
     .isLength({ max: LIMITS.INDUSTRY_MAX })
-    .withMessage(`Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`),
+    .withMessage(`Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`)
+    .escape(),
 
   body("logo.url").optional().trim().isURL().withMessage("Invalid logo URL"),
 
@@ -131,7 +135,7 @@ export const updateOrganizationValidator = [
  * Validates MongoDB ObjectId
  */
 export const organizationIdValidator = [
-  param("resourceId")
+  param("organizationId")
     .trim()
     .notEmpty()
     .withMessage("Organization ID is required")
@@ -139,6 +143,24 @@ export const organizationIdValidator = [
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid organization ID");
       }
+      return true;
+    })
+    .custom(async (value, { req }) => {
+      const { default: Organization } = await import("../../models/Organization.js");
+
+      const organization = await Organization.findById(value)
+        .withDeleted()
+        .lean();
+
+      if (!organization) {
+        throw new Error("Organization not found");
+      }
+
+      // Multi-tenancy check: User can only access their own organization
+      if (req.user.organization._id.toString() !== value.toString()) {
+        throw new Error("You do not have permission to access this organization");
+      }
+
       return true;
     }),
 

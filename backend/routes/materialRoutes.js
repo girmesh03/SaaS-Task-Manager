@@ -27,7 +27,7 @@ const router = express.Router();
 
 router.get("/", verifyJWT, authorize("Material", "read"), getMaterials);
 router.get(
-  "/:resourceId",
+  "/:materialId",
   verifyJWT,
   materialIdValidator,
   authorize("Material", "read"),
@@ -41,7 +41,7 @@ router.post(
   createMaterial
 );
 router.put(
-  "/:resourceId",
+  "/:materialId",
   verifyJWT,
   materialIdValidator,
   updateMaterialValidator,
@@ -49,14 +49,14 @@ router.put(
   updateMaterial
 );
 router.delete(
-  "/:resourceId",
+  "/:materialId",
   verifyJWT,
   materialIdValidator,
   authorize("Material", "delete"),
   deleteMaterial
 );
 router.patch(
-  "/:resourceId/restore",
+  "/:materialId/restore",
   verifyJWT,
   materialIdValidator,
   authorize("Material", "update"),

@@ -42,7 +42,7 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     parent,
     deleted = "false",
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
 
@@ -95,15 +95,15 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
 });
 
 export const getTaskActivity = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { taskActivityId } = req.validated.params;
 
-  const activity = await TaskActivity.findById(resourceId)
+  const activity = await TaskActivity.findById(taskActivityId)
     .populate("createdBy", "firstName lastName")
     .populate("materials.material", "name unitType price")
     .lean();
 
   if (!activity) {
-    throw CustomError.notFound("Task activity not found");
+    throw CustomError.notFound("TaskActivity", taskActivityId);
   }
 
   // Organization scoping
@@ -126,7 +126,7 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { activity, parent, materials } = req.body;
+    const { activity, parent, materials } = req.validated.body;
 
     // Verify parent task exists and belongs to org
     const parentTask = await BaseTask.findById(parent).session(session);
@@ -146,21 +146,12 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
     const activityData = {
       activity,
       parent,
-      parentModel: parentTask.taskType.includes("Task")
-        ? "Task"
-        : parentTask.taskType, // Simplification, model expects 'Task' usually for base ref
+      parentModel: parentTask.taskType,
       materials: materials || [],
       organization: req.user.organization._id,
       department: parentTask.department, // Inherit department from parent task
       createdBy: req.user._id,
     };
-
-    // Adjust parentModel if your schema discriminator setup requires specific string
-    // Based on BaseTask, usually we refer to parentModel as properties of relations, schema definitions say 'Task' usually covers keys.
-    // Checking TaskActivity schema, parentModel enum typically includes 'ProjectTask', 'AssignedTask' or just 'Task'.
-    // Assuming 'Task' is sufficient if BaseTask is the model, but usually polmorphic uses specific model name.
-    // Let's use the taskType from the parent.
-    activityData.parentModel = "Task"; // Using 'Task' as generic parent model if discriminators are kept under BaseTask collection logic
 
     const [newActivity] = await TaskActivity.create([activityData], {
       session,
@@ -211,13 +202,13 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
-    const updates = req.body;
+    const { taskActivityId } = req.validated.params;
+    const updates = req.validated.body;
 
-    const activity = await TaskActivity.findById(resourceId).session(session);
+    const activity = await TaskActivity.findById(taskActivityId).session(session);
 
     if (!activity) {
-      throw CustomError.notFound("Task activity not found");
+      throw CustomError.notFound("TaskActivity", taskActivityId);
     }
 
     if (
@@ -271,14 +262,14 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskActivityId } = req.validated.params;
 
-    const activity = await TaskActivity.findById(resourceId)
+    const activity = await TaskActivity.findById(taskActivityId)
       .withDeleted()
       .session(session);
 
     if (!activity) {
-      throw CustomError.notFound("Task activity not found");
+      throw CustomError.notFound("TaskActivity", taskActivityId);
     }
 
     if (
@@ -296,12 +287,8 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
       });
     }
 
-    // Soft delete activity
+    // Soft delete activity (idempotent - plugin handles this and automatic cascade)
     await activity.softDelete(req.user._id, { session });
-
-    // Cascade delete children (TaskController handles this usually via BaseTask cascade, but direct deletion needs own cascade)
-    // TaskActivity -> TaskComments / Attachments
-    await TaskActivity.cascadeDelete(activity._id, req.user._id, { session });
 
     await session.commitTransaction();
 
@@ -332,14 +319,14 @@ export const restoreTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskActivityId } = req.validated.params;
 
-    const activity = await TaskActivity.findById(resourceId)
+    const activity = await TaskActivity.findById(taskActivityId)
       .withDeleted()
       .session(session);
 
     if (!activity) {
-      throw CustomError.notFound("Task activity not found");
+      throw CustomError.notFound("TaskActivity", taskActivityId);
     }
 
     if (
@@ -357,16 +344,7 @@ export const restoreTaskActivity = asyncHandler(async (req, res) => {
       });
     }
 
-    // Strict parent check: Parent Task must be active
-    const parentTask = await BaseTask.findById(activity.parent)
-      .withDeleted()
-      .session(session);
-    if (!parentTask || parentTask.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore activity. Parent task is deleted or missing."
-      );
-    }
-
+    // Restore activity (idempotent - plugin handles this, including hooks for parent checks)
     await activity.restore(req.user._id, { session });
 
     await session.commitTransaction();

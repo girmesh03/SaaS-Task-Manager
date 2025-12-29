@@ -17,6 +17,8 @@ import {
   paginatedResponse,
   successResponse,
 } from "../utils/responseTransform.js";
+import notificationService from "../services/notificationService.js";
+import emailService from "../services/emailService.js";
 
 /**
  * TaskComment Controllers
@@ -52,7 +54,7 @@ export const getTaskComments = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     parent,
     deleted = "false",
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
   if (parent) filter.parent = parent;
@@ -85,14 +87,14 @@ export const getTaskComments = asyncHandler(async (req, res) => {
 });
 
 export const getTaskComment = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { taskCommentId } = req.validated.params;
 
-  const comment = await TaskComment.findById(resourceId)
+  const comment = await TaskComment.findById(taskCommentId)
     .populate("createdBy", "firstName lastName")
     .populate("mentions", "firstName lastName")
     .lean();
 
-  if (!comment) throw CustomError.notFound("Comment not found");
+  if (!comment) throw CustomError.notFound("Comment", taskCommentId);
 
   if (
     comment.organization.toString() !== req.user.organization._id.toString()
@@ -108,7 +110,7 @@ export const createTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { comment, parent, parentModel, mentions } = req.body;
+    const { comment, parent, parentModel, mentions } = req.validated.body;
 
     // We need Department ID. Where to get it?
     // Inherit from Parent.
@@ -117,15 +119,15 @@ export const createTaskComment = asyncHandler(async (req, res) => {
     // Resolve Department and Validation
     if (parentModel === "BaseTask") {
       const p = await BaseTask.findById(parent).session(session);
-      if (!p) throw new Error("Parent task not found");
+      if (!p) throw CustomError.notFound("BaseTask", parent);
       departmentId = p.department;
     } else if (parentModel === "TaskActivity") {
       const p = await TaskActivity.findById(parent).session(session);
-      if (!p) throw new Error("Parent activity not found");
+      if (!p) throw CustomError.notFound("TaskActivity", parent);
       departmentId = p.department;
     } else if (parentModel === "TaskComment") {
       const p = await TaskComment.findById(parent).session(session);
-      if (!p) throw new Error("Parent comment not found");
+      if (!p) throw CustomError.notFound("TaskComment", parent);
       departmentId = p.department;
     }
 
@@ -168,6 +170,33 @@ export const createTaskComment = asyncHandler(async (req, res) => {
       .lean();
 
     createdResponse(res, "Comment created successfully", populatedComment);
+
+    // Notifications (Async, non-blocking)
+    (async () => {
+      try {
+        if (mentions && mentions.length > 0) {
+          // Filter out the creator if they mentioned themselves
+          const notifyIds = mentions.filter(id => id.toString() !== req.user._id.toString());
+
+          if (notifyIds.length > 0) {
+            await notificationService.notifyMention(newComment, notifyIds);
+
+            // Email notifications (if preferred)
+            const actor = { firstName: req.user.firstName, lastName: req.user.lastName };
+            const task = await BaseTask.findById(taskId || parent).select("title description");
+
+            for (const id of notifyIds) {
+              const mentionedUser = await User.findById(id);
+              if (mentionedUser && task) {
+                await emailService.sendMentionEmail(mentionedUser, actor, newComment, task);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.error("Post-comment notification error:", err);
+      }
+    })();
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Task Comment Error:", error);
@@ -182,12 +211,12 @@ export const updateTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
-    const updates = req.body;
+    const { taskCommentId } = req.validated.params;
+    const updates = req.validated.body;
 
-    const comment = await TaskComment.findById(resourceId).session(session);
+    const comment = await TaskComment.findById(taskCommentId).session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment not found");
+      throw CustomError.notFound("Comment", taskCommentId);
     }
 
     if (
@@ -249,13 +278,13 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskCommentId } = req.validated.params;
 
-    const comment = await TaskComment.findById(resourceId)
+    const comment = await TaskComment.findById(taskCommentId)
       .withDeleted()
       .session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment not found");
+      throw CustomError.notFound("Comment", taskCommentId);
     }
 
     if (
@@ -273,11 +302,8 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
       });
     }
 
-    // Soft delete
+    // Soft delete comment (idempotent - plugin handles this and automatic cascade)
     await comment.softDelete(req.user._id, { session });
-
-    // Cascade
-    await TaskComment.cascadeDelete(comment._id, req.user._id, { session });
 
     const taskId = await resolveTaskId(
       comment.parent,
@@ -319,13 +345,13 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskCommentId } = req.validated.params;
 
-    const comment = await TaskComment.findById(resourceId)
+    const comment = await TaskComment.findById(taskCommentId)
       .withDeleted()
       .session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment not found");
+      throw CustomError.notFound("Comment", taskCommentId);
     }
 
     if (
@@ -343,21 +369,7 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check Parent Existence
-    let ParentModel;
-    if (comment.parentModel === "BaseTask") ParentModel = BaseTask;
-    else if (comment.parentModel === "TaskActivity") ParentModel = TaskActivity;
-    else if (comment.parentModel === "TaskComment") ParentModel = TaskComment;
-
-    const parent = await ParentModel.findById(comment.parent)
-      .withDeleted()
-      .session(session);
-    if (!parent || parent.isDeleted) {
-      throw CustomError.validation(
-        `Cannot restore comment. Parent ${comment.parentModel} is deleted or missing.`
-      );
-    }
-
+    // Restore comment (idempotent - plugin handles this, including hooks for parent checks)
     await comment.restore(req.user._id, { session });
 
     const taskId = await resolveTaskId(

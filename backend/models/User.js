@@ -11,6 +11,7 @@ import {
   LIMITS,
   EMAIL_PREFERENCES_DEFAULTS,
 } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -124,6 +125,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Employee ID is required"],
       trim: true,
+      match: [/^[1-9]\d{3}$/, "Employee ID must be a 4-digit number between 1000-9999"],
     },
     dateOfBirth: {
       type: Date,
@@ -228,17 +230,10 @@ userSchema.pre("save", async function (next) {
     this.password = await bcrypt.hash(this.password, BCRYPT.SALT_ROUNDS);
   }
 
-  // Auto-set isHod based on role
-  if (this.role === USER_ROLES.SUPER_ADMIN || this.role === USER_ROLES.ADMIN) {
-    this.isHod = true;
-  } else {
-    this.isHod = false;
-  }
-
   // Auto-set isPlatformUser based on organization
   if (this.isModified("organization") && this.organization) {
-    const Organization = this.constructor.base.model("Organization");
-    const org = await Organization.findById(this.organization);
+    const Organization = mongoose.model("Organization");
+    const org = await Organization.findById(this.organization).lean();
     if (org) {
       this.isPlatformUser = org.isPlatformOrg;
     }
@@ -307,43 +302,54 @@ userSchema.statics.cascadeDelete = async function (
   const Notification = mongoose.model("Notification");
 
   // Soft delete all tasks created by this user
-  const tasks = await BaseTask.find({ createdBy: userId }).session(session);
+  const tasks = await BaseTask.find({ createdBy: userId })
+    .withDeleted()
+    .session(session);
   for (const task of tasks) {
     if (!task.isDeleted) {
       await task.softDelete(deletedBy, { session });
       // Cascade delete task children
       await BaseTask.cascadeDelete(task._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
+      await BaseTask.cascadeDelete(task._id, deletedBy, { session });
     }
   }
 
   // Soft delete all activities created by this user
-  const activities = await TaskActivity.find({ createdBy: userId }).session(
-    session
-  );
+  const activities = await TaskActivity.find({ createdBy: userId })
+    .withDeleted()
+    .session(session);
   for (const activity of activities) {
     if (!activity.isDeleted) {
       await activity.softDelete(deletedBy, { session });
       // Cascade delete activity children
       await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
+      await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
     }
   }
 
   // Soft delete all comments created by this user
-  const comments = await TaskComment.find({ createdBy: userId }).session(
-    session
-  );
+  const comments = await TaskComment.find({ createdBy: userId })
+    .withDeleted()
+    .session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
       await comment.softDelete(deletedBy, { session });
       // Cascade delete comment children
       await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
+      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     }
   }
 
   // Soft delete all attachments uploaded by this user
-  const attachments = await Attachment.find({ uploadedBy: userId }).session(
-    session
-  );
+  const attachments = await Attachment.find({ uploadedBy: userId })
+    .withDeleted()
+    .session(session);
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
       await attachment.softDelete(deletedBy, { session });
@@ -353,7 +359,9 @@ userSchema.statics.cascadeDelete = async function (
   // Soft delete all notifications created by this user
   const notifications = await Notification.find({
     recipient: userId,
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const notification of notifications) {
     if (!notification.isDeleted) {
       await notification.softDelete(deletedBy, { session });
@@ -380,6 +388,42 @@ userSchema.statics.cascadeDelete = async function (
     { $pull: { mentions: userId } },
     { session }
   );
+};
+
+// Strict Restore Mode: Check parent integrity
+userSchema.statics.strictParentCheck = async function (doc, { session } = {}) {
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore user because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore user because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+userSchema.statics.repairOnRestore = async function (doc, { session } = {}) {
+  // Safety: Reset isHod status during restore.
+  // Restoration should not automatically reclaim HOD status.
+  doc.isHod = false;
+  // Note: doc.save() is called by the plugin after restore() finishes
 };
 
 // Apply plugins

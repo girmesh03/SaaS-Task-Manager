@@ -3,6 +3,7 @@ import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import { TTL, LIMITS, PHONE_REGEX } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const vendorSchema = new mongoose.Schema(
   {
@@ -88,6 +89,24 @@ vendorSchema.pre("save", function (next) {
   convertDatesToUTC(this, []);
   next();
 });
+
+// Strict Restore Mode: Check parent integrity
+vendorSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const Organization = mongoose.model("Organization");
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore vendor because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
 
 // Apply plugins
 vendorSchema.plugin(mongoosePaginate);

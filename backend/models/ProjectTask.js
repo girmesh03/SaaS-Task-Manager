@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import BaseTask from "./BaseTask.js";
 import { LIMITS, TASK_TYPES } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 // ProjectTask discriminator schema
 const projectTaskSchema = new mongoose.Schema({
@@ -79,9 +80,7 @@ projectTaskSchema.pre("save", async function (next) {
 
   // Validate dueDate is after startDate
   if (this.startDate && this.dueDate && this.dueDate <= this.startDate) {
-    const error = new Error("Due date must be after start date");
-    error.name = "ValidationError";
-    return next(error);
+    return next(CustomError.validation("Due date must be after start date"));
   }
 
   // Validate vendor exists and is not deleted
@@ -92,15 +91,13 @@ projectTaskSchema.pre("save", async function (next) {
       .session(session);
 
     if (!vendor) {
-      const error = new Error("Vendor not found");
-      error.name = "ValidationError";
-      return next(error);
+      return next(CustomError.notFound("Vendor", this.vendor));
     }
 
     if (vendor.isDeleted) {
-      const error = new Error("Cannot assign deleted vendor to task");
-      error.name = "ValidationError";
-      return next(error);
+      return next(
+        CustomError.validation("Cannot assign deleted vendor to task")
+      );
     }
   }
 
@@ -117,23 +114,23 @@ projectTaskSchema.pre("save", async function (next) {
 
     for (const watcher of watchers) {
       if (!watcher.isHod) {
-        const error = new Error(
-          `User ${
-            watcher.fullName || watcher.email
-          } is not a HOD and cannot be a watcher`
+        return next(
+          CustomError.validation(
+            `User ${
+              watcher.fullName || watcher.email
+            } is not a HOD and cannot be a watcher`
+          )
         );
-        error.name = "ValidationError";
-        return next(error);
       }
 
       if (watcher.isDeleted) {
-        const error = new Error(
-          `User ${
-            watcher.fullName || watcher.email
-          } is deleted and cannot be a watcher`
+        return next(
+          CustomError.validation(
+            `User ${
+              watcher.fullName || watcher.email
+            } is deleted and cannot be a watcher`
+          )
         );
-        error.name = "ValidationError";
-        return next(error);
       }
     }
   }
@@ -146,5 +143,32 @@ const ProjectTask = BaseTask.discriminator(
   TASK_TYPES.PROJECT_TASK,
   projectTaskSchema
 );
+
+// Strict Restore Mode: Check parent integrity
+ProjectTask.strictParentCheck = async function (doc, { session } = {}) {
+  // Check BaseTask parents (Organization, Department)
+  await BaseTask.strictParentCheck(doc, { session });
+
+  // Check Vendor
+  const Vendor = mongoose.model("Vendor");
+  const vendor = await Vendor.findById(doc.vendor)
+    .withDeleted()
+    .session(session);
+
+  if (!vendor || vendor.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore project task because its vendor is deleted. Restore the vendor first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
+
+// Strict Restore Mode: Validate Critical Dependencies
+ProjectTask.validateCriticalDependencies = async function (
+  doc,
+  { session } = {}
+) {
+  // No other critical dependencies for ProjectTask beyond parents
+};
 
 export default ProjectTask;

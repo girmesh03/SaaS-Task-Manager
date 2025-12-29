@@ -33,12 +33,12 @@ const router = express.Router();
 router.get("/", verifyJWT, authorize("Vendor", "read"), getVendors);
 
 /**
- * @route   GET /api/vendors/:resourceId
+ * @route   GET /api/vendors/:vendorId
  * @desc    Get single vendor by ID
  * @access  Protected (authorize Vendor read)
  */
 router.get(
-  "/:resourceId",
+  "/:vendorId",
   verifyJWT,
   vendorIdValidator,
   authorize("Vendor", "read"),
@@ -59,12 +59,12 @@ router.post(
 );
 
 /**
- * @route   PUT /api/vendors/:resourceId
+ * @route   PUT /api/vendors/:vendorId
  * @desc    Update vendor
  * @access  Protected (authorize Vendor update)
  */
 router.put(
-  "/:resourceId",
+  "/:vendorId",
   verifyJWT,
   vendorIdValidator,
   updateVendorValidator,
@@ -73,12 +73,12 @@ router.put(
 );
 
 /**
- * @route   DELETE /api/vendors/:resourceId
+ * @route   DELETE /api/vendors/:vendorId
  * @desc    Soft delete vendor
  * @access  Protected (authorize Vendor delete)
  */
 router.delete(
-  "/:resourceId",
+  "/:vendorId",
   verifyJWT,
   vendorIdValidator,
   authorize("Vendor", "delete"),
@@ -86,12 +86,12 @@ router.delete(
 );
 
 /**
- * @route   PATCH /api/vendors/:resourceId/restore
+ * @route   PATCH /api/vendors/:vendorId/restore
  * @desc    Restore soft-deleted vendor
  * @access  Protected (authorize Vendor update for restore)
  */
 router.patch(
-  "/:resourceId/restore",
+  "/:vendorId/restore",
   verifyJWT,
   vendorIdValidator,
   authorize("Vendor", "update"),

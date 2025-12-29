@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
-import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
+import softDeletePlugin from "./plugins/softDelete.js";
 import { NOTIFICATION_TYPES, TTL } from "../utils/constants.js";
+import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
+import CustomError from "../errorHandler/CustomError.js";
+
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -46,10 +49,8 @@ const notificationSchema = new mongoose.Schema(
     },
     expiresAt: {
       type: Date,
-      default: function () {
-        // Default to 30 days from creation
-        return new Date(Date.now() + TTL.NOTIFICATION * 1000);
-      },
+      default: () => new Date(Date.now() + TTL.NOTIFICATION * 1000),
+      index: { expires: 0 }, // Individual document expiry
     },
   },
   {
@@ -66,25 +67,52 @@ const notificationSchema = new mongoose.Schema(
 // Indexes
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
 notificationSchema.index({ organization: 1, createdAt: -1 });
-notificationSchema.index({ expiresAt: 1 });
+notificationSchema.index({ isDeleted: 1 });
+notificationSchema.index({ deletedAt: 1 });
 
 // Pre-save hook for date conversion
 notificationSchema.pre("save", function (next) {
-  convertDatesToUTC(this, ["expiresAt"]);
+  convertDatesToUTC(this, []);
   next();
 });
 
+// Strict Restore Mode: Check parent integrity
+notificationSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const Organization = mongoose.model("Organization");
+  const User = mongoose.model("User");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore notification because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Recipient
+  const recipient = await User.findById(doc.recipient)
+    .withDeleted()
+    .session(session);
+  if (!recipient || recipient.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore notification because its recipient is deleted. Restore the recipient first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
+
 // Apply plugins
 notificationSchema.plugin(mongoosePaginate);
+notificationSchema.plugin(softDeletePlugin);
 
-// Configure TTL index based on expiresAt field
+// Configure TTL index (30 days)
 const Notification = mongoose.model("Notification", notificationSchema);
-
-// Create TTL index on expiresAt field
-// This will automatically delete documents when expiresAt date is reached
-Notification.collection.createIndex(
-  { expiresAt: 1 },
-  { expireAfterSeconds: 0 }
-);
+Notification.ensureTTLIndex(TTL.NOTIFICATION);
 
 export default Notification;

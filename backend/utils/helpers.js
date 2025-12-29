@@ -158,6 +158,11 @@ export const buildOrgScopeFilter = (user, scope) => {
  * @returns {boolean} True if user owns resource
  */
 export const isOwner = (resource, user) => {
+  // Check if resource is the user themselves
+  if (resource._id && resource._id.toString() === user._id.toString()) {
+    return true;
+  }
+
   // Check various ownership fields
   if (
     resource.createdBy &&
@@ -165,6 +170,7 @@ export const isOwner = (resource, user) => {
   ) {
     return true;
   }
+
   if (resource.addedBy && resource.addedBy.toString() === user._id.toString()) {
     return true;
   }

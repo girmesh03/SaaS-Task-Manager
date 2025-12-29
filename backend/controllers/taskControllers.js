@@ -20,6 +20,8 @@ import {
   paginatedResponse,
   successResponse,
 } from "../utils/responseTransform.js";
+import notificationService from "../services/notificationService.js";
+import emailService from "../services/emailService.js";
 
 /**
  * Task Controllers (BaseTask + Discriminators)
@@ -38,7 +40,7 @@ export const getTasks = asyncHandler(async (req, res) => {
     assigneeId,
     vendor,
     deleted = "false",
-  } = req.query;
+  } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
 
@@ -59,8 +61,8 @@ export const getTasks = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "department", select: "name" },
-      { path: "organization", select: "name" },
+      { path: "department", select: "name isDeleted hod" },
+      { path: "organization", select: "name isPlatformOrg isDeleted" },
       { path: "createdBy", select: "firstName lastName" },
       { path: "vendor", select: "name" },
       { path: "assignees", select: "firstName lastName" },
@@ -81,18 +83,18 @@ export const getTasks = asyncHandler(async (req, res) => {
 });
 
 export const getTask = asyncHandler(async (req, res) => {
-  const { resourceId } = req.params;
+  const { taskId } = req.validated.params;
 
-  const task = await BaseTask.findById(resourceId)
-    .populate("department", "name")
-    .populate("organization", "name")
+  const task = await BaseTask.findById(taskId)
+    .populate("department", "name isDeleted hod")
+    .populate("organization", "name isPlatformOrg isDeleted")
     .populate("createdBy", "firstName lastName")
     .populate("vendor", "name")
     .populate("assignees", "firstName lastName")
     .populate("watchers", "firstName lastName")
     .lean();
 
-  if (!task) throw CustomError.notFound("Task not found");
+  if (!task) throw CustomError.notFound("Task", taskId);
 
   if (
     task.organization._id.toString() !== req.user.organization._id.toString()
@@ -105,9 +107,9 @@ export const getTask = asyncHandler(async (req, res) => {
   const TaskComment = mongoose.model("TaskComment");
 
   const [activitiesCount, commentsCount] = await Promise.all([
-    TaskActivity.countDocuments({ parent: resourceId, isDeleted: false }),
+    TaskActivity.countDocuments({ parent: taskId, isDeleted: false }),
     TaskComment.countDocuments({
-      parent: resourceId,
+      parent: taskId,
       parentModel: "Task",
       isDeleted: false,
     }),
@@ -127,6 +129,7 @@ export const createTask = asyncHandler(async (req, res) => {
   try {
     const {
       taskType,
+      title,
       description,
       status,
       priority,
@@ -134,10 +137,14 @@ export const createTask = asyncHandler(async (req, res) => {
       startDate,
       dueDate,
       vendor,
+      estimatedCost,
+      actualCost,
+      currency,
+      materials,
       assignees,
       watchers,
       tags,
-    } = req.body;
+    } = req.validated.body;
 
     const taskData = {
       description,
@@ -146,6 +153,7 @@ export const createTask = asyncHandler(async (req, res) => {
       department,
       organization: req.user.organization._id,
       createdBy: req.user._id,
+      attachments: req.validated.body.attachments || [],
       watchers: watchers || [],
       tags: tags || [],
       taskType,
@@ -155,15 +163,23 @@ export const createTask = asyncHandler(async (req, res) => {
 
     // Create based on discriminator
     if (taskType === TASK_TYPES.PROJECT_TASK) {
+      taskData.title = title;
       taskData.startDate = startDate;
       taskData.dueDate = dueDate;
       taskData.vendor = vendor;
+      taskData.estimatedCost = estimatedCost;
+      taskData.actualCost = actualCost;
+      taskData.currency = currency;
       [task] = await ProjectTask.create([taskData], { session });
     } else if (taskType === TASK_TYPES.ROUTINE_TASK) {
       taskData.startDate = startDate;
       taskData.dueDate = dueDate;
+      taskData.materials = materials || [];
       [task] = await RoutineTask.create([taskData], { session });
     } else if (taskType === TASK_TYPES.ASSIGNED_TASK) {
+      taskData.title = title;
+      taskData.startDate = startDate;
+      taskData.dueDate = dueDate;
       taskData.assignees = assignees;
       [task] = await AssignedTask.create([taskData], { session });
     } else {
@@ -184,8 +200,8 @@ export const createTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .populate("vendor", "name")
       .populate("assignees", "firstName lastName")
@@ -193,6 +209,40 @@ export const createTask = asyncHandler(async (req, res) => {
       .lean();
 
     createdResponse(res, "Task created successfully", populatedTask);
+
+    // Notifications (Async, non-blocking)
+    (async () => {
+      try {
+        const recipients = new Set([
+          ...(task.assignees || []),
+          ...(task.watchers || []),
+        ]);
+
+        if (recipients.size > 0) {
+          const recipientIds = Array.from(recipients).map(id => id.toString());
+
+          // Filter out the creator
+          const notifyIds = recipientIds.filter(id => id !== req.user._id.toString());
+
+          if (notifyIds.length > 0) {
+            await notificationService.notifyTaskCreated(task, notifyIds);
+
+            // Email notifications (only for assignees by default)
+            const assignees = (task.assignees || []).map(id => id.toString());
+            for (const id of notifyIds) {
+              if (assignees.includes(id)) {
+                const user = await User.findById(id);
+                if (user) {
+                  await emailService.sendTaskAssignmentEmail(user, task);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.error("Post-create notification error:", err);
+      }
+    })();
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Task Error:", error);
@@ -207,12 +257,12 @@ export const updateTask = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
-    const updates = req.body;
+    const { taskId } = req.validated.params;
+    const updates = req.validated.body;
 
-    const task = await BaseTask.findById(resourceId).session(session);
+    const task = await BaseTask.findById(taskId).session(session);
     if (!task) {
-      throw CustomError.notFound("Task not found");
+      throw CustomError.notFound("Task", taskId);
     }
 
     if (
@@ -244,8 +294,8 @@ export const updateTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .populate("vendor", "name")
       .populate("assignees", "firstName lastName")
@@ -253,6 +303,36 @@ export const updateTask = asyncHandler(async (req, res) => {
       .lean();
 
     okResponse(res, "Task updated successfully", populatedTask);
+
+    // Notifications (Async, non-blocking)
+    (async () => {
+      try {
+        const recipients = new Set([
+          ...(task.assignees || []),
+          ...(task.watchers || []),
+        ]);
+
+        if (recipients.size > 0) {
+          const recipientIds = Array.from(recipients).map(id => id.toString());
+          const notifyIds = recipientIds.filter(id => id !== req.user._id.toString());
+
+          if (notifyIds.length > 0) {
+            await notificationService.notifyTaskUpdated(task, notifyIds);
+
+            // For updates, we usually only send emails to assignees if status changed or priority changed
+            // But let's keep it simple for now as per "taskNotifications" preference.
+            for (const id of notifyIds) {
+              const user = await User.findById(id);
+              if (user) {
+                await emailService.sendTaskNotificationEmail(user, task, "updated");
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.error("Post-update notification error:", err);
+      }
+    })();
   } catch (error) {
     await session.abortTransaction();
     logger.error("Update Task Error:", error);
@@ -267,13 +347,13 @@ export const deleteTask = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskId } = req.validated.params;
 
-    const task = await BaseTask.findById(resourceId)
+    const task = await BaseTask.findById(taskId)
       .withDeleted()
       .session(session);
     if (!task) {
-      throw CustomError.notFound("Task not found");
+      throw CustomError.notFound("Task", taskId);
     }
 
     if (
@@ -290,7 +370,6 @@ export const deleteTask = asyncHandler(async (req, res) => {
     }
 
     await task.softDelete(req.user._id, { session });
-    await BaseTask.cascadeDelete(task._id, req.user._id, { session });
     await session.commitTransaction();
 
     emitToRooms(
@@ -321,13 +400,13 @@ export const restoreTask = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { resourceId } = req.params;
+    const { taskId } = req.validated.params;
 
-    const task = await BaseTask.findById(resourceId)
+    const task = await BaseTask.findById(taskId)
       .withDeleted()
       .session(session);
     if (!task) {
-      throw CustomError.notFound("Task not found");
+      throw CustomError.notFound("Task", taskId);
     }
 
     if (
@@ -343,72 +422,7 @@ export const restoreTask = asyncHandler(async (req, res) => {
       return okResponse(res, "Task is already active", { taskId: task._id });
     }
 
-    // Strict parent checks
-    const [organization, department] = await Promise.all([
-      Organization.findById(task.organization).withDeleted().session(session),
-      Department.findById(task.department).withDeleted().session(session),
-    ]);
-
-    if (!organization || organization.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore task. Parent organization is deleted or missing."
-      );
-    }
-
-    if (!department || department.isDeleted) {
-      throw CustomError.validation(
-        "Cannot restore task. Parent department is deleted or missing."
-      );
-    }
-
-    // Check vendor for ProjectTask
-    if (task.taskType === TASK_TYPES.PROJECT_TASK && task.vendor) {
-      const vendor = await Vendor.findById(task.vendor)
-        .withDeleted()
-        .session(session);
-      if (!vendor || vendor.isDeleted) {
-        throw CustomError.validation(
-          "Cannot restore task. Vendor is deleted or missing."
-        );
-      }
-    }
-
-    // Prune invalid watchers
-    if (task.watchers && task.watchers.length > 0) {
-      const validWatchers = await User.find({
-        _id: { $in: task.watchers },
-        isDeleted: false,
-      })
-        .session(session)
-        .select("_id")
-        .lean();
-
-      task.watchers = validWatchers.map((u) => u._id);
-    }
-
-    // Prune invalid assignees for AssignedTask
-    if (
-      task.taskType === TASK_TYPES.ASSIGNED_TASK &&
-      task.assignees &&
-      task.assignees.length > 0
-    ) {
-      const validAssignees = await User.find({
-        _id: { $in: task.assignees },
-        isDeleted: false,
-      })
-        .session(session)
-        .select("_id")
-        .lean();
-
-      if (validAssignees.length === 0) {
-        throw CustomError.validation(
-          "Cannot restore AssignedTask. No valid assignees available."
-        );
-      }
-
-      task.assignees = validAssignees.map((u) => u._id);
-    }
-
+    // Restore task (idempotent - plugin handles this, including hooks for parent checks/repairs)
     await task.restore(req.user._id, { session });
     await session.commitTransaction();
 
@@ -424,8 +438,8 @@ export const restoreTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name")
-      .populate("organization", "name")
+      .populate("department", "name isDeleted hod")
+      .populate("organization", "name isPlatformOrg isDeleted")
       .populate("createdBy", "firstName lastName")
       .populate("vendor", "name")
       .populate("assignees", "firstName lastName")

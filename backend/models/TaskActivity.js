@@ -3,6 +3,7 @@ import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import { TTL, LIMITS, TASK_TYPES } from "../utils/constants.js";
+import CustomError from "../errorHandler/CustomError.js";
 
 const taskActivitySchema = new mongoose.Schema(
   {
@@ -101,13 +102,13 @@ taskActivitySchema.pre("save", async function (next) {
       const parentTask = await BaseTask.findById(this.parent).session(session);
 
       if (!parentTask) {
-        return next(new Error("Parent task not found"));
+        return next(CustomError.notFound("BaseTask", this.parent));
       }
 
       // Validate parent is NOT RoutineTask
       if (parentTask.taskType === TASK_TYPES.ROUTINE_TASK) {
         return next(
-          new Error(
+          CustomError.validation(
             "TaskActivity is not supported for RoutineTask. Use TaskComment for changes/updates/corrections."
           )
         );
@@ -118,7 +119,9 @@ taskActivitySchema.pre("save", async function (next) {
         parentTask.taskType !== TASK_TYPES.PROJECT_TASK &&
         parentTask.taskType !== TASK_TYPES.ASSIGNED_TASK
       ) {
-        return next(new Error("Parent must be ProjectTask or AssignedTask"));
+        return next(
+          CustomError.validation("Parent must be ProjectTask or AssignedTask")
+        );
       }
 
       // Set parentModel based on parent's taskType
@@ -144,11 +147,16 @@ taskActivitySchema.statics.cascadeDelete = async function (
   const comments = await TaskComment.find({
     parent: activityId,
     parentModel: "TaskActivity",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
       await comment.softDelete(deletedBy, { session });
       // Cascade delete comment children
+      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
+    } else {
+      // Idempotent traverse
       await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     }
   }
@@ -157,11 +165,31 @@ taskActivitySchema.statics.cascadeDelete = async function (
   const attachments = await Attachment.find({
     parent: activityId,
     parentModel: "TaskActivity",
-  }).session(session);
+  })
+    .withDeleted()
+    .session(session);
   for (const attachment of attachments) {
     if (!attachment.isDeleted) {
       await attachment.softDelete(deletedBy, { session });
     }
+  }
+};
+
+// Strict Restore Mode: Check parent integrity
+taskActivitySchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const BaseTask = mongoose.model("BaseTask");
+  const parent = await BaseTask.findById(doc.parent)
+    .withDeleted()
+    .session(session);
+
+  if (!parent || parent.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task activity because its parent task is deleted. Restore the task first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
   }
 };
 

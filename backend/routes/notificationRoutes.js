@@ -25,9 +25,9 @@ const router = express.Router();
  */
 
 router.get("/", verifyJWT, authorize("Notification", "read"), getNotifications);
-router.get("/:resourceId", verifyJWT, notificationIdValidator, authorize("Notification", "read"), getNotification);
-router.patch("/:resourceId/read", verifyJWT, notificationIdValidator, authorize("Notification", "update"), markAsRead);
+router.get("/:notificationId", verifyJWT, notificationIdValidator, authorize("Notification", "read"), getNotification);
+router.patch("/:notificationId/read", verifyJWT, notificationIdValidator, authorize("Notification", "update"), markAsRead);
 router.patch("/read-all", verifyJWT, authorize("Notification", "update"), markAllAsRead);
-router.delete("/:resourceId", verifyJWT, notificationIdValidator, authorize("Notification", "delete"), deleteNotification);
+router.delete("/:notificationId", verifyJWT, notificationIdValidator, authorize("Notification", "delete"), deleteNotification);
 
 export default router;
