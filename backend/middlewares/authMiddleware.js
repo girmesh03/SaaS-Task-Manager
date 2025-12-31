@@ -23,8 +23,12 @@ import logger from "../utils/logger.js";
  */
 export const verifyJWT = async (req, res, next) => {
   try {
-    // Get token from HTTP-only cookie
-    const token = req.cookies.access_token;
+    // Get token from HTTP-only cookie or Authorization header
+    let token = req.cookies.access_token;
+
+    if (!token && req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
 
     if (!token) {
       throw CustomError.authentication("Access token not found. Please login.");

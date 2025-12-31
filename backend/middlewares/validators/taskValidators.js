@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
 import { LIMITS, TASK_TYPES, TASK_STATUS, TASK_PRIORITY } from "../../utils/constants.js";
 import mongoose from "mongoose";
@@ -389,5 +389,19 @@ export const taskIdValidator = [
 
       return true;
     }),
+  handleValidationErrors,
+];
+
+export const getTasksValidator = [
+  query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+  query("search").optional().isString().trim(),
+  query("taskType").optional().isIn(Object.values(TASK_TYPES)),
+  query("status").optional().isIn(Object.values(TASK_STATUS)),
+  query("priority").optional().isIn(Object.values(TASK_PRIORITY)),
+  query("department").optional().isMongoId(),
+  query("assigneeId").optional().isMongoId(),
+  query("vendor").optional().isMongoId(),
+  query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

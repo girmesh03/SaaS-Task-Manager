@@ -14,6 +14,7 @@ import {
   createUserValidator,
   updateUserValidator,
   userIdValidator,
+  getUsersValidator,
 } from "../middlewares/validators/userValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
@@ -34,7 +35,7 @@ const router = express.Router();
  * @desc    Get all users (scoped to organization for Customer SuperAdmin/Admin)
  * @access  Protected (authorize User read)
  */
-router.get("/", verifyJWT, authorize("User", "read"), getUsers);
+router.get("/", verifyJWT, getUsersValidator, authorize("User", "read"), getUsers);
 
 /**
  * @route   GET /api/users/:userId

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import CustomError from "../errorHandler/CustomError.js";
 import mongoosePaginate from "mongoose-paginate-v2";
 import softDeletePlugin from "./plugins/softDelete.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
@@ -123,9 +124,18 @@ organizationSchema.index({ isPlatformOrg: 1 });
 organizationSchema.index({ isDeleted: 1 });
 organizationSchema.index({ deletedAt: 1 });
 
-// Pre-save hook for date conversion
+// Pre-save hook for date conversion and protection
 organizationSchema.pre("save", function (next) {
+  // 1. Date conversion
   convertDatesToUTC(this, []);
+
+  // 2. Platform protection: Cannot delete platform organization
+  if (this.isModified("isDeleted") && this.isDeleted && this.isPlatformOrg) {
+    return next(
+      CustomError.validation("Platform organization cannot be deleted")
+    );
+  }
+
   next();
 });
 
@@ -232,8 +242,9 @@ organizationSchema.statics.cascadeDelete = async function (
 organizationSchema.plugin(mongoosePaginate);
 organizationSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (never expires)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const Organization = mongoose.model("Organization", organizationSchema);
-Organization.ensureTTLIndex(TTL.ORGANIZATION);
 
 export default Organization;

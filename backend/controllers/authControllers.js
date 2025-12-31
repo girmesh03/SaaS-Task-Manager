@@ -13,7 +13,7 @@ import {
   sendPasswordResetConfirmation,
 } from "../services/emailService.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
-import { USER_STATUS } from "../utils/constants.js";
+import { USER_ROLES, USER_STATUS } from "../utils/constants.js";
 import logger from "../utils/logger.js";
 import {
   createdResponse,
@@ -80,7 +80,7 @@ export const register = asyncHandler(async (req, res) => {
           firstName: userData.firstName,
           lastName: userData.lastName,
           position: userData.position,
-          role: "SuperAdmin", // First user is always SuperAdmin
+          role: USER_ROLES.SUPER_ADMIN, // First user is always SuperAdmin
           email: userData.email,
           password: userData.password,
           organization: organization._id,
@@ -106,16 +106,16 @@ export const register = asyncHandler(async (req, res) => {
 
     // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
-    // Populate user for response
-    await user.populate("organization", "_id name isPlatformOrg isDeleted");
-    await user.populate("department", "_id name isDeleted hod");
+    // Side effects AFTER commit
+    await user.populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    );
+    await user.populate("department", "_id name hod isDeleted");
 
-    // Send welcome email (async, non-blocking)
     sendWelcomeEmail(user);
 
-    // Emit Socket.IO events
     emitToRooms("organization:created", organization, [
       `organization:${organization._id}`,
     ]);
@@ -132,43 +132,21 @@ export const register = asyncHandler(async (req, res) => {
       message: "User registered successfully",
       userId: user._id,
       organizationId: organization._id,
-      departmentId: department._id,
     });
 
-    createdResponse(res, "Registration successful", {
-      user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        organization: user.organization,
-        department: user.department,
-        isHod: user.isHod,
-        isPlatformUser: user.isPlatformUser,
-      },
-      organization: {
-        _id: organization._id,
-        name: organization.name,
-        email: organization.email,
-      },
-      department: {
-        _id: department._id,
-        name: department.name,
-      },
-    });
+    createdResponse(res, "Registration successful", user);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     logger.error({
       message: "Registration failed",
       error: error.message,
       stack: error.stack,
     });
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
@@ -184,55 +162,45 @@ export const login = asyncHandler(async (req, res) => {
   try {
     const { email, password } = req.validated.body;
 
-    // Find user by email with password field
-    const user = await User.findOne({ email }).session(session)
+    const user = await User.findOne({ email })
+      .session(session)
       .select("+password")
-      .populate("organization", "_id name isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod");
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted");
 
     if (!user) {
       throw CustomError.authentication("Invalid email or password");
     }
 
-    // Check if user is soft-deleted
     if (user.isDeleted) {
       throw CustomError.authentication("User account has been deactivated");
     }
 
-    // Check if organization is soft-deleted
     if (!user.organization || user.organization.isDeleted) {
       throw CustomError.authentication("Organization has been deactivated");
     }
 
-    // Check if department is soft-deleted
     if (!user.department || user.department.isDeleted) {
       throw CustomError.authentication("Department has been deactivated");
     }
 
-    // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       throw CustomError.authentication("Invalid email or password");
     }
 
-    // Update lastLogin
     user.lastLogin = new Date();
     await user.save({ session });
 
-    // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
-    // Generate JWT tokens
+    // Side effects AFTER commit
     const { accessToken, refreshToken } = generateTokens(user._id);
-
-    // Set HTTP-only cookies
     setTokenCookies(res, accessToken, refreshToken);
 
-    // Remove password from response
-    user.password = undefined;
-
-    // Emit user:online event
     emitToRooms(
       "user:online",
       { userId: user._id, status: USER_STATUS.ONLINE },
@@ -246,88 +214,58 @@ export const login = asyncHandler(async (req, res) => {
     logger.info({
       message: "User logged in successfully",
       userId: user._id,
-      email: user.email,
     });
 
     successResponse(res, 200, "Login successful", {
-      user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        organization: user.organization,
-        department: user.department,
-        isHod: user.isHod,
-        isPlatformUser: user.isPlatformUser,
-        lastLogin: user.lastLogin,
-      },
+      user,
     });
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
 /**
  * Logout user
  * DELETE /api/auth/logout
- * Protected route with rate limiting (5/15min)
  */
 export const logout = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const departmentId = req.user.department._id;
   const organizationId = req.user.organization._id;
 
-  // Clear HTTP-only cookies
   clearTokenCookies(res);
 
-  // Emit user:offline event
   emitToRooms("user:offline", { userId, status: USER_STATUS.OFFLINE }, [
     `user:${userId}`,
     `department:${departmentId}`,
     `organization:${organizationId}`,
   ]);
 
-  logger.info({
-    message: "User logged out successfully",
-    userId,
-  });
-
+  logger.info({ message: "User logged out successfully", userId });
   successResponse(res, 200, "Logout successful");
 });
 
 /**
  * Refresh access token
  * GET /api/auth/refresh-token
- * Protected route with rate limiting (5/15min)
  */
 export const refreshToken = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-
-  // Generate new tokens (token rotation)
-  const { accessToken, refreshToken: newRefreshToken } =
-    generateTokens(userId);
-
-  // Set new HTTP-only cookies
+  const { accessToken, refreshToken: newRefreshToken } = generateTokens(userId);
   setTokenCookies(res, accessToken, newRefreshToken);
 
-  logger.info({
-    message: "Token refreshed successfully",
-    userId,
-  });
-
+  logger.info({ message: "Token refreshed successfully", userId });
   successResponse(res, 200, "Token refreshed successfully");
 });
 
 /**
  * Forgot password - send reset email
  * POST /api/auth/forgot-password
- * Public route with rate limiting (5/15min)
  */
 export const forgotPassword = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -335,63 +273,36 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   try {
     const { email } = req.validated.body;
-
-    // Find user by email
     const user = await User.findOne({ email }).session(session);
 
-    // CRITICAL: Always return success to prevent email enumeration
-    // Even if user doesn't exist, return success message
     if (!user || user.isDeleted) {
       await session.abortTransaction();
-      session.endSession();
-
-      logger.info({
-        message: "Password reset requested for non-existent/deleted user",
-        email,
-      });
-
-      return successResponse(
-        res,
-        200,
-        "If an account with that email exists, a password reset link has been sent"
-      );
+      logger.info({ message: "Forgot password requested for non-existent user", email });
+      return successResponse(res, 200, "If an account with that email exists, a password reset link has been sent");
     }
 
-    // Generate reset token
     const resetToken = await user.generatePasswordResetToken();
     await user.save({ session });
 
-    // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
-    // Send password reset email (async, non-blocking)
     sendPasswordResetEmail(user, resetToken);
+    logger.info({ message: "Password reset email sent", userId: user._id });
 
-    logger.info({
-      message: "Password reset email sent",
-      userId: user._id,
-      email: user.email,
-    });
-
-    successResponse(
-      res,
-      200,
-      "If an account with that email exists, a password reset link has been sent"
-    );
+    successResponse(res, 200, "If an account with that email exists, a password reset link has been sent");
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
 /**
  * Reset password with token
  * POST /api/auth/reset-password
- * Public route with rate limiting (5/15min)
  */
 export const resetPassword = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -400,50 +311,32 @@ export const resetPassword = asyncHandler(async (req, res) => {
   try {
     const { token, password } = req.validated.body;
 
-    // Find user with valid reset token
-    const user = await User.findOne({
-      passwordResetExpires: { $gt: new Date() },
-    }).session(session).select("+passwordResetToken +passwordResetExpires");
-
+    const user = await User.findByResetToken(token, { session });
     if (!user) {
       throw CustomError.validation("Invalid or expired reset token");
     }
 
-    // Verify reset token
     const isTokenValid = await user.verifyPasswordResetToken(token);
     if (!isTokenValid) {
       throw CustomError.validation("Invalid or expired reset token");
     }
 
-    // Update password
     user.password = password;
     user.clearPasswordResetToken();
     await user.save({ session });
 
-    // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
-    // Send confirmation email (async, non-blocking)
     sendPasswordResetConfirmation(user);
+    logger.info({ message: "Password reset successful", userId: user._id });
 
-    logger.info({
-      message: "Password reset successful",
-      userId: user._id,
-      email: user.email,
-    });
-
-    successResponse(
-      res,
-      200,
-      "Password reset successful. You can now login with your new password"
-    );
+    successResponse(res, 200, "Password reset successful. You can now login with your new password");
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 });
-

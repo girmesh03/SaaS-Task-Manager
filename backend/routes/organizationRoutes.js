@@ -9,6 +9,7 @@ import {
 import {
   updateOrganizationValidator,
   organizationIdValidator,
+  getOrganizationsValidator,
 } from "../middlewares/validators/organizationValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
@@ -28,7 +29,7 @@ const router = express.Router();
  * @desc    Get all organizations (Platform SuperAdmin sees all, others see own)
  * @access  Protected (authorize Organization read)
  */
-router.get("/", verifyJWT, authorize("Organization", "read"), getOrganizations);
+router.get("/", verifyJWT, getOrganizationsValidator, authorize("Organization", "read"), getOrganizations);
 
 /**
  * @route   GET /api/organizations/:organizationId

@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
 import { LIMITS, MATERIAL_CATEGORIES, UNIT_TYPES } from "../../utils/constants.js";
 import mongoose from "mongoose";
@@ -151,5 +151,15 @@ export const materialIdValidator = [
       return true;
     }),
 
+  handleValidationErrors,
+];
+
+export const getMaterialsValidator = [
+  query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+  query("search").optional().isString().trim(),
+  query("category").optional().isIn(Object.values(MATERIAL_CATEGORIES)),
+  query("department").optional().isMongoId(),
+  query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

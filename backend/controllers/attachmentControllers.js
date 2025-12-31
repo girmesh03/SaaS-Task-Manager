@@ -67,7 +67,13 @@ export const getAttachments = asyncHandler(async (req, res) => {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
-    populate: [{ path: "uploadedBy", select: "firstName lastName" }],
+    populate: [
+      {
+        path: "uploadedBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+    ],
   };
 
   const attachments = await Attachment.paginate(query, options);
@@ -92,7 +98,10 @@ export const getAttachment = asyncHandler(async (req, res) => {
   const { attachmentId } = req.validated.params;
 
   const attachment = await Attachment.findById(attachmentId)
-    .populate("uploadedBy", "firstName lastName")
+    .populate(
+      "uploadedBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .lean();
 
   if (!attachment) throw CustomError.notFound("Attachment", attachmentId);
@@ -170,7 +179,10 @@ export const createAttachment = asyncHandler(async (req, res) => {
     );
 
     const populatedAttachment = await Attachment.findById(newAttachment._id)
-      .populate("uploadedBy", "firstName lastName")
+      .populate(
+        "uploadedBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     createdResponse(res, "Attachment created successfully", populatedAttachment);
@@ -245,9 +257,9 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
       rooms
     );
 
-    successResponse(res, 200, "Attachment deleted successfully", {
-      attachmentId: attachment._id,
-    });
+    const deletedAttachment = await Attachment.findById(attachmentId).withDeleted().lean();
+
+    successResponse(res, 200, "Attachment deleted successfully", deletedAttachment);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Attachment Error:", error);
@@ -313,7 +325,10 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
     );
 
     const populatedAttachment = await Attachment.findById(attachment._id)
-      .populate("uploadedBy", "firstName lastName")
+      .populate(
+        "uploadedBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     successResponse(res, 200, "Attachment restored successfully", populatedAttachment);

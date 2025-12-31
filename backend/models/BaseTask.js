@@ -277,8 +277,9 @@ baseTaskSchema.statics.repairOnRestore = async function (
 baseTaskSchema.plugin(mongoosePaginate);
 baseTaskSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (180 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const BaseTask = mongoose.model("BaseTask", baseTaskSchema);
-BaseTask.ensureTTLIndex(TTL.TASK);
 
 export default BaseTask;

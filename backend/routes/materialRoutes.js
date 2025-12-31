@@ -11,6 +11,7 @@ import {
   createMaterialValidator,
   updateMaterialValidator,
   materialIdValidator,
+  getMaterialsValidator,
 } from "../middlewares/validators/materialValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
@@ -25,7 +26,7 @@ import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, authorize("Material", "read"), getMaterials);
+router.get("/", verifyJWT, getMaterialsValidator, authorize("Material", "read"), getMaterials);
 router.get(
   "/:materialId",
   verifyJWT,

@@ -11,13 +11,14 @@ import {
   createTaskCommentValidator,
   updateTaskCommentValidator,
   taskCommentIdValidator,
+  getTaskCommentsValidator,
 } from "../middlewares/validators/taskCommentValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, authorize("TaskComment", "read"), getTaskComments);
+router.get("/", verifyJWT, getTaskCommentsValidator, authorize("TaskComment", "read"), getTaskComments);
 router.get("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "read"), getTaskComment);
 router.post("/", verifyJWT, createTaskCommentValidator, authorize("TaskComment", "create"), createTaskComment);
 router.put("/:taskCommentId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);

@@ -197,8 +197,9 @@ taskActivitySchema.statics.strictParentCheck = async function (
 taskActivitySchema.plugin(mongoosePaginate);
 taskActivitySchema.plugin(softDeletePlugin);
 
-// Configure TTL index (90 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const TaskActivity = mongoose.model("TaskActivity", taskActivitySchema);
-TaskActivity.ensureTTLIndex(TTL.TASK_ACTIVITY);
 
 export default TaskActivity;

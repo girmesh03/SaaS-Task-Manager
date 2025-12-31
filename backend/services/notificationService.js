@@ -88,16 +88,23 @@ export const notifyTaskAssigned = async (task, recipientIds, { session } = {}) =
 /**
  * Notify user mentioned
  */
-export const notifyMention = async (comment, mentionedUserIds, { session } = {}) => {
+export const notifyMention = async (
+  comment,
+  mentionedUserIds,
+  taskId,
+  { session } = {}
+) => {
   const notifications = [];
   for (const userId of mentionedUserIds) {
     const notification = await createNotification(
       {
         title: "You were mentioned",
-        message: `${comment.createdBy?.firstName || "Someone"} mentioned you in a comment`,
+        message: `${
+          comment.createdBy?.firstName || "Someone"
+        } mentioned you in a comment`,
         type: NOTIFICATION_TYPES.MENTION,
         recipient: userId,
-        entity: comment.parent, // Use task ID as entity for easier navigation
+        entity: taskId || comment.parent, // Use task ID as entity for easier navigation
         entityModel: "BaseTask",
         organization: comment.organization,
       },

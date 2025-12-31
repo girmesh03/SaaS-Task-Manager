@@ -81,6 +81,13 @@ export const getOrganizations = asyncHandler(async (req, res) => {
     sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 },
     lean: true,
     leanWithId: false,
+    populate: [
+      {
+        path: "createdBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+    ],
   };
 
   // Use withDeleted() if we want to include deleted records
@@ -126,6 +133,10 @@ export const getOrganization = asyncHandler(async (req, res) => {
 
   // Find organization (use withDeleted to allow viewing soft-deleted orgs)
   const organization = await Organization.findById(organizationId)
+    .populate(
+      "createdBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .withDeleted()
     .lean();
 
@@ -213,8 +224,15 @@ export const updateOrganization = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    const populatedOrganization = await Organization.findById(organization._id)
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .session(session);
+
     // Emit Socket.IO event
-    emitToRooms("organization:updated", organization, [
+    emitToRooms("organization:updated", populatedOrganization, [
       `organization:${organization._id}`,
     ]);
 
@@ -224,7 +242,7 @@ export const updateOrganization = asyncHandler(async (req, res) => {
       organizationId: organization._id,
     });
 
-    okResponse(res, "Organization updated successfully", organization);
+    okResponse(res, "Organization updated successfully", populatedOrganization);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -307,9 +325,15 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
       organizationId: organization._id,
     });
 
-    successResponse(res, 200, "Organization deleted successfully", {
-      _id: organization._id,
-    });
+    const deletedOrganization = await Organization.findById(organizationId)
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .withDeleted()
+      .lean();
+
+    successResponse(res, 200, "Organization deleted successfully", deletedOrganization);
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -342,6 +366,10 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
 
     // Find organization (including soft-deleted)
     const organization = await Organization.findById(organizationId)
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .withDeleted()
       .session(session);
 

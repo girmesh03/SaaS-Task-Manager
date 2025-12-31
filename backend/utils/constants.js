@@ -394,3 +394,28 @@ export const SOFT_DELETE_ERRORS = {
   QUOTA_VIOLATION: "QUOTA_VIOLATION",
   INVALID_QUANTITY: "INVALID_QUANTITY",
 };
+
+// Database Configuration
+export const DATABASE_CONFIG = {
+  MAX_RETRIES: 5,
+  RETRY_DELAY: 5000,
+  MIN_POOL_SIZE: 2,
+  MAX_POOL_SIZE: 10,
+  SERVER_SELECTION_TIMEOUT_MS: 5000,
+  SOCKET_TIMEOUT_MS: 45000,
+  FAMILY: 4,
+};
+
+// CORS Configuration
+export const CORS_CONFIG = {
+  METHODS: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  ALLOWED_HEADERS: ["Content-Type", "Authorization", "X-Requested-With"],
+  EXPOSED_HEADERS: [
+    "X-Request-ID",
+    "X-RateLimit-Limit",
+    "X-RateLimit-Remaining",
+    "X-RateLimit-Reset",
+  ],
+  MAX_AGE: 86400,
+  OPTIONS_SUCCESS_STATUS: 200,
+};

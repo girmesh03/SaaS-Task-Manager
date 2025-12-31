@@ -111,8 +111,9 @@ notificationSchema.statics.strictParentCheck = async function (
 notificationSchema.plugin(mongoosePaginate);
 notificationSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (30 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const Notification = mongoose.model("Notification", notificationSchema);
-Notification.ensureTTLIndex(TTL.NOTIFICATION);
 
 export default Notification;

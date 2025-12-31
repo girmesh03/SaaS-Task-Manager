@@ -1,4 +1,5 @@
 import express from "express";
+import dayjs from "dayjs";
 
 import AuthRoutes from "./authRoutes.js";
 import OrganizationRoutes from "./organizationRoutes.js";
@@ -14,6 +15,16 @@ import NotificationRoutes from "./notificationRoutes.js";
 
 const router = express.Router();
 
+// Health check endpoint
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Server is running",
+    timestamp: dayjs().utc().toISOString(),
+    timezone: process.env.TZ,
+  });
+});
+
 router.use("/auth", AuthRoutes);
 router.use("/organizations", OrganizationRoutes);
 router.use("/departments", DepartmentRoutes);
@@ -27,9 +38,9 @@ router.use("/attachments", AttachmentRoutes);
 router.use("/notifications", NotificationRoutes);
 
 // Health Check
-router.get("/health", (req, res) => {
-  res.status(200).json({ success: true, message: "API is healthy", timestamp: new Date() });
-});
+// router.get("/health", (req, res) => {
+//   res.status(200).json({ success: true, message: "API is healthy", timestamp: new Date() });
+// });
 
 export default router;
 

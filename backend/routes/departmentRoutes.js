@@ -11,6 +11,7 @@ import {
   createDepartmentValidator,
   updateDepartmentValidator,
   departmentIdValidator,
+  getDepartmentsValidator,
 } from "../middlewares/validators/departmentValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
@@ -30,7 +31,7 @@ const router = express.Router();
  * @desc    Get all departments (scoped to organization for Customer SuperAdmin/Admin)
  * @access  Protected (authorize Department read)
  */
-router.get("/", verifyJWT, authorize("Department", "read"), getDepartments);
+router.get("/", verifyJWT, getDepartmentsValidator, authorize("Department", "read"), getDepartments);
 
 /**
  * @route   GET /api/departments/:departmentId

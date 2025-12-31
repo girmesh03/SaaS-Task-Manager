@@ -1,99 +1,261 @@
-// CRITICAL: Force UTC timezone - MUST BE FIRST LINE
-process.env.TZ = "UTC";
+// ============================================================================
+// Server Entry Point - Multi-Tenant SaaS Task Manager
+// ============================================================================
+// NOTE: app.js handles all initial setup:
+//   - TZ configuration from .env (defaults to UTC if not set)
+//   - Environment variable validation (validateEnv)
+//   - Dayjs plugin configuration (UTC + timezone)
+//   - Express app with middleware stack
+//   - TTL index initialization function export
+// ============================================================================
 
-import "dotenv/config";
 import http from "http";
-import app from "./app.js";
+import app, { ensureTTLIndexes } from "./app.js";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { initializeSocket } from "./utils/socketInstance.js";
 import setupSocketHandlers from "./utils/socket.js";
-import validateEnv from "./utils/validateEnv.js";
 import logger from "./utils/logger.js";
 import dayjs from "dayjs";
 
-// Verify UTC timezone
-console.log("=".repeat(50));
-console.log(`Server Timezone: ${process.env.TZ}`);
-console.log(`Current UTC Time: ${dayjs().utc().format("YYYY-MM-DD HH:mm:ss")}`);
-console.log("=".repeat(50));
-
-// Validate environment variables
-try {
-  validateEnv();
-} catch (error) {
-  logger.error("Environment validation failed");
-  process.exit(1);
-}
-
 const PORT = process.env.PORT || 4000;
 
-// Create HTTP server
+// ============================================================================
+// HTTP Server Creation
+// ============================================================================
 const server = http.createServer(app);
 
-// Initialize Socket.IO
-const io = initializeSocket(server);
-setupSocketHandlers();
+// Tracking connections for aggressive shutdown
+const connections = new Set();
+server.on("connection", (socket) => {
+  connections.add(socket);
+  socket.on("close", () => connections.delete(socket));
+});
 
-logger.info("Socket.IO initialized");
 
-// Start server
+// ============================================================================
+// Optimized Server Initialization Flow
+// ============================================================================
+/**
+ * Logical Order:
+ * 1. Connect to MongoDB (Core requirement)
+ * 2. Initialize TTL Indexes (Depends on DB)
+ * 3. Initialize Socket.IO (Depends on Server object)
+ * 4. Start HTTP Server Listening (Final step - accepts traffic)
+ */
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await connectDB();
+    logger.info("=".repeat(70));
+    logger.info("INITIALIZATION: server.js - Startup Sequence");
+    logger.info("=".repeat(70));
+    logger.info(`   Port: ${PORT}`);
+    logger.info(`   Environment: ${process.env.NODE_ENV}`);
+    logger.info(`   Timezone: ${process.env.TZ}`);
+    logger.info("   Current Time: " + dayjs().format("YYYY-MM-DD HH:mm:ss"));
+    logger.info("=".repeat(70));
 
-    // Start listening
-    server.listen(PORT, () => {
-      logger.info(
-        `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
-      );
-      logger.info(`Health check: http://localhost:${PORT}/health`);
-    });
+    // ========================================================================
+    // PHASE 1: Database & Persistence
+    // ========================================================================
+    logger.info("");
+    logger.info("1. DATABASE: Initiating Connection...");
+    await connectDB();
+    logger.info("✓ DATABASE: Connected successfully");
+
+    // ========================================================================
+    // PHASE 2: Schema & Maintenance
+    // ========================================================================
+    logger.info("");
+    logger.info("2. TTL INDEXES: Synchronizing...");
+    await ensureTTLIndexes();
+    logger.info("✓ TTL INDEXES: Initialization complete");
+
+    // ========================================================================
+    // PHASE 3: Communications (Socket.io)
+    // ========================================================================
+    logger.info("");
+    logger.info("3. SOCKET.IO: Configuring Handlers...");
+    initializeSocket(server);
+    setupSocketHandlers();
+    logger.info("✓ SOCKET.IO: Initialized and configured");
+
+    // ========================================================================
+    // PHASE 4: Network (HTTP Listener)
+    // ========================================================================
+    logger.info("");
+    logger.info("4. HTTP SERVER: Starting Listener...");
+
+
+    let bindAttempts = 0;
+    const MAX_BIND_ATTEMPTS = 3;
+    const BIND_RETRY_DELAY = 1000;
+
+    const startListening = async () => {
+      return new Promise((resolve, reject) => {
+        const startupErrorHandler = async (err) => {
+          if (err.code === "EADDRINUSE") {
+            bindAttempts++;
+            if (bindAttempts < MAX_BIND_ATTEMPTS) {
+              logger.warn(
+                `Port ${PORT} is busy (Attempt ${bindAttempts}/${MAX_BIND_ATTEMPTS}). Retrying in ${BIND_RETRY_DELAY}ms...`
+              );
+              server.close(); // Ensure handles are cleaned up before retry
+              setTimeout(async () => {
+                try {
+                  await startListening();
+                  resolve();
+                } catch (retryErr) {
+                  reject(retryErr);
+                }
+              }, BIND_RETRY_DELAY);
+              return;
+            }
+
+            logger.error("=".repeat(70));
+            logger.error("❌ PORT ALREADY IN USE");
+            logger.error("=".repeat(70));
+            logger.error(
+              `   Port ${PORT} is still busy after ${MAX_BIND_ATTEMPTS} attempts.`
+            );
+            logger.error("");
+            logger.error("   To fix this issue (Windows):");
+            logger.error(`   1. Find PID:  netstat -ano | findstr :${PORT}`);
+            logger.error("   2. Kill it:   taskkill //PID <PID> //F");
+            logger.error("");
+            logger.error("   Or simply restart your development environment.");
+            logger.error("=".repeat(70));
+          }
+          reject(err);
+        };
+
+        server.once("error", startupErrorHandler);
+
+        server.listen(PORT, () => {
+          server.removeListener("error", startupErrorHandler);
+          resolve();
+        });
+      });
+    };
+
+    await startListening();
+
+
+
+    logger.info("=".repeat(70));
+    logger.info("🚀 SERVER STARTUP: SUCCESSFUL");
+    logger.info("=".repeat(70));
+    logger.info(`   Status: RUNNING`);
+    logger.info(`   URL: http://localhost:${PORT}`);
+    logger.info(`   Health: http://localhost:${PORT}/health`);
+    logger.info("=".repeat(70));
+    logger.info("");
+
   } catch (error) {
-    logger.error(`Failed to start server: ${error.message}`);
-    process.exit(1);
+    logger.error("=".repeat(70));
+    logger.error("❌ FATAL ERROR: Server initialization failed!");
+    logger.error("=".repeat(70));
+    logger.error(`   Message: ${error.message}`);
+    logger.error(`   Stack: ${error.stack}`);
+    logger.error("=".repeat(70));
+
+    // Exit with code 1 for startup failure
+    await gracefulShutdown("STARTUP_ERROR", 1);
   }
 };
 
-// Graceful shutdown
-const gracefulShutdown = async (signal) => {
-  logger.info(`${signal} received. Starting graceful shutdown...`);
+// ============================================================================
+// Enhanced Graceful Shutdown Handler
+// ============================================================================
+/**
+ * @param {string} signal - The signal or event that triggered shutdown
+ * @param {number} exitCode - The process exit code (0 for success, 1 for error)
+ */
+const gracefulShutdown = async (signal, exitCode = 0) => {
+  logger.info("");
+  logger.info("=".repeat(70));
+  logger.info(`SHUTDOWN: ${signal} sequence started...`);
+  logger.info("=".repeat(70));
 
-  // Close server
-  server.close(async () => {
-    logger.info("HTTP server closed");
+  // 1. Close Socket.IO (to disconnect clients and stop engine)
+  try {
+    const { getIO } = await import("./utils/socketInstance.js");
+    const io = getIO();
+    if (io) {
+      await new Promise((resolve) => {
+        io.close(() => {
+          logger.info("✓ Socket.IO: CLOSED");
+          resolve();
+        });
+      });
+    }
+  } catch (error) {
+    // Socket.io likely not initialized or threw during getIO, ignore
+  }
 
-    // Close database connection
+  // 2. Close HTTP Server (Stop accepting new connections)
+  if (server.listening) {
+    // Aggressively destroy existing connections to release port immediately
+    if (connections.size > 0) {
+      logger.info(`✓ Closing ${connections.size} active connections...`);
+      for (const socket of connections) {
+        socket.destroy();
+      }
+      connections.clear();
+    }
+
+    await new Promise((resolve) => {
+      server.close(() => {
+        logger.info("✓ HTTP Server: CLOSED");
+        resolve();
+      });
+    });
+  }
+
+
+
+  // 2. Disconnect from Database
+  try {
     await disconnectDB();
+    logger.info("✓ Database: DISCONNECTED");
+  } catch (error) {
+    logger.error(`✗ Database disconnect failed: ${error.message}`);
+  }
 
-    logger.info("Graceful shutdown complete");
-    process.exit(0);
-  });
+  logger.info("=".repeat(70));
+  logger.info(`SHUTDOWN: COMPLETE (Exit Code: ${exitCode})`);
+  logger.info("=".repeat(70));
 
-  // Force shutdown after 10 seconds
-  setTimeout(() => {
-    logger.error("Forced shutdown after timeout");
-    process.exit(1);
-  }, 10000);
+  // Flush logs and exit
+  process.exit(exitCode);
 };
 
-// Handle process signals
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+// ============================================================================
+// Process Event Handlers
+// ============================================================================
 
-// Handle uncaught exceptions
+// OS Signals - Successful terminations
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM", 0));
+process.on("SIGINT", () => gracefulShutdown("SIGINT", 0));
+
+// Nodemon signal
+process.once("SIGUSR2", () => gracefulShutdown("SIGUSR2", 0));
+
+
+// Internal Errors - Fatal terminations
 process.on("uncaughtException", (error) => {
-  logger.error(`Uncaught Exception: ${error.message}`);
-  logger.error(error.stack);
-  gracefulShutdown("uncaughtException");
+  logger.error("=".repeat(70));
+  logger.error("❌ UNCAUGHT EXCEPTION");
+  logger.error("=".repeat(70));
+  logger.error(error.stack || error.message);
+  gracefulShutdown("uncaughtException", 1);
 });
 
-// Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
-  logger.error("Unhandled Rejection at:", promise);
-  logger.error("Reason:", reason);
-  gracefulShutdown("unhandledRejection");
+  logger.error("=".repeat(70));
+  logger.error("❌ UNHANDLED PROMISE REJECTION");
+  logger.error("=".repeat(70));
+  logger.error(`Reason: ${reason}`);
+  gracefulShutdown("unhandledRejection", 1);
 });
 
-// Start the server
+// Start the initialization
 startServer();

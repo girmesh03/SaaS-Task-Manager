@@ -137,8 +137,9 @@ attachmentSchema.statics.strictParentCheck = async function (
 attachmentSchema.plugin(mongoosePaginate);
 attachmentSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (90 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const Attachment = mongoose.model("Attachment", attachmentSchema);
-Attachment.ensureTTLIndex(TTL.ATTACHMENT);
 
 export default Attachment;

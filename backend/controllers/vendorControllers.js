@@ -97,8 +97,16 @@ export const getVendors = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "organization", select: "name isPlatformOrg isDeleted" },
-      { path: "createdBy", select: "firstName lastName" },
+      {
+        path: "organization",
+        select:
+          "_id name email industry logo isPlatformOrg isDeleted",
+      },
+      {
+        path: "createdBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
     ],
   };
 
@@ -123,8 +131,14 @@ export const getVendor = asyncHandler(async (req, res) => {
   const { vendorId } = req.validated.params;
 
   const vendor = await Vendor.findById(vendorId)
-    .populate("organization", "name email isPlatformOrg isDeleted")
-    .populate("createdBy", "firstName lastName")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate(
+      "createdBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .lean();
 
   if (!vendor) {
@@ -195,8 +209,14 @@ export const createVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     createdResponse(res, "Vendor created successfully", populatedVendor);
@@ -268,8 +288,14 @@ export const updateVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     okResponse(res, "Vendor updated successfully", populatedVendor);
@@ -369,9 +395,9 @@ export const deleteVendor = asyncHandler(async (req, res) => {
       [`organization:${vendor.organization}`]
     );
 
-    successResponse(res, 200, "Vendor deleted successfully", {
-      vendorId: vendor._id,
-    });
+    const deletedVendor = await Vendor.findById(vendorId).withDeleted().lean();
+
+    successResponse(res, 200, "Vendor deleted successfully", deletedVendor);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Vendor Error:", error);
@@ -443,8 +469,14 @@ export const restoreVendor = asyncHandler(async (req, res) => {
 
     // Fetch populated vendor
     const populatedVendor = await Vendor.findById(vendor._id)
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     successResponse(res, 200, "Vendor restored successfully", populatedVendor);

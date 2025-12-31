@@ -61,12 +61,35 @@ export const getTasks = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "department", select: "name isDeleted hod" },
-      { path: "organization", select: "name isPlatformOrg isDeleted" },
-      { path: "createdBy", select: "firstName lastName" },
-      { path: "vendor", select: "name" },
-      { path: "assignees", select: "firstName lastName" },
-      { path: "watchers", select: "firstName lastName" },
+      {
+        path: "department",
+        select: "_id name hod isDeleted",
+      },
+      {
+        path: "organization",
+        select:
+          "_id name email industry logo isPlatformOrg isDeleted",
+      },
+      {
+        path: "createdBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+      {
+        path: "vendor",
+        select:
+          "_id name contactPerson email phone isDeleted",
+      },
+      {
+        path: "assignees",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+      {
+        path: "watchers",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
     ],
   };
 
@@ -86,12 +109,27 @@ export const getTask = asyncHandler(async (req, res) => {
   const { taskId } = req.validated.params;
 
   const task = await BaseTask.findById(taskId)
-    .populate("department", "name isDeleted hod")
-    .populate("organization", "name isPlatformOrg isDeleted")
-    .populate("createdBy", "firstName lastName")
-    .populate("vendor", "name")
-    .populate("assignees", "firstName lastName")
-    .populate("watchers", "firstName lastName")
+    .populate("department", "_id name hod isDeleted")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate(
+      "createdBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
+    .populate(
+      "vendor",
+      "_id name contactPerson email phone isDeleted"
+    )
+    .populate(
+      "assignees",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
+    .populate(
+      "watchers",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .lean();
 
   if (!task) throw CustomError.notFound("Task", taskId);
@@ -110,7 +148,7 @@ export const getTask = asyncHandler(async (req, res) => {
     TaskActivity.countDocuments({ parent: taskId, isDeleted: false }),
     TaskComment.countDocuments({
       parent: taskId,
-      parentModel: "Task",
+      parentModel: "BaseTask",
       isDeleted: false,
     }),
   ]);
@@ -200,12 +238,27 @@ export const createTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
-      .populate("vendor", "name")
-      .populate("assignees", "firstName lastName")
-      .populate("watchers", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "vendor",
+        "_id name contactPerson email phone isDeleted"
+      )
+      .populate(
+        "assignees",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "watchers",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     createdResponse(res, "Task created successfully", populatedTask);
@@ -294,12 +347,27 @@ export const updateTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
-      .populate("vendor", "name")
-      .populate("assignees", "firstName lastName")
-      .populate("watchers", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "vendor",
+        "_id name contactPerson email phone isDeleted"
+      )
+      .populate(
+        "assignees",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "watchers",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     okResponse(res, "Task updated successfully", populatedTask);
@@ -383,9 +451,32 @@ export const deleteTask = asyncHandler(async (req, res) => {
       [`organization:${task.organization}`, `department:${task.department}`]
     );
 
-    successResponse(res, 200, "Task deleted successfully", {
-      taskId: task._id,
-    });
+    const deletedTask = await BaseTask.findById(taskId)
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "vendor",
+        "_id name contactPerson email phone isDeleted"
+      )
+      .populate(
+        "assignees",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "watchers",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .withDeleted()
+      .lean();
+
+    successResponse(res, 200, "Task deleted successfully", deletedTask);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Task Error:", error);
@@ -438,12 +529,27 @@ export const restoreTask = asyncHandler(async (req, res) => {
     );
 
     const populatedTask = await BaseTask.findById(task._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("createdBy", "firstName lastName")
-      .populate("vendor", "name")
-      .populate("assignees", "firstName lastName")
-      .populate("watchers", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "vendor",
+        "_id name contactPerson email phone isDeleted"
+      )
+      .populate(
+        "assignees",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "watchers",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     successResponse(res, 200, "Task restored successfully", populatedTask);

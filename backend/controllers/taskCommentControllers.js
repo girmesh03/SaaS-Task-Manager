@@ -69,8 +69,16 @@ export const getTaskComments = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: 1 }, // Comments usually ASC
     populate: [
-      { path: "createdBy", select: "firstName lastName" },
-      { path: "mentions", select: "firstName lastName" },
+      {
+        path: "createdBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+      {
+        path: "mentions",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
     ],
   };
 
@@ -90,8 +98,14 @@ export const getTaskComment = asyncHandler(async (req, res) => {
   const { taskCommentId } = req.validated.params;
 
   const comment = await TaskComment.findById(taskCommentId)
-    .populate("createdBy", "firstName lastName")
-    .populate("mentions", "firstName lastName")
+    .populate(
+      "createdBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
+    .populate(
+      "mentions",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .lean();
 
   if (!comment) throw CustomError.notFound("Comment", taskCommentId);
@@ -165,8 +179,14 @@ export const createTaskComment = asyncHandler(async (req, res) => {
     );
 
     const populatedComment = await TaskComment.findById(newComment._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("mentions", "firstName lastName")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "mentions",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     createdResponse(res, "Comment created successfully", populatedComment);
@@ -179,7 +199,7 @@ export const createTaskComment = asyncHandler(async (req, res) => {
           const notifyIds = mentions.filter(id => id.toString() !== req.user._id.toString());
 
           if (notifyIds.length > 0) {
-            await notificationService.notifyMention(newComment, notifyIds);
+            await notificationService.notifyMention(newComment, notifyIds, taskId);
 
             // Email notifications (if preferred)
             const actor = { firstName: req.user.firstName, lastName: req.user.lastName };
@@ -259,8 +279,14 @@ export const updateTaskComment = asyncHandler(async (req, res) => {
     );
 
     const populatedComment = await TaskComment.findById(comment._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("mentions", "firstName lastName")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "mentions",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     okResponse(res, "Comment updated successfully", populatedComment);
@@ -328,9 +354,9 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
       rooms
     );
 
-    successResponse(res, 200, "Comment deleted successfully", {
-      commentId: comment._id,
-    });
+    const deletedComment = await TaskComment.findById(taskCommentId).withDeleted().lean();
+
+    successResponse(res, 200, "Comment deleted successfully", deletedComment);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Task Comment Error:", error);
@@ -396,8 +422,14 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
     );
 
     const populatedComment = await TaskComment.findById(comment._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("mentions", "firstName lastName")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "mentions",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     successResponse(res, 200, "Comment restored successfully", populatedComment);

@@ -9,13 +9,14 @@ import {
 import {
   createAttachmentValidator,
   attachmentIdValidator,
+  getAttachmentsValidator,
 } from "../middlewares/validators/attachmentValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, authorize("Attachment", "read"), getAttachments);
+router.get("/", verifyJWT, getAttachmentsValidator, authorize("Attachment", "read"), getAttachments);
 router.get("/:attachmentId", verifyJWT, attachmentIdValidator, authorize("Attachment", "read"), getAttachment);
 router.post("/", verifyJWT, createAttachmentValidator, authorize("Attachment", "create"), createAttachment);
 router.delete("/:attachmentId", verifyJWT, attachmentIdValidator, authorize("Attachment", "delete"), deleteAttachment);

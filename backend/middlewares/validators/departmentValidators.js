@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
 import { LIMITS } from "../../utils/constants.js";
 import mongoose from "mongoose";
@@ -209,6 +209,44 @@ export const departmentIdValidator = [
 
       return true;
     }),
+
+  handleValidationErrors,
+];
+
+/**
+ * Get departments list validator
+ * Validates query parameters
+ */
+export const getDepartmentsValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Limit must be between 1 and 100"),
+
+  query("sortBy")
+    .optional()
+    .isString()
+    .trim(),
+
+  query("sortOrder")
+    .optional()
+    .isIn(["asc", "desc"])
+    .withMessage("Sort order must be 'asc' or 'desc'"),
+
+  query("search")
+    .optional()
+    .isString()
+    .trim(),
+
+  query("deleted")
+    .optional()
+    .isIn(["true", "false", "only"])
+    .withMessage("Deleted must be 'true', 'false', or 'only'"),
 
   handleValidationErrors,
 ];

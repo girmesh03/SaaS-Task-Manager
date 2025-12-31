@@ -184,11 +184,10 @@ export const registerValidator = [
     .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
   body("user.employeeId")
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Employee ID is required")
-    .matches(/^[1-9]\d{3}$/)
-    .withMessage("Employee ID must be a 4-digit number between 1000-9999"),
+    .matches(/^(?!0000)\d{4}$/)
+    .withMessage("Employee ID must be a 4-digit number between 0001-9999"),
 
   body("user.dateOfBirth")
     .optional()

@@ -65,8 +65,16 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
     sort: { createdAt: -1 },
     lean: true,
     populate: [
-      { path: "createdBy", select: "firstName lastName" },
-      { path: "materials.material", select: "name unitType price" },
+      {
+        path: "createdBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
+      {
+        path: "materials.material",
+        select:
+          "_id name unitType price description category",
+      },
     ],
   };
 
@@ -98,8 +106,14 @@ export const getTaskActivity = asyncHandler(async (req, res) => {
   const { taskActivityId } = req.validated.params;
 
   const activity = await TaskActivity.findById(taskActivityId)
-    .populate("createdBy", "firstName lastName")
-    .populate("materials.material", "name unitType price")
+    .populate(
+      "createdBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
+    .populate(
+      "materials.material",
+      "_id name unitType price description category"
+    )
     .lean();
 
   if (!activity) {
@@ -174,8 +188,14 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
     );
 
     const populatedActivity = await TaskActivity.findById(newActivity._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("materials.material", "name unitType price")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "materials.material",
+        "_id name unitType price description category"
+      )
       .lean();
 
     // Transform materials
@@ -238,8 +258,14 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("materials.material", "name unitType price")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "materials.material",
+        "_id name unitType price description category"
+      )
       .lean();
 
     // Transform materials
@@ -302,9 +328,9 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
       ]
     );
 
-    successResponse(res, 200, "Task activity deleted successfully", {
-      activityId: activity._id,
-    });
+    const deletedActivity = await TaskActivity.findById(taskActivityId).withDeleted().lean();
+
+    successResponse(res, 200, "Task activity deleted successfully", deletedActivity);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Task Activity Error:", error);
@@ -360,8 +386,14 @@ export const restoreTaskActivity = asyncHandler(async (req, res) => {
     );
 
     const populatedActivity = await TaskActivity.findById(activity._id)
-      .populate("createdBy", "firstName lastName")
-      .populate("materials.material", "name unitType price")
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "materials.material",
+        "_id name unitType price description category"
+      )
       .lean();
 
     // Transform materials

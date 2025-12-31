@@ -159,8 +159,9 @@ departmentSchema.statics.repairOnRestore = async function (
 departmentSchema.plugin(mongoosePaginate);
 departmentSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (365 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const Department = mongoose.model("Department", departmentSchema);
-Department.ensureTTLIndex(TTL.DEPARTMENT);
 
 export default Department;

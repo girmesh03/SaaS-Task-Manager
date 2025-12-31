@@ -4,8 +4,7 @@ import { User, Department, Organization, BaseTask } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION, USER_ROLES } from "../utils/constants.js";
-import { sendEmail } from "../services/emailService.js";
-import { welcomeEmailTemplate } from "../templates/emailTemplates.js";
+import { sendWelcomeEmail } from "../services/emailService.js";
 import logger from "../utils/logger.js";
 import {
   createdResponse,
@@ -80,8 +79,15 @@ export const getUsers = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "organization", select: "name isPlatformOrg isDeleted" },
-      { path: "department", select: "name isDeleted hod" },
+      {
+        path: "organization",
+        select:
+          "_id name email industry logo isPlatformOrg isDeleted",
+      },
+      {
+        path: "department",
+        select: "_id name hod isDeleted",
+      },
     ],
     select: "-password -passwordResetToken -passwordResetExpires",
   };
@@ -107,8 +113,11 @@ export const getUser = asyncHandler(async (req, res) => {
   const { userId } = req.validated.params;
 
   const user = await User.findById(userId)
-    .populate("organization", "_id name email isPlatformOrg isDeleted")
-    .populate("department", "_id name isDeleted hod")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate("department", "_id name hod isDeleted")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
@@ -175,21 +184,15 @@ export const createUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user for email
     const populatedUserForEmail = await User.findById(user._id)
-      .populate("organization", "_id name isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
       .lean();
 
-    // Send welcome email AFTER commit
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: "Welcome to the Team!",
-        html: welcomeEmailTemplate(populatedUserForEmail),
-      });
-    } catch (emailError) {
-      logger.error("Welcome Email Error:", emailError);
-      // Don't fail the request if email fails
-    }
+    // Send welcome email (async, non-blocking)
+    sendWelcomeEmail(populatedUserForEmail);
 
     // Emit Socket.IO event AFTER commit
     emitToRooms(
@@ -204,8 +207,11 @@ export const createUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "_id name email isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -283,8 +289,11 @@ export const updateUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "_id name email isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -360,8 +369,11 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "_id name email isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 
@@ -389,8 +401,11 @@ export const getAccount = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findById(userId)
-    .populate("organization", "_id name email phone address industry logoUrl isPlatformOrg isDeleted")
-    .populate("department", "_id name description isDeleted hod")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate("department", "_id name hod isDeleted")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
@@ -415,8 +430,11 @@ export const getProfile = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findById(userId)
-    .populate("organization", "_id name isPlatformOrg isDeleted")
-    .populate("department", "_id name isDeleted hod")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate("department", "_id name hod isDeleted")
     .select("-password -passwordResetToken -passwordResetExpires")
     .lean();
 
@@ -544,9 +562,16 @@ export const deleteUser = asyncHandler(async (req, res) => {
       ]
     );
 
-    successResponse(res, 200, "User deleted successfully", {
-      userId: user._id,
-    });
+    const deletedUser = await User.findById(userId)
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
+      .withDeleted()
+      .lean();
+
+    successResponse(res, 200, "User deleted successfully", deletedUser);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete User Error:", error);
@@ -613,8 +638,11 @@ export const restoreUser = asyncHandler(async (req, res) => {
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
-      .populate("organization", "_id name email isPlatformOrg isDeleted")
-      .populate("department", "_id name isDeleted hod")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("department", "_id name hod isDeleted")
       .select("-password -passwordResetToken -passwordResetExpires")
       .lean();
 

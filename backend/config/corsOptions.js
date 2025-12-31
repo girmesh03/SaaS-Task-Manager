@@ -1,22 +1,21 @@
 import allowedOrigins from "./allowedOrigins.js";
 import logger from "../utils/logger.js";
+import { CORS_CONFIG } from "../utils/constants.js";
 
 /**
- * CORS Configuration with Origin Validation
+ * CORS Configuration Options
  *
- * Validates request origin against allowed origins list
- * Enables credentials for HTTP-only cookies
- * Configures allowed methods, headers, and exposed headers
+ * CRITICAL: Credentials must be true for HTTP-only cookies
+ * CRITICAL: Methods and headers must match frontend requirements
+ * CRITICAL: Blocked origins are logged for security auditing
  */
-
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
 
-    // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -24,17 +23,12 @@ const corsOptions = {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true, // Enable HTTP-only cookies
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  exposedHeaders: [
-    "X-Request-ID",
-    "X-RateLimit-Limit",
-    "X-RateLimit-Remaining",
-    "X-RateLimit-Reset",
-  ],
-  maxAge: 86400, // 24 hours - how long browser can cache preflight response
-  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+  credentials: true,
+  methods: CORS_CONFIG.METHODS,
+  allowedHeaders: CORS_CONFIG.ALLOWED_HEADERS,
+  exposedHeaders: CORS_CONFIG.EXPOSED_HEADERS,
+  maxAge: CORS_CONFIG.MAX_AGE,
+  optionsSuccessStatus: CORS_CONFIG.OPTIONS_SUCCESS_STATUS,
 };
 
 export default corsOptions;

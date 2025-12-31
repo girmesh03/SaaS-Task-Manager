@@ -1,5 +1,6 @@
-import { param } from "express-validator";
+import { param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
+import { NOTIFICATION_TYPES } from "../../utils/constants.js";
 import mongoose from "mongoose";
 
 export const notificationIdValidator = [
@@ -28,5 +29,13 @@ export const notificationIdValidator = [
 
       return true;
     }),
+  handleValidationErrors,
+];
+
+export const getNotificationsValidator = [
+  query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+  query("isRead").optional().isBoolean().withMessage("isRead must be a boolean"),
+  query("type").optional().isIn(Object.values(NOTIFICATION_TYPES)),
   handleValidationErrors,
 ];

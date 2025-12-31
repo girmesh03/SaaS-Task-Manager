@@ -5,7 +5,7 @@ const mockTransporter = {
 };
 
 const mockNodemailer = {
-  createTransporter: jest.fn(() => mockTransporter),
+  createTransport: jest.fn(() => mockTransporter),
 };
 
 const mockLogger = {
@@ -21,6 +21,9 @@ jest.unstable_mockModule("nodemailer", () => ({
 jest.unstable_mockModule("../../../utils/logger.js", () => ({
   default: mockLogger,
 }));
+
+// fs mocks removed to rely on real template files
+
 
 // We must bypass the internal createTransporter if we want to test theexported functions easily
 // or just mock the whole module. But sendEmail calls createTransporter internally.
@@ -62,7 +65,7 @@ describe("emailService", () => {
   test("sendEmail should call transporter.sendMail with correct options", async () => {
     await sendEmail("test@example.com", "Subject", "<p>Hello</p>");
 
-    expect(mockNodemailer.createTransporter).toHaveBeenCalled();
+    expect(mockNodemailer.createTransport).toHaveBeenCalled();
     expect(mockTransporter.sendMail).toHaveBeenCalledWith({
       from: "noreply@example.com",
       to: "test@example.com",
@@ -92,8 +95,8 @@ describe("emailService", () => {
 
     expect(mockTransporter.sendMail).toHaveBeenCalledWith(expect.objectContaining({
       to: user.email,
-      subject: "Welcome to Task Manager",
-      html: expect.stringContaining("Welcome to Task Manager, John!")
+      subject: "Welcome to Task Manager Pro",
+      html: expect.stringContaining("Hello John,")
     }));
   });
 
@@ -109,22 +112,23 @@ describe("emailService", () => {
   test("sendPasswordResetConfirmation should send success email", async () => {
     await sendPasswordResetConfirmation(user);
     expect(mockTransporter.sendMail).toHaveBeenCalledWith(expect.objectContaining({
-      subject: "Password Reset Successful"
+      subject: "Password Updated Successfully"
     }));
   });
 
   test("sendMentionEmail should respect user preferences", async () => {
-    const comment = { comment: "Hello @John", createdBy: { firstName: "Jane", lastName: "Smith" } };
+    const actor = { firstName: "Jane", lastName: "Smith" };
+    const comment = { comment: "Hello @John", createdBy: actor };
     const task = { _id: "task1", title: "Test Task" };
 
     // Case 1: Preferences enabled
-    await sendMentionEmail(user, comment, task);
+    await sendMentionEmail(user, actor, comment, task);
     expect(mockTransporter.sendMail).toHaveBeenCalled();
 
     // Case 2: Preferences disabled
     mockTransporter.sendMail.mockClear();
     const userNoEmail = { ...user, emailPreferences: { mentions: false } };
-    await sendMentionEmail(userNoEmail, comment, task);
+    await sendMentionEmail(userNoEmail, actor, comment, task);
     expect(mockTransporter.sendMail).not.toHaveBeenCalled();
   });
 
@@ -159,14 +163,17 @@ describe("emailService", () => {
     expect(mockTransporter.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({
         html: expect.stringContaining("Desc only")
     }));
+    // Note: The template might just have an empty string or "undefined" if not handled,
+    // but the service code: dueDateText = task.dueDate ? ... : ""
+    // So "Due Date:" string should NOT be present.
     expect(mockTransporter.sendMail).toHaveBeenLastCalledWith(expect.not.objectContaining({
-        html: expect.stringContaining("Due Date")
+        html: expect.stringContaining("Due Date:")
     }));
 
     const taskWithDate = { ...taskMin, dueDate: new Date() };
     await sendTaskNotificationEmail(user, taskWithDate, "created");
     expect(mockTransporter.sendMail).toHaveBeenLastCalledWith(expect.objectContaining({
-        html: expect.stringContaining("Due Date")
+        html: expect.stringContaining("Due Date:")
     }));
   });
 

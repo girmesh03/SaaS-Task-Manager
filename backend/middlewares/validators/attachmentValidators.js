@@ -1,6 +1,6 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
-import { FILE_SIZE_LIMITS, FILE_TYPES } from "../../utils/constants.js";
+import { FILE_SIZE_LIMITS, ATTACHMENT_TYPES } from "../../utils/constants.js";
 import mongoose from "mongoose";
 
 // Mime types validation is handled inside checks if needed, but currently verifying fileType enum.
@@ -12,25 +12,20 @@ export const createAttachmentValidator = [
   body("fileUrl").trim().notEmpty().withMessage("File URL is required")
     .isURL().withMessage("File URL must be a valid URL"),
 
-  body("fileType").trim().notEmpty().withMessage("File type is required")
-    .custom((value) => {
-      // Check if value is a valid MIME type or type label?
-      // Usually type label: "Image", "Video" etc.
-      // Let's assume it expects the Enum value "Image", "Video", etc.
-      const validTypes = Object.keys(FILE_TYPES);
-      const normalized = value.toUpperCase();
-      if (!validTypes.includes(normalized)) {
-        throw new Error(`Invalid file type. Must be one of: ${validTypes.join(", ")}`);
-      }
-      return true;
-    }),
+  body("fileType")
+    .trim()
+    .notEmpty()
+    .withMessage("File type is required")
+    .isIn(Object.values(ATTACHMENT_TYPES))
+    .withMessage(`Invalid file type. Must be one of: ${Object.values(ATTACHMENT_TYPES).join(", ")}`),
 
   body("fileSize").isNumeric().withMessage("File size must be a number")
     .custom((value, { req }) => {
+      // Allow case-insensitive lookup for size limit map, assuming keys are UPPERCASE
       const type = req.body.fileType ? req.body.fileType.toUpperCase() : "OTHER";
       const limit = FILE_SIZE_LIMITS[type] || FILE_SIZE_LIMITS.OTHER;
       if (value > limit) {
-        throw new Error(`File size exceeds limit for ${type} (${limit} bytes)`);
+        throw new Error(`File size exceeds limit for ${req.body.fileType} (${limit} bytes)`);
       }
       return true;
     }),
@@ -84,5 +79,14 @@ export const attachmentIdValidator = [
 
       return true;
     }),
+  handleValidationErrors,
+];
+
+export const getAttachmentsValidator = [
+  query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+  query("parent").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
+  query("parentModel").optional().isIn(["BaseTask", "TaskActivity", "TaskComment"]),
+  query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

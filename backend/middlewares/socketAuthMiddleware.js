@@ -13,12 +13,9 @@ export const socketAuthMiddleware = async (socket, next) => {
   try {
     const cookies = socket.handshake.headers.cookie;
 
-    if (!cookies) {
-      return next(CustomError.authentication("No cookies found"));
-    }
 
-    const parsedCookies = cookie.parse(cookies);
-    const token = parsedCookies.access_token;
+    const parsedCookies = cookies ? cookie.parse(cookies) : {};
+    let token = parsedCookies.access_token || socket.handshake.auth?.token;
 
     if (!token) {
       return next(CustomError.authentication("Access token not found"));
@@ -34,8 +31,7 @@ export const socketAuthMiddleware = async (socket, next) => {
     const user = await User.findById(decoded.userId)
       .populate("organization", "_id name isPlatformOrg isDeleted")
       .populate("department", "_id name isDeleted hod")
-      .select("-password -passwordResetToken -passwordResetExpires")
-      .lean();
+      .select("-password -passwordResetToken -passwordResetExpires");
 
     if (!user) {
       return next(CustomError.authentication("User not found"));

@@ -11,13 +11,14 @@ import {
   createTaskValidator,
   updateTaskValidator,
   taskIdValidator,
+  getTasksValidator,
 } from "../middlewares/validators/taskValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, authorize("Task", "read"), getTasks);
+router.get("/", verifyJWT, getTasksValidator, authorize("Task", "read"), getTasks);
 router.get("/:taskId", verifyJWT, taskIdValidator, authorize("Task", "read"), getTask);
 router.post("/", verifyJWT, createTaskValidator, authorize("Task", "create"), createTask);
 router.put("/:taskId", verifyJWT, taskIdValidator, updateTaskValidator, authorize("Task", "update"), updateTask);

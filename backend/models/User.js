@@ -123,9 +123,9 @@ const userSchema = new mongoose.Schema(
     },
     employeeId: {
       type: String,
-      required: [true, "Employee ID is required"],
+      required: false,
       trim: true,
-      match: [/^[1-9]\d{3}$/, "Employee ID must be a 4-digit number between 1000-9999"],
+      match: [/^(?!0000)\d{4}$/, "Employee ID must be a 4-digit number between 0001-9999"],
     },
     dateOfBirth: {
       type: Date,
@@ -255,11 +255,12 @@ userSchema.methods.generatePasswordResetToken = async function () {
   const crypto = await import("crypto");
   const resetToken = crypto.randomBytes(32).toString("hex");
 
-  // Hash token and store
-  this.passwordResetToken = await bcrypt.hash(
-    resetToken,
-    PASSWORD_RESET.BCRYPT_ROUNDS
-  );
+  // Store SHA256 hashed token for deterministic look-up
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
   this.passwordResetExpires = new Date(
     Date.now() + PASSWORD_RESET.TOKEN_EXPIRES_IN
   );
@@ -278,14 +279,30 @@ userSchema.methods.verifyPasswordResetToken = async function (token) {
     return false;
   }
 
-  // Compare token
-  return await bcrypt.compare(token, this.passwordResetToken);
+  // Compare deterministic hash
+  const crypto = await import("crypto");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  return hashedToken === this.passwordResetToken;
 };
 
 // Instance method: clearPasswordResetToken
 userSchema.methods.clearPasswordResetToken = function () {
   this.passwordResetToken = undefined;
   this.passwordResetExpires = undefined;
+};
+
+// Static method: findByResetToken
+userSchema.statics.findByResetToken = async function (token, { session } = {}) {
+  const crypto = await import("crypto");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  return await this.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: new Date() },
+  })
+    .session(session)
+    .select("+passwordResetToken +passwordResetExpires");
 };
 
 // Cascade delete static method
@@ -430,8 +447,9 @@ userSchema.statics.repairOnRestore = async function (doc, { session } = {}) {
 userSchema.plugin(mongoosePaginate);
 userSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (365 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const User = mongoose.model("User", userSchema);
-User.ensureTTLIndex(TTL.USER);
 
 export default User;

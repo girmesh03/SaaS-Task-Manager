@@ -1,6 +1,6 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
-import { INDUSTRIES, LIMITS } from "../../utils/constants.js";
+import { INDUSTRIES, LIMITS, PHONE_REGEX } from "../../utils/constants.js";
 import mongoose from "mongoose";
 
 /**
@@ -86,7 +86,7 @@ export const updateOrganizationValidator = [
     .trim()
     .notEmpty()
     .withMessage("Organization phone cannot be empty")
-    .matches(/^(\+251\d{9}|0\d{9})$/)
+    .matches(PHONE_REGEX)
     .withMessage("Invalid phone format. Use +251XXXXXXXXX or 0XXXXXXXXX")
     .custom(async (value, { req }) => {
       const { default: Organization } = await import(
@@ -163,6 +163,49 @@ export const organizationIdValidator = [
 
       return true;
     }),
+
+  handleValidationErrors,
+];
+
+/**
+ * Get organizations list validator
+ * Validates query parameters for pagination, sorting, and filtering
+ */
+export const getOrganizationsValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Limit must be between 1 and 100"),
+
+  query("sortBy")
+    .optional()
+    .isString()
+    .trim(),
+
+  query("sortOrder")
+    .optional()
+    .isIn(["asc", "desc"])
+    .withMessage("Sort order must be 'asc' or 'desc'"),
+
+  query("search")
+    .optional()
+    .isString()
+    .trim(),
+
+  query("industry")
+    .optional()
+    .isIn(Object.values(INDUSTRIES))
+    .withMessage("Invalid industry"),
+
+  query("deleted")
+    .optional()
+    .isIn(["true", "false", "only"])
+    .withMessage("Deleted must be 'true', 'false', or 'only'"),
 
   handleValidationErrors,
 ];

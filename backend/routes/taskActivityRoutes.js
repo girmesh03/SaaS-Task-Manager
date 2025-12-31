@@ -11,13 +11,14 @@ import {
   createTaskActivityValidator,
   updateTaskActivityValidator,
   taskActivityIdValidator,
+  getTaskActivitiesValidator,
 } from "../middlewares/validators/taskActivityValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, authorize("TaskActivity", "read"), getTaskActivities);
+router.get("/", verifyJWT, getTaskActivitiesValidator, authorize("TaskActivity", "read"), getTaskActivities);
 router.get("/:taskActivityId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "read"), getTaskActivity);
 router.post("/", verifyJWT, createTaskActivityValidator, authorize("TaskActivity", "create"), createTaskActivity);
 router.put("/:taskActivityId", verifyJWT, taskActivityIdValidator, updateTaskActivityValidator, authorize("TaskActivity", "update"), updateTaskActivity);

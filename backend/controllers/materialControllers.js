@@ -51,9 +51,20 @@ export const getMaterials = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { createdAt: -1 },
     populate: [
-      { path: "department", select: "name isDeleted hod" },
-      { path: "organization", select: "name isPlatformOrg isDeleted" },
-      { path: "addedBy", select: "firstName lastName" },
+      {
+        path: "department",
+        select: "_id name hod isDeleted",
+      },
+      {
+        path: "organization",
+        select:
+          "_id name email industry logo isPlatformOrg isDeleted",
+      },
+      {
+        path: "addedBy",
+        select:
+          "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted",
+      },
     ],
   };
 
@@ -73,9 +84,15 @@ export const getMaterial = asyncHandler(async (req, res) => {
   const { materialId } = req.validated.params;
 
   const material = await Material.findById(materialId)
-    .populate("department", "name isDeleted hod")
-    .populate("organization", "name isPlatformOrg isDeleted")
-    .populate("addedBy", "firstName lastName")
+    .populate("department", "_id name hod isDeleted")
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate(
+      "addedBy",
+      "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+    )
     .lean();
 
   if (!material)      throw CustomError.notFound("Material", materialId);
@@ -124,9 +141,15 @@ export const createMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("addedBy", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "addedBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     createdResponse(res, "Material created successfully", populatedMaterial);
@@ -183,9 +206,15 @@ export const updateMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("addedBy", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "addedBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     okResponse(res, "Material updated successfully", populatedMaterial);
@@ -243,9 +272,9 @@ export const deleteMaterial = asyncHandler(async (req, res) => {
       ]
     );
 
-    successResponse(res, 200, "Material deleted successfully", {
-      materialId: material._id,
-    });
+    const deletedMaterial = await Material.findById(materialId).withDeleted().lean();
+
+    successResponse(res, 200, "Material deleted successfully", deletedMaterial);
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Material Error:", error);
@@ -302,9 +331,15 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
     );
 
     const populatedMaterial = await Material.findById(material._id)
-      .populate("department", "name isDeleted hod")
-      .populate("organization", "name isPlatformOrg isDeleted")
-      .populate("addedBy", "firstName lastName")
+      .populate("department", "_id name hod isDeleted")
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate(
+        "addedBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
       .lean();
 
     successResponse(res, 200, "Material restored successfully", populatedMaterial);

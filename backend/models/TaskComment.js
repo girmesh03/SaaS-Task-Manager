@@ -191,8 +191,9 @@ taskCommentSchema.statics.strictParentCheck = async function (
 taskCommentSchema.plugin(mongoosePaginate);
 taskCommentSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (90 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const TaskComment = mongoose.model("TaskComment", taskCommentSchema);
-TaskComment.ensureTTLIndex(TTL.TASK_COMMENT);
 
 export default TaskComment;

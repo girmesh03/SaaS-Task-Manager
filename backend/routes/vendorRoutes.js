@@ -11,6 +11,7 @@ import {
   createVendorValidator,
   updateVendorValidator,
   vendorIdValidator,
+  getVendorsValidator,
 } from "../middlewares/validators/vendorValidators.js";
 import { verifyJWT } from "../middlewares/authMiddleware.js";
 import { authorize } from "../middlewares/authorization.js";
@@ -30,7 +31,7 @@ const router = express.Router();
  * @desc    Get all vendors (scoped to organization)
  * @access  Protected (authorize Vendor read)
  */
-router.get("/", verifyJWT, authorize("Vendor", "read"), getVendors);
+router.get("/", verifyJWT, getVendorsValidator, authorize("Vendor", "read"), getVendors);
 
 /**
  * @route   GET /api/vendors/:vendorId

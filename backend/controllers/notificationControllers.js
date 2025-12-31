@@ -11,11 +11,7 @@ import {
 
 /**
  * Notification Controllers
- *
- * CRITICAL: SCOPED TO RECIPIENT (req.user._id)
- * CRITICAL: Ephemeral with Soft Delete TTL
  */
-
 
 export const getNotifications = asyncHandler(async (req, res) => {
   const {
@@ -38,37 +34,42 @@ export const getNotifications = asyncHandler(async (req, res) => {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
     sort: { isRead: 1, createdAt: -1 }, // Unread first, then newest
+    populate: [
+      {
+        path: "organization",
+        select:
+          "_id name email industry logo isPlatformOrg isDeleted",
+      },
+      { path: "entity", select: "_id title name description" },
+    ],
   };
 
   const notifications = await Notification.paginate(filter, options);
 
-  paginatedResponse(
-    res,
-    200,
-    "Notifications retrieved successfully",
-    notifications.docs,
-    {
-      total: notifications.totalDocs,
-      page: notifications.page,
-      limit: notifications.limit,
-      totalPages: notifications.totalPages,
-      hasNextPage: notifications.hasNextPage,
-      hasPrevPage: notifications.hasPrevPage,
-    }
-  );
+  paginatedResponse(res, 200, "Notifications retrieved successfully", notifications.docs, {
+    total: notifications.totalDocs,
+    page: notifications.page,
+    limit: notifications.limit,
+    totalPages: notifications.totalPages,
+    hasNextPage: notifications.hasNextPage,
+    hasPrevPage: notifications.hasPrevPage,
+  });
 });
 
 export const getNotification = asyncHandler(async (req, res) => {
   const { notificationId } = req.validated.params;
-
-  const notification = await Notification.findById(notificationId).lean();
+  const notification = await Notification.findById(notificationId)
+    .populate(
+      "organization",
+      "_id name email industry logo isPlatformOrg isDeleted"
+    )
+    .populate("entity", "_id title name description")
+    .lean();
 
   if (!notification) throw CustomError.notFound("Notification", notificationId);
 
   if (notification.recipient.toString() !== req.user._id.toString()) {
-    throw CustomError.authorization(
-      "You are not authorized to view this notification"
-    );
+    throw CustomError.authorization("You are not authorized to view this notification");
   }
 
   okResponse(res, "Notification retrieved successfully", notification);
@@ -80,15 +81,12 @@ export const markAsRead = asyncHandler(async (req, res) => {
 
   try {
     const { notificationId } = req.validated.params;
-
     const notification = await Notification.findById(notificationId).session(session);
 
     if (!notification) throw CustomError.notFound("Notification", notificationId);
 
     if (notification.recipient.toString() !== req.user._id.toString()) {
-      throw CustomError.authorization(
-        "You are not authorized to update this notification"
-      );
+      throw CustomError.authorization("You are not authorized to update this notification");
     }
 
     if (!notification.isRead) {
@@ -97,15 +95,21 @@ export const markAsRead = asyncHandler(async (req, res) => {
     }
 
     await session.commitTransaction();
-    session.endSession();
 
-    okResponse(res, "Notification marked as read", notification);
+    const populatedNotification = await Notification.findById(notificationId)
+      .populate(
+        "organization",
+        "_id name email industry logo isPlatformOrg isDeleted"
+      )
+      .populate("entity", "_id title name description")
+      .lean();
+
+    okResponse(res, "Notification marked as read", populatedNotification);
   } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
@@ -121,17 +125,12 @@ export const markAllAsRead = asyncHandler(async (req, res) => {
     );
 
     await session.commitTransaction();
-    session.endSession();
-
-    okResponse(res, "All notifications marked as read", {
-      modifiedCount: result.modifiedCount,
-    });
+    okResponse(res, "All notifications marked as read", { modifiedCount: result.modifiedCount });
   } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
@@ -141,31 +140,24 @@ export const deleteNotification = asyncHandler(async (req, res) => {
 
   try {
     const { notificationId } = req.validated.params;
-
     const notification = await Notification.findById(notificationId).session(session);
 
     if (!notification) throw CustomError.notFound("Notification", notificationId);
 
     if (notification.recipient.toString() !== req.user._id.toString()) {
-      throw CustomError.authorization(
-        "You are not authorized to delete this notification"
-      );
+      throw CustomError.authorization("You are not authorized to delete this notification");
     }
 
-    // Use softDelete as required by the universal plugin
     await notification.softDelete(req.user._id, { session });
-
     await session.commitTransaction();
-    session.endSession();
 
-    successResponse(res, 200, "Notification deleted successfully", {
-      notificationId: notificationId,
-    });
+    const deletedNotification = await Notification.findById(notificationId).withDeleted().lean();
+
+    successResponse(res, 200, "Notification deleted successfully", deletedNotification);
   } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     throw error;
+  } finally {
+    session.endSession();
   }
 });

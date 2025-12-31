@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
 import { USER_ROLES, LIMITS } from "../../utils/constants.js";
 import mongoose from "mongoose";
@@ -120,11 +120,10 @@ export const createUserValidator = [
     }),
 
   body("employeeId")
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Employee ID is required")
-    .matches(/^[1-9]\d{3}$/)
-    .withMessage("Employee ID must be a 4-digit number between 1000-9999")
+    .matches(/^(?!0000)\d{4}$/)
+    .withMessage("Employee ID must be a 4-digit number between 0001-9999")
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const organizationId = req.user.organization._id;
@@ -406,8 +405,8 @@ export const updateUserValidator = [
     .trim()
     .notEmpty()
     .withMessage("Employee ID cannot be empty")
-    .matches(/^[1-9]\d{3}$/)
-    .withMessage("Employee ID must be a 4-digit number between 1000-9999")
+    .matches(/^(?!0000)\d{4}$/)
+    .withMessage("Employee ID must be a 4-digit number between 0001-9999")
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const userId = req.params.userId;
@@ -552,6 +551,48 @@ export const userIdValidator = [
 
       return true;
     }),
+
+  handleValidationErrors,
+];
+
+/**
+ * Get users list validator
+ * Validates query parameters
+ */
+export const getUsersValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Limit must be between 1 and 100"),
+
+  query("search")
+    .optional()
+    .isString()
+    .trim(),
+
+  query("role")
+    .optional()
+    .isIn(Object.values(USER_ROLES))
+    .withMessage("Invalid user role"),
+
+  query("department")
+    .optional()
+    .custom((value) => {
+      if (!mongoose.Types.ObjectId.isValid(value)) {
+        throw new Error("Invalid department ID");
+      }
+      return true;
+    }),
+
+  query("deleted")
+    .optional()
+    .isIn(["true", "false", "only"])
+    .withMessage("Deleted must be 'true', 'false', or 'only'"),
 
   handleValidationErrors,
 ];

@@ -112,8 +112,9 @@ vendorSchema.statics.strictParentCheck = async function (
 vendorSchema.plugin(mongoosePaginate);
 vendorSchema.plugin(softDeletePlugin);
 
-// Configure TTL index (180 days)
+// TTL Index Configuration
+// NOTE: TTL indexes are now initialized centrally in app.js after MongoDB connection
+// See app.js -> ensureTTLIndexes() function
 const Vendor = mongoose.model("Vendor", vendorSchema);
-Vendor.ensureTTLIndex(TTL.VENDOR);
 
 export default Vendor;
