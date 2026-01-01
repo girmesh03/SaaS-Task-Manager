@@ -21,7 +21,7 @@ mock/
 **/.env
 
 # mock files
-# backend/mock
+backend/mock
 
 # Build outputs
 node_modules
