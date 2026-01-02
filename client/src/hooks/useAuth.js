@@ -1,0 +1,159 @@
+/**
+ * useAuth Hook - Authentication Hook
+ *
+ * Custom hook for authentication operations.
+ * Provides access to auth state and mutations.
+ *
+ * Returns:
+ * - user: Current authenticated user object
+ * - isAuthenticated: Boolean indicating if user is logged in
+ * - isLoading: Boolean indicating if auth operation is in progress
+ * - login: Function to login user
+ * - logout: Function to logout user
+ * - register: Function to register new organization/user
+ *
+ * Requirements: 1.2, 1.6, 1.10
+ */
+
+import { useSelector, useDispatch } from "react-redux";
+import {
+  selectCurrentUser,
+  selectIsAuthenticated,
+  selectIsLoading,
+  setCredentials,
+  logout as logoutAction,
+} from "../redux/features/authSlice";
+import {
+  useLoginMutation,
+  useLogoutMutation,
+  useRegisterMutation,
+} from "../redux/features/authApi";
+
+/**
+ * useAuth hook
+ *
+ * @returns {Object} Auth state and functions
+ * @returns {Object|null} return.user - Current authenticated user
+ * @returns {boolean} return.isAuthenticated - Whether user is authenticated
+ * @returns {boolean} return.isLoading - Whether auth operation is in progress
+ * @returns {Function} return.login - Login function
+ * @returns {Function} return.logout - Logout function
+ * @returns {Function} return.register - Register function
+ *
+ * @example
+ * const { user, isAuthenticated, login, logout } = useAuth();
+ *
+ * // Login
+ * const handleLogin = async () => {
+ *   try {
+ *     await login({ email, password });
+ *   } catch (error) {
+ *     console.error("Login failed:", error);
+ *   }
+ * };
+ *
+ * // Logout
+ * const handleLogout = async () => {
+ *   await logout();
+ * };
+ *
+ * // Check authentication
+ * if (isAuthenticated) {
+ *   console.log("User is logged in:", user.fullName);
+ * }
+ */
+const useAuth = () => {
+  const dispatch = useDispatch();
+
+  // Select auth state from Redux store
+  const user = useSelector(selectCurrentUser);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const isLoading = useSelector(selectIsLoading);
+
+  // Get auth mutations from RTK Query
+  const [loginMutation, { isLoading: isLoginLoading }] = useLoginMutation();
+  const [logoutMutation, { isLoading: isLogoutLoading }] = useLogoutMutation();
+  const [registerMutation, { isLoading: isRegisterLoading }] =
+    useRegisterMutation();
+
+  /**
+   * Login user
+   *
+   * @param {Object} credentials - Login credentials
+   * @param {string} credentials.email - User email
+   * @param {string} credentials.password - User password
+   *
+   * @returns {Promise<Object>} Login response with user object
+   *
+   * @throws {Error} Login error from API
+   */
+  const login = async (credentials) => {
+    const response = await loginMutation(credentials).unwrap();
+
+    // Update Redux auth state with user data
+    dispatch(setCredentials({ user: response.user }));
+
+    return response;
+  };
+
+  /**
+   * Logout user
+   *
+   * Clears auth state and HTTP-only cookies.
+   * Disconnects Socket.IO connection.
+   *
+   * @returns {Promise<void>}
+   *
+   * @throws {Error} Logout error from API
+   */
+  const logout = async () => {
+    try {
+      await logoutMutation().unwrap();
+
+      // Clear Redux auth state
+      dispatch(logoutAction());
+    } catch (error) {
+      // Even if API call fails, clear local auth state
+      dispatch(logoutAction());
+
+      // Re-throw error for component to handle
+      throw error;
+    }
+  };
+
+  /**
+   * Register new organization and user
+   *
+   * Creates organization, department, and user in single transaction.
+   * First user is automatically assigned SuperAdmin role.
+   *
+   * @param {Object} registrationData - Registration data
+   * @param {Object} registrationData.organization - Organization details
+   * @param {Object} registrationData.department - Department details
+   * @param {Object} registrationData.user - User details
+   *
+   * @returns {Promise<Object>} Registration response with user object
+   *
+   * @throws {Error} Registration error from API
+   */
+  const register = async (registrationData) => {
+    const response = await registerMutation(registrationData).unwrap();
+
+    // Update Redux auth state with user data
+    dispatch(setCredentials({ user: response.user }));
+
+    return response;
+  };
+
+  return {
+    user,
+    isAuthenticated,
+    isLoading:
+      isLoading || isLoginLoading || isLogoutLoading || isRegisterLoading,
+    login,
+    logout,
+    register,
+  };
+};
+
+export default useAuth;
