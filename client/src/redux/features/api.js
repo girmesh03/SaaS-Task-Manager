@@ -3,7 +3,7 @@
  *
  * Base API setup with:
  * - HTTP-only cookie authentication
- * - Automatic 401 error handling with re-authentication
+ * - Automatic 401 error handling with refresh token
  * - Cache tag types for all resources
  * - Automatic cache invalidation
  *
@@ -11,6 +11,7 @@
  */
 
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { persistor } from "../app/store";
 
 // Base query configuration with credentials for HTTP-only cookies
 const baseQuery = fetchBaseQuery({
@@ -27,19 +28,32 @@ const baseQuery = fetchBaseQuery({
  *
  * Handles authentication errors by:
  * 1. Detecting 401 status codes
- * 2. Clearing auth state
- * 3. Redirecting to login page
+ * 2. Attempting to refresh access token using refresh token
+ * 3. Retrying original request if refresh succeeds
+ * 4. Clearing auth state and persisted storage if refresh fails
  */
 const baseQueryWithReauth = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
 
   // Handle 401 authentication errors
   if (result.error && result.error.status === 401) {
-    // Clear auth state
-    api.dispatch({ type: "auth/logout" });
+    // Attempt to refresh the access token
+    const refreshResult = await baseQuery(
+      { url: "/auth/refresh-token", method: "GET" },
+      api,
+      extraOptions
+    );
 
-    // Redirect to login page
-    window.location.href = "/login";
+    if (refreshResult.data) {
+      // Refresh successful - retry the original request
+      result = await baseQuery(args, api, extraOptions);
+    } else {
+      // Refresh failed - clear auth state and persisted storage
+      api.dispatch({ type: "auth/logout" });
+
+      // Clear persisted auth state from localStorage
+      await persistor.purge();
+    }
   }
 
   return result;
