@@ -118,7 +118,7 @@ const MuiSlider = ({
           </Box>
           <Slider
             value={value || defaultValue}
-            onChange={(event, newValue) => onChange(newValue)}
+            onChange={(_, newValue) => onChange(newValue)}
             ref={ref} // Forward ref correctly
             min={min}
             max={max}

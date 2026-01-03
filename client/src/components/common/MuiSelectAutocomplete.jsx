@@ -135,7 +135,7 @@ const MuiSelectAutocomplete = ({
       control={control}
       rules={rules}
       defaultValue={multiple ? [] : defaultValue}
-      render={({ field: { onChange, value, ref }, fieldState: { error } }) => {
+      render={({ field: { onChange, value }, fieldState: { error } }) => {
         return (
           <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
             <Autocomplete
@@ -160,7 +160,6 @@ const MuiSelectAutocomplete = ({
               fullWidth={fullWidth}
               slotProps={{
                 textField: {
-                  inputRef: ref, // Forward ref correctly
                   label,
                   placeholder,
                   required,

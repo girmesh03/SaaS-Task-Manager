@@ -1,7 +1,7 @@
 /**
  * MuiDatePicker Component - Reusable Date Picker with React Hook Form Integration
  *
- * Wraps MUI DatePicker with Controller from react-hook-form.
+ * Wraps MUI DatePicker (Community Version) with Controller from react-hook-form.
  * Automatically converts UTC ↔ local timezone for display and form state.
  *
  * Features:
@@ -19,10 +19,30 @@ import { Controller } from "react-hook-form";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { TextField, Box } from "@mui/material";
+import { Box } from "@mui/material";
 import PropTypes from "prop-types";
-import { convertUTCToLocal, convertLocalToUTC } from "../../utils/dateUtils";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+// Extend dayjs with plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Timezone utility functions (inline to avoid import issues)
+const getUserTimezone = () => {
+  return dayjs.tz.guess();
+};
+
+const convertUTCToLocal = (utcDate) => {
+  if (!utcDate) return null;
+  return dayjs.utc(utcDate).tz(getUserTimezone());
+};
+
+const convertLocalToUTC = (localDate) => {
+  if (!localDate) return null;
+  return dayjs.tz(localDate, getUserTimezone()).utc().toISOString();
+};
 
 /**
  * MuiDatePicker Component
@@ -114,10 +134,7 @@ const MuiDatePicker = ({
         control={control}
         rules={rules}
         defaultValue={defaultValue}
-        render={({
-          field: { onChange, value, ref },
-          fieldState: { error },
-        }) => {
+        render={({ field: { onChange, value }, fieldState: { error } }) => {
           // Convert UTC to local for display
           const displayValue = value ? convertUTCToLocal(value) : null;
 
@@ -146,7 +163,6 @@ const MuiDatePicker = ({
                 openTo={openTo}
                 slotProps={{
                   textField: {
-                    inputRef: ref, // Forward ref correctly
                     label,
                     placeholder,
                     required,

@@ -90,7 +90,7 @@ const MuiTextField = ({
   InputProps,
   inputProps,
   fullWidth = true,
-  size = "medium",
+  size = "small",
   variant = "outlined",
   autoFocus = false,
   autoComplete,
@@ -116,7 +116,6 @@ const MuiTextField = ({
           <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
             <TextField
               {...field}
-              inputRef={field.ref} // Forward ref correctly
               label={label}
               placeholder={placeholder}
               disabled={disabled}

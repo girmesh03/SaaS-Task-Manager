@@ -101,7 +101,7 @@ const MuiRating = ({
             {label && <FormLabel>{label}</FormLabel>}
             <Rating
               value={value || 0}
-              onChange={(event, newValue) => onChange(newValue)}
+              onChange={(_, newValue) => onChange(newValue)}
               ref={ref} // Forward ref correctly
               max={max}
               precision={precision}

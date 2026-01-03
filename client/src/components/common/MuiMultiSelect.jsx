@@ -145,7 +145,7 @@ const MuiMultiSelect = ({
       control={control}
       rules={rules}
       defaultValue={defaultValue}
-      render={({ field: { onChange, value, ref }, fieldState: { error } }) => {
+      render={({ field: { onChange, value }, fieldState: { error } }) => {
         const selectedCount = value?.length || 0;
         const isMaxReached = maxItems && selectedCount >= maxItems;
 
@@ -235,7 +235,6 @@ const MuiMultiSelect = ({
               }
               slotProps={{
                 textField: {
-                  inputRef: ref, // Forward ref correctly
                   label: labelWithCount,
                   placeholder,
                   required,

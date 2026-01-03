@@ -38,8 +38,6 @@ import PropTypes from "prop-types";
  * @param {boolean} props.fullWidth - Whether field takes full width (default: true)
  * @param {string} props.size - Field size (small, medium)
  * @param {string} props.variant - Field variant (outlined, filled, standard)
- * @param {boolean} props.formatNumber - Whether to format number with locale (default: false)
- * @param {string} props.locale - Locale for number formatting (default: 'en-US')
  *
  * @returns {JSX.Element} MuiNumberField component
  *
@@ -96,33 +94,8 @@ const MuiNumberField = ({
   fullWidth = true,
   size = "medium",
   variant = "outlined",
-  formatNumber = false,
-  locale = "en-US",
   ...otherProps
 }) => {
-  /**
-   * Format number with Intl.NumberFormat
-   *
-   * @param {number} value - Number to format
-   * @returns {string} Formatted number string
-   */
-  const formatNumberValue = (value) => {
-    if (value === "" || value === null || value === undefined) return "";
-
-    try {
-      const numValue = parseFloat(value);
-      if (isNaN(numValue)) return value;
-
-      return new Intl.NumberFormat(locale, {
-        minimumFractionDigits: decimalPlaces,
-        maximumFractionDigits: decimalPlaces,
-      }).format(numValue);
-    } catch (error) {
-      console.error("Failed to format number:", error);
-      return value;
-    }
-  };
-
   /**
    * Handle key press to prevent non-numeric input
    *
@@ -174,7 +147,6 @@ const MuiNumberField = ({
           <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
             <TextField
               {...field}
-              inputRef={field.ref} // Forward ref correctly
               label={label}
               placeholder={placeholder}
               disabled={disabled}
@@ -235,8 +207,6 @@ MuiNumberField.propTypes = {
   fullWidth: PropTypes.bool,
   size: PropTypes.oneOf(["small", "medium"]),
   variant: PropTypes.oneOf(["outlined", "filled", "standard"]),
-  formatNumber: PropTypes.bool,
-  locale: PropTypes.string,
 };
 
 export default MuiNumberField;
