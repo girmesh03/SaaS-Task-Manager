@@ -69,7 +69,8 @@ const MuiDateRangePicker = forwardRef(
     },
     ref
   ) => {
-    const dateRange = value || { start: null, end: null };
+    // Ensure dateRange is always an object with start/end
+    const dateRange = (value && typeof value === "object") ? value : { start: null, end: null };
 
     // Convert UTC to local for display
     const displayStartDate = dateRange.start
@@ -102,7 +103,7 @@ const MuiDateRangePicker = forwardRef(
     return (
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-          <Stack spacing={2} ref={ref}>
+          <Stack spacing={2}>
             {/* Start Date Picker */}
             <DatePicker
               label={`${label} - Start`}
@@ -114,6 +115,7 @@ const MuiDateRangePicker = forwardRef(
               disableFuture={disableFuture}
               disabled={disabled}
               format={format}
+              inputRef={ref} // Forward ref to the first input for focus management
               slotProps={{
                 textField: {
                   name: `${name}.start`,

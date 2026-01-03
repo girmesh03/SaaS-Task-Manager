@@ -112,20 +112,16 @@ const MuiSelectAutocomplete = forwardRef(
           loadingText={loadingText}
           size={size}
           fullWidth={fullWidth}
-          slotProps={{
-            textField: {
-              name,
-              label,
-              placeholder,
-              required,
-              error: !!error,
-              helperText: error?.message || helperText || " ", // Reserve space for error message
-              variant,
-            },
-          }}
           renderInput={(params) => (
             <TextField
               {...params}
+              label={label}
+              placeholder={placeholder}
+              required={required}
+              error={!!error}
+              helperText={error?.message || helperText}
+              variant={variant}
+              name={name}
               slotProps={{
                 input: {
                   ...params.InputProps,

@@ -107,6 +107,7 @@ const MuiTextArea = forwardRef(
         <TextField
           name={name}
           value={value} // Pass controlled value if exists (otherwise undefined for uncontrolled)
+          defaultValue={defaultValue} // Pass default value for uncontrolled mode
           onChange={handleLocalChange}
           onBlur={onBlur}
           inputRef={ref}
@@ -152,6 +153,7 @@ const MuiTextArea = forwardRef(
       maxRows,
       minRows,
       maxLength,
+      defaultValue,
       muiProps,
     ]);
 

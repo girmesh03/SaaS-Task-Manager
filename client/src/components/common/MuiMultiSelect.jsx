@@ -200,20 +200,16 @@ const MuiMultiSelect = forwardRef(
               );
             })
           }
-          slotProps={{
-            textField: {
-              name,
-              label: labelWithCount,
-              placeholder,
-              required,
-              error: !!error,
-              helperText: error?.message || helperText || " ", // Reserve space for error message
-              variant,
-            },
-          }}
           renderInput={(params) => (
             <TextField
               {...params}
+              label={labelWithCount}
+              placeholder={placeholder}
+              required={required}
+              error={!!error}
+              helperText={error?.message || helperText}
+              variant={variant}
+              name={name}
               slotProps={{
                 input: {
                   ...params.InputProps,

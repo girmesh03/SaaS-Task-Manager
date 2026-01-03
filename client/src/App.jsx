@@ -45,8 +45,6 @@ const App = () => {
     register,
     handleSubmit,
     control,
-    watch,
-    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -192,14 +190,6 @@ const App = () => {
                   error={errors.description}
                   helperText="Provide a detailed description"
                   label="Description"
-                <MuiTextArea
-                  {...register("description", {
-                    required: "Description is required",
-                    maxLength: { value: 2000, message: "Max 2000 characters" },
-                  })}
-                  error={errors.description}
-                  helperText="Provide a detailed description"
-                  label="Description"
                   maxLength={2000}
                   rows={4}
                   placeholder="Enter a detailed description..."
@@ -322,7 +312,7 @@ const App = () => {
                   control={control}
                   rules={{
                     validate: (value) =>
-                      (value.start && value.end) || "Please select date range",
+                      (value?.start && value?.end) || "Please select date range",
                   }}
                   render={({ field, fieldState }) => (
                     <MuiDateRangePicker
