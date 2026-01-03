@@ -48,7 +48,7 @@ const MuiCheckbox = forwardRef(
     ref
   ) => {
     return (
-      <Box>
+      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
         <FormControlLabel
           control={
             <Checkbox

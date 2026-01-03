@@ -1,0 +1,50 @@
+/**
+ * MuiPagination Component - Reusable Pagination
+ *
+ * Requirements from Task 7.6
+ */
+
+import { forwardRef } from "react";
+import { Pagination, PaginationItem } from "@mui/material";
+
+const MuiPagination = forwardRef(
+  (
+    {
+      count, // Total pages
+      page, // Current page (1-based)
+      onChange,
+      color = "primary",
+      shape = "rounded",
+      variant = "outlined",
+      showFirstButton = true,
+      showLastButton = true,
+      size = "medium",
+      renderItem,
+      sx,
+      ...muiProps
+    },
+    ref
+  ) => {
+    return (
+      <Pagination
+        ref={ref}
+        count={count}
+        page={page}
+        onChange={onChange}
+        color={color}
+        shape={shape}
+        variant={variant}
+        showFirstButton={showFirstButton}
+        showLastButton={showLastButton}
+        size={size}
+        renderItem={renderItem}
+        sx={sx}
+        {...muiProps}
+      />
+    );
+  }
+);
+
+MuiPagination.displayName = "MuiPagination";
+
+export default MuiPagination;

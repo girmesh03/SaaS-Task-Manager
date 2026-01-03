@@ -67,7 +67,12 @@ const MuiRating = forwardRef(
     ref
   ) => {
     return (
-      <FormControl error={!!error} required={required} disabled={disabled}>
+      <FormControl
+        error={!!error}
+        required={required}
+        disabled={disabled}
+        fullWidth={fullWidth}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           {label && <FormLabel>{label}</FormLabel>}
 

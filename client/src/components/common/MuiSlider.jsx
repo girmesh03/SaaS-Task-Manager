@@ -84,7 +84,7 @@ const MuiSlider = forwardRef(
 
     return (
       <FormControl
-        fullWidth
+        fullWidth={fullWidth}
         error={!!error}
         required={required}
         disabled={disabled}

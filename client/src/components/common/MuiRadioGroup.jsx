@@ -62,7 +62,12 @@ const MuiRadioGroup = forwardRef(
     }, [options, size, color, disabled]);
 
     return (
-      <FormControl error={!!error} required={required} disabled={disabled}>
+      <FormControl
+        error={!!error}
+        required={required}
+        disabled={disabled}
+        fullWidth={fullWidth}
+      >
         <FormLabel>{label}</FormLabel>
         <RadioGroup
           name={name}
