@@ -163,10 +163,11 @@ const MuiMultiSelect = forwardRef(
           size={size}
           fullWidth={fullWidth}
           renderOption={(props, option, { selected }) => {
+            const { key, ...optionProps } = props;
             const isSelectAll = getOptionValue(option) === "SELECT_ALL";
 
             return (
-              <li {...props} key={getOptionValue(option)}>
+              <li key={key} {...optionProps}>
                 <Checkbox
                   icon={icon}
                   checkedIcon={checkedIcon}
@@ -187,14 +188,17 @@ const MuiMultiSelect = forwardRef(
             );
           }}
           renderTags={(tagValue, getTagProps) =>
-            tagValue.map((option, index) => (
-              <Chip
-                label={getOptionLabel(option)}
-                {...getTagProps({ index })}
-                size={size}
-                key={getOptionValue(option)}
-              />
-            ))
+            tagValue.map((option, index) => {
+              const { key, ...tagProps } = getTagProps({ index });
+              return (
+                <Chip
+                  key={key}
+                  label={getOptionLabel(option)}
+                  {...tagProps}
+                  size={size}
+                />
+              );
+            })
           }
           slotProps={{
             textField: {
@@ -210,7 +214,6 @@ const MuiMultiSelect = forwardRef(
           renderInput={(params) => (
             <TextField
               {...params}
-              key={params.id}
               slotProps={{
                 input: {
                   ...params.InputProps,

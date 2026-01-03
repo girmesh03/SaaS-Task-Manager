@@ -126,7 +126,6 @@ const MuiSelectAutocomplete = forwardRef(
           renderInput={(params) => (
             <TextField
               {...params}
-              key={params.id}
               slotProps={{
                 input: {
                   ...params.InputProps,
