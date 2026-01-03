@@ -312,7 +312,8 @@ const App = () => {
                   control={control}
                   rules={{
                     validate: (value) =>
-                      (value?.start && value?.end) || "Please select date range",
+                      (!!value?.start && !!value?.end) ||
+                      "Please select date range",
                   }}
                   render={({ field, fieldState }) => (
                     <MuiDateRangePicker
