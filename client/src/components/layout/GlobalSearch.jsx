@@ -57,13 +57,15 @@ const GlobalSearch = () => {
         onClose={handleClose}
         fullWidth
         maxWidth="sm"
-        PaperProps={{
-          sx: {
-            position: "fixed",
-            top: 50,
-            m: 0,
-            borderRadius: 2,
-            maxHeight: "80vh",
+        slotProps={{
+          paper: {
+            sx: {
+              position: "fixed",
+              top: 50,
+              m: 0,
+              borderRadius: 2,
+              maxHeight: "80vh",
+            },
           },
         }}
         scroll="paper"

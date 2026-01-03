@@ -51,7 +51,7 @@ const MuiDialog = forwardRef(
         fullWidth={fullWidth}
         maxWidth={maxWidth}
         fullScreen={fullScreen}
-        TransitionComponent={TransitionComponent}
+        slots={{ transition: TransitionComponent }}
         {...muiProps}
       >
         {title && (

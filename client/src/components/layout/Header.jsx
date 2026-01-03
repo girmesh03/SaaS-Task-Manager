@@ -178,8 +178,8 @@ const Header = ({ onMenuClick }) => {
             }}
             open={Boolean(anchorElUser)}
             onClose={handleCloseUserMenu}
-            PaperProps={{
-                sx: { width: 200 }
+            slotProps={{
+                paper: { sx: { width: 200 } }
             }}
           >
             <Box sx={{ px: 2, py: 1.5 }}>

@@ -26,7 +26,7 @@ const MuiTooltip = forwardRef(
         title={title}
         placement={placement}
         arrow={arrow}
-        TransitionComponent={TransitionComponent}
+        slots={{ transition: TransitionComponent }}
         enterDelay={enterDelay}
         {...muiProps}
       >

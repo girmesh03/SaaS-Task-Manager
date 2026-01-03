@@ -61,8 +61,8 @@ const NotificationMenu = () => {
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        PaperProps={{
-          sx: { width: 320, maxHeight: 400 },
+        slotProps={{
+          paper: { sx: { width: 320, maxHeight: 400 } },
         }}
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
