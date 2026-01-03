@@ -90,7 +90,11 @@ const MuiSelectAutocomplete = forwardRef(
       <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
         <Autocomplete
           value={value || (multiple ? [] : null)}
-          onChange={onChange}
+          onChange={(event, newValue) => {
+            if (onChange) {
+              onChange(newValue);
+            }
+          }}
           onBlur={onBlur}
           ref={ref}
           options={options}
@@ -122,6 +126,7 @@ const MuiSelectAutocomplete = forwardRef(
           renderInput={(params) => (
             <TextField
               {...params}
+              key={params.id}
               slotProps={{
                 input: {
                   ...params.InputProps,

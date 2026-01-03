@@ -130,7 +130,9 @@ const MuiMultiSelect = forwardRef(
         return; // Prevent selection beyond max
       }
 
-      onChange(event, newValue);
+      if (onChange) {
+        onChange(newValue);
+      }
     };
 
     // Generate label with count
@@ -208,6 +210,7 @@ const MuiMultiSelect = forwardRef(
           renderInput={(params) => (
             <TextField
               {...params}
+              key={params.id}
               slotProps={{
                 input: {
                   ...params.InputProps,

@@ -14,7 +14,7 @@
  * Requirements: 15.2, 28.3
  */
 
-import { forwardRef, useMemo, useState, useEffect } from "react";
+import { forwardRef, useMemo, useState, useCallback } from "react";
 import { TextField, FormHelperText, Box } from "@mui/material";
 
 /**
@@ -43,6 +43,7 @@ const MuiTextArea = forwardRef(
       helperText,
       label,
       value, // Optional: for controlled mode
+      defaultValue, // Optional: for uncontrolled mode default
       maxLength,
       placeholder,
       disabled = false,
@@ -58,18 +59,10 @@ const MuiTextArea = forwardRef(
     },
     ref
   ) => {
-    // Local state for character count to avoid parent re-renders (lag fix)
-    // If value is provided (controlled), use it. Otherwise default to empty string.
-    const [internalValue, setInternalValue] = useState(value || "");
+    // Local state for character count in uncontrolled mode
+    const [internalValue, setInternalValue] = useState(defaultValue || "");
 
-    // Sync internal value if controlled value changes
-    useEffect(() => {
-      if (value !== undefined) {
-        setInternalValue(value);
-      }
-    }, [value]);
-
-    const handleLocalChange = (event) => {
+    const handleLocalChange = useCallback((event) => {
       // Update local state for character counter
       setInternalValue(event.target.value);
 
@@ -77,11 +70,14 @@ const MuiTextArea = forwardRef(
       if (onChange) {
         onChange(event);
       }
-    };
+    }, [onChange]);
 
     // Memoize character counter display
     const characterCounter = useMemo(() => {
-      const currentLength = internalValue?.length || 0;
+      // If controlled (value provided), use it. Otherwise use internal state.
+      // Note: In controlled mode, if parent updates are slow, counter will lag.
+      // In uncontrolled mode (register), this is fast.
+      const currentLength = (value !== undefined ? value : internalValue)?.length || 0;
       const showCounter = maxLength && maxLength > 0;
 
       if (!showCounter) return null;
@@ -102,13 +98,15 @@ const MuiTextArea = forwardRef(
           {currentLength} / {maxLength}
         </FormHelperText>
       );
-    }, [internalValue, maxLength]);
+    }, [internalValue, value, maxLength]);
 
-    return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+    // Memoize the TextField to avoid re-renders when only charCount changes
+    // This fixes the lagging issue with multiline TextFields
+    const memoizedTextField = useMemo(() => {
+      return (
         <TextField
           name={name}
-          value={value} // Pass controlled value if exists, otherwise undefined (uncontrolled)
+          value={value} // Pass controlled value if exists (otherwise undefined for uncontrolled)
           onChange={handleLocalChange}
           onBlur={onBlur}
           inputRef={ref}
@@ -133,8 +131,33 @@ const MuiTextArea = forwardRef(
           }}
           {...muiProps}
         />
+      );
+    }, [
+      name,
+      value,
+      handleLocalChange,
+      onBlur,
+      ref,
+      label,
+      placeholder,
+      disabled,
+      required,
+      error,
+      helperText,
+      fullWidth,
+      size,
+      variant,
+      margin,
+      rows,
+      maxRows,
+      minRows,
+      maxLength,
+      muiProps,
+    ]);
 
-        {/* Character Counter */}
+    return (
+      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+        {memoizedTextField}
         {characterCounter}
       </Box>
     );
