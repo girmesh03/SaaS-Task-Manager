@@ -41,7 +41,8 @@ const MuiRadioGroup = forwardRef(
       disabled = false,
       required = false,
       row = false,
-      size = "medium",
+      fullWidth = true,
+      size = "small",
       color = "primary",
       ...muiProps
     },

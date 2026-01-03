@@ -61,8 +61,8 @@ const MuiDateRangePicker = forwardRef(
       disableFuture = false,
       disabled = false,
       required = false,
-      fullWidth = true,
-      size = "medium",
+    fullWidth = true,
+      size = "small",
       variant = "outlined",
       format = "MMM DD, YYYY",
       ...otherProps

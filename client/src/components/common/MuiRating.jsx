@@ -58,7 +58,8 @@ const MuiRating = forwardRef(
       disabled = false,
       readOnly = false,
       required = false,
-      size = "medium",
+      fullWidth = true,
+      size = "small",
       icon,
       emptyIcon,
       ...muiProps

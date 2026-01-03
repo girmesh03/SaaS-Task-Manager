@@ -49,7 +49,7 @@ const MuiTextArea = forwardRef(
       disabled = false,
       required = false,
       fullWidth = true,
-      size = "medium",
+      size = "small",
       variant = "outlined",
       margin,
       rows = 4,

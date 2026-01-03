@@ -39,7 +39,8 @@ const MuiSwitch = forwardRef(
       helperText,
       label,
       disabled = false,
-      size = "medium",
+     fullWidth = true,
+      size = "small",
       color = "primary",
       labelPlacement = "end",
       ...muiProps

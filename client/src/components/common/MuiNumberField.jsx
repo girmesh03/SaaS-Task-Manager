@@ -48,8 +48,8 @@ const MuiNumberField = forwardRef(
       placeholder,
       disabled = false,
       required = false,
-      fullWidth = true,
-      size = "medium",
+     fullWidth = true,
+      size = "small",
       variant = "outlined",
       margin,
       ...muiProps

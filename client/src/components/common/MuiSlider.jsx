@@ -48,7 +48,8 @@ const MuiSlider = forwardRef(
       valueLabelDisplay = "auto",
       valueLabelFormat,
       color = "primary",
-      size = "medium",
+      fullWidth = true,
+      size = "small",
       showValue = true,
       ...muiProps
     },
