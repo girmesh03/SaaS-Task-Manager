@@ -1,8 +1,8 @@
 /**
  * MuiRadioGroup Component - Reusable Radio Group with React Hook Form Integration
  *
- * Uses forwardRef for optimal performance with spread register pattern.
- * Provides consistent styling and error handling.
+ * Uses forwardRef for integration.
+ * Designed to be a pure controlled component.
  *
  * Features:
  * - Radio group with multiple options
@@ -10,7 +10,6 @@
  * - Error and helperText display
  * - Theme styling applied
  * - Memoized options for performance
- * - NEVER uses watch() method
  *
  * Requirements: 28.1, 31.10, 32.10
  */
@@ -27,27 +26,12 @@ import {
 
 /**
  * MuiRadioGroup Component
- *
- * @example
- * // Basic usage with spread register
- * <MuiRadioGroup
- *   {...register("priority", { required: "Priority is required" })}
- *   error={errors.priority}
- *   helperText="Select task priority"
- *   label="Priority"
- *   options={[
- *     { label: "Low", value: "Low" },
- *     { label: "Medium", value: "Medium" },
- *     { label: "High", value: "High" },
- *     { label: "Urgent", value: "Urgent" }
- *   ]}
- *   row
- * />
  */
 const MuiRadioGroup = forwardRef(
   (
     {
       name,
+      value,
       onChange,
       onBlur,
       error,
@@ -81,6 +65,7 @@ const MuiRadioGroup = forwardRef(
         <FormLabel>{label}</FormLabel>
         <RadioGroup
           name={name}
+          value={value || ""} // Ensure controlled value
           onChange={onChange}
           onBlur={onBlur}
           ref={ref}

@@ -72,10 +72,9 @@ const App = () => {
     },
   });
 
-  // Watch values for components that need controlled state
-  const descriptionValue = watch("description", "");
-  const percentageValue = watch("percentage", 50);
-  const ratingValue = watch("rating", 0);
+  // Watch values removed as per user request to avoid performance issues
+  // Components should use Controller for controlled state
+
 
   const onSubmit = (data) => {
     console.log("Form Data:", data);
@@ -193,7 +192,14 @@ const App = () => {
                   error={errors.description}
                   helperText="Provide a detailed description"
                   label="Description"
-                  value={descriptionValue}
+                <MuiTextArea
+                  {...register("description", {
+                    required: "Description is required",
+                    maxLength: { value: 2000, message: "Max 2000 characters" },
+                  })}
+                  error={errors.description}
+                  helperText="Provide a detailed description"
+                  label="Description"
                   maxLength={2000}
                   rows={4}
                   placeholder="Enter a detailed description..."
@@ -361,13 +367,20 @@ const App = () => {
               <Typography variant="h6" gutterBottom>
                 6. Radio Group Component
               </Typography>
-              <MuiRadioGroup
-                {...register("priority", { required: "Priority is required" })}
-                error={errors.priority}
-                helperText="Select task priority level"
-                label="Priority"
-                options={priorityOptions}
-                row
+              <Controller
+                name="priority"
+                control={control}
+                rules={{ required: "Priority is required" }}
+                render={({ field, fieldState }) => (
+                  <MuiRadioGroup
+                    {...field}
+                    label="Priority"
+                    error={fieldState.error}
+                    helperText={fieldState.error?.message || "Select task priority level"}
+                    options={priorityOptions}
+                    row
+                  />
+                )}
               />
             </Box>
 
@@ -378,20 +391,25 @@ const App = () => {
               <Typography variant="h6" gutterBottom>
                 7. Slider Component
               </Typography>
-              <MuiSlider
-                {...register("percentage", {
+              <Controller
+                name="percentage"
+                control={control}
+                rules={{
                   required: "Percentage is required",
                   min: { value: 0, message: "Must be >= 0" },
                   max: { value: 100, message: "Must be <= 100" },
-                })}
-                error={errors.percentage}
-                helperText="Skill proficiency level"
-                label="Skill Percentage"
-                value={percentageValue}
-                onChange={(e, newValue) => setValue("percentage", newValue)}
-                min={0}
-                max={100}
-                step={1}
+                }}
+                render={({ field, fieldState }) => (
+                  <MuiSlider
+                    {...field}
+                    label="Skill Percentage"
+                    error={fieldState.error}
+                    helperText={fieldState.error?.message || "Skill proficiency level"}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                )}
               />
             </Box>
 
@@ -403,20 +421,27 @@ const App = () => {
                 8. Rating Component (with readOnly support)
               </Typography>
               <Stack spacing={2}>
-                <MuiRating
-                  {...register("rating", { required: "Rating is required" })}
-                  error={errors.rating}
-                  helperText="Rate your experience"
-                  label="Rate this form"
-                  value={ratingValue}
-                  onChange={(e, newValue) => setValue("rating", newValue)}
-                  max={5}
-                  precision={0.5}
-                  readOnly={false}
+                <Controller
+                  name="rating"
+                  control={control}
+                  rules={{ required: "Rating is required" }}
+                  render={({ field, fieldState }) => (
+                    <MuiRating
+                      {...field}
+                      label="Rate this form"
+                      error={fieldState.error}
+                      helperText={
+                        fieldState.error?.message || "Rate your experience"
+                      }
+                      max={5}
+                      precision={0.5}
+                      readOnly={false}
+                    />
+                  )}
                 />
 
                 <MuiRating
-                  {...register("averageRating")}
+                  name="averageRating"
                   label="Average Rating (Read-only)"
                   value={4.5}
                   onChange={() => {}}
@@ -445,7 +470,9 @@ const App = () => {
                 color="secondary"
                 size="large"
                 onClick={() => {
-                  console.log("Current form values:", watch());
+                  // console.log("Current form values:", watch());
+                  // Removed watch() to prevent re-renders as per instructions
+                  console.log("Use 'Submit Form' to view values.");
                 }}
               >
                 Log Values
@@ -487,8 +514,8 @@ const App = () => {
           </Typography>
           <Typography variant="body2">
             ✅ <strong>Complex Components</strong>: SelectAutocomplete,
-            MultiSelect, DatePicker, DateRangePicker are now pure controlled
-            components, wrapped with Controller in usage.
+            MultiSelect, DatePicker, DateRangePicker, RadioGroup, Slider, Rating
+            are wrapped with Controller.
           </Typography>
         </Stack>
       </Paper>

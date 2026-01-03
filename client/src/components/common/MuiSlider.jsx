@@ -1,8 +1,8 @@
 /**
  * MuiSlider Component - Reusable Slider with React Hook Form Integration
  *
- * Uses forwardRef for optimal performance with spread register pattern.
- * Provides consistent styling and error handling.
+ * Uses forwardRef for integration.
+ * Implements local state for performance optimization (smoother sliding).
  *
  * Features:
  * - Slider with value display
@@ -16,7 +16,7 @@
  * Requirements: 28.1, 31.10, 32.10
  */
 
-import { forwardRef, useMemo } from "react";
+import { forwardRef, useMemo, useState, useEffect, useCallback } from "react";
 import {
   FormControl,
   FormLabel,
@@ -28,26 +28,6 @@ import {
 
 /**
  * MuiSlider Component
- *
- * @example
- * // Basic usage with spread register
- * const { register, watch, setValue } = useForm();
- * const sliderValue = watch("percentage", 0);
- *
- * <MuiSlider
- *   {...register("percentage", {
- *     required: "Percentage is required",
- *     min: { value: 0, message: "Must be >= 0" },
- *     max: { value: 100, message: "Must be <= 100" }
- *   })}
- *   error={errors.percentage}
- *   helperText="Skill proficiency level"
- *   label="Skill Percentage"
- *   value={sliderValue}
- *   onChange={(e, newValue) => setValue("percentage", newValue)}
- *   min={0}
- *   max={100}
- * />
  */
 const MuiSlider = forwardRef(
   (
@@ -58,7 +38,7 @@ const MuiSlider = forwardRef(
       error,
       helperText,
       label,
-      value = 0,
+      value: propValue = 0,
       min = 0,
       max = 100,
       step = 1,
@@ -74,11 +54,32 @@ const MuiSlider = forwardRef(
     },
     ref
   ) => {
+    // Local state for smooth sliding without waiting for parent re-render
+    const [localValue, setLocalValue] = useState(propValue);
+
+    // Sync local state with prop value when it changes (external update)
+    useEffect(() => {
+      setLocalValue(propValue);
+    }, [propValue]);
+
+    // Handle slider change (dragging) - updates local UI immediately
+    const handleChange = useCallback((event, newValue) => {
+      setLocalValue(newValue);
+      // We can also propagate to parent here, but if parent is slow, it might cause lag.
+      // For Controller usage, we typically want to propagate.
+      // If lag persists, we can use onChangeCommitted to propagation.
+      // For now, let's propagate immediately but relying on localValue for rendering
+      // should make the UI responsive.
+      if (onChange) {
+        onChange(newValue); // Pass simple value
+      }
+    }, [onChange]);
+
     // Memoize value display
     const displayValue = useMemo(() => {
       if (!showValue) return null;
-      return valueLabelFormat ? valueLabelFormat(value) : value;
-    }, [showValue, value, valueLabelFormat]);
+      return valueLabelFormat ? valueLabelFormat(localValue) : localValue;
+    }, [showValue, localValue, valueLabelFormat]);
 
     return (
       <FormControl
@@ -96,18 +97,12 @@ const MuiSlider = forwardRef(
           )}
         </Box>
 
-        {/* Hidden input for react-hook-form registration */}
-        <input
-          name={name}
-          onBlur={onBlur}
-          ref={ref}
-          type="hidden"
-          value={value}
-        />
-
         <Slider
-          value={value || 0}
-          onChange={onChange}
+          name={name}
+          ref={ref}
+          value={localValue}
+          onChange={handleChange}
+          onBlur={onBlur} // Important for RHF touched state
           min={min}
           max={max}
           step={step}
