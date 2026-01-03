@@ -1,119 +1,79 @@
 /**
  * MuiSwitch Component - Reusable Switch with React Hook Form Integration
  *
- * Wraps MUI Switch with Controller from react-hook-form.
+ * Uses forwardRef for optimal performance with spread register pattern.
  * Provides consistent styling and error handling.
  *
  * Features:
  * - Switch with label
- * - Proper ref forwarding
- * - Error display
+ * - Proper ref forwarding with forwardRef
+ * - Error and helperText display
  * - Theme styling applied
+ * - NEVER uses watch() method
  *
  * Requirements: 28.1, 31.10, 32.10
  */
 
-import { Controller } from "react-hook-form";
+import { forwardRef } from "react";
 import { FormControlLabel, Switch, FormHelperText, Box } from "@mui/material";
-import PropTypes from "prop-types";
 
 /**
  * MuiSwitch Component
  *
- * @param {Object} props - Component props
- * @param {Object} props.control - React Hook Form control object
- * @param {string} props.name - Field name for form registration
- * @param {string} props.label - Switch label
- * @param {Object} props.rules - Validation rules (react-hook-form format)
- * @param {boolean} props.defaultValue - Default value (default: false)
- * @param {boolean} props.disabled - Whether switch is disabled
- * @param {string} props.size - Switch size (small, medium)
- * @param {string} props.color - Switch color (primary, secondary, etc.)
- * @param {string} props.labelPlacement - Label placement (end, start, top, bottom)
- *
- * @returns {JSX.Element} MuiSwitch component
- *
  * @example
- * // Basic usage
+ * // Basic usage with spread register
  * <MuiSwitch
- *   control={control}
- *   name="emailNotifications"
+ *   {...register("emailNotifications")}
+ *   error={errors.emailNotifications}
+ *   helperText="Receive email updates"
  *   label="Email Notifications"
  * />
- *
- * @example
- * // With default value
- * <MuiSwitch
- *   control={control}
- *   name="taskReminders"
- *   label="Task Reminders"
- *   defaultValue={true}
- * />
  */
-const MuiSwitch = ({
-  control,
-  name,
-  label,
-  rules = {},
-  defaultValue = false,
-  disabled = false,
-  size = "medium",
-  color = "primary",
-  labelPlacement = "end",
-  ...otherProps
-}) => {
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={rules}
-      defaultValue={defaultValue}
-      render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
-        <Box>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={!!value}
-                onChange={(e) => onChange(e.target.checked)}
-                ref={ref} // Forward ref correctly
-                disabled={disabled}
-                size={size}
-                color={color}
-                {...otherProps}
-              />
-            }
-            label={label}
-            labelPlacement={labelPlacement}
-          />
-          {error && (
-            <FormHelperText error sx={{ ml: 2 }}>
-              {error.message}
-            </FormHelperText>
-          )}
-        </Box>
-      )}
-    />
-  );
-};
+const MuiSwitch = forwardRef(
+  (
+    {
+      name,
+      onChange,
+      onBlur,
+      error,
+      helperText,
+      label,
+      disabled = false,
+      size = "medium",
+      color = "primary",
+      labelPlacement = "end",
+      ...muiProps
+    },
+    ref
+  ) => {
+    return (
+      <Box>
+        <FormControlLabel
+          control={
+            <Switch
+              name={name}
+              onChange={onChange}
+              onBlur={onBlur}
+              inputRef={ref}
+              disabled={disabled}
+              size={size}
+              color={color}
+              {...muiProps}
+            />
+          }
+          label={label}
+          labelPlacement={labelPlacement}
+        />
+        {(error || helperText) && (
+          <FormHelperText error={!!error} sx={{ ml: 2 }}>
+            {error?.message || helperText}
+          </FormHelperText>
+        )}
+      </Box>
+    );
+  }
+);
 
-MuiSwitch.propTypes = {
-  control: PropTypes.object.isRequired,
-  name: PropTypes.string.isRequired,
-  label: PropTypes.string.isRequired,
-  rules: PropTypes.object,
-  defaultValue: PropTypes.bool,
-  disabled: PropTypes.bool,
-  size: PropTypes.oneOf(["small", "medium"]),
-  color: PropTypes.oneOf([
-    "primary",
-    "secondary",
-    "error",
-    "info",
-    "success",
-    "warning",
-    "default",
-  ]),
-  labelPlacement: PropTypes.oneOf(["end", "start", "top", "bottom"]),
-};
+MuiSwitch.displayName = "MuiSwitch";
 
 export default MuiSwitch;

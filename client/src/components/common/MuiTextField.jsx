@@ -1,190 +1,139 @@
 /**
  * MuiTextField Component - Reusable Text Field with React Hook Form Integration
  *
- * Wraps MUI TextField with Controller from react-hook-form.
- * Provides consistent styling, error handling, and character counter.
+ * Uses forwardRef for optimal performance with spread register pattern.
+ * Supports start/end adornments and all standard TextField props.
  *
  * Features:
- * - Automatic error message display from validation
- * - Character counter if maxLength provided in rules
- * - Proper ref forwarding for react-hook-form
+ * - Start and end adornments with memoization
+ * - Proper ref forwarding with forwardRef
+ * - Error and helperText support
+ * - All standard TextField types (text, email, password, etc.)
  * - Theme styling applied
- * - Accessibility compliant
+ * - NEVER uses watch() method
  *
  * Requirements: 15.1, 28.2, 32.1, 32.2, 32.3
  */
 
-import { Controller } from "react-hook-form";
-import { TextField, FormHelperText, Box } from "@mui/material";
-import PropTypes from "prop-types";
+import { forwardRef, useMemo } from "react";
+import { TextField, InputAdornment, Box } from "@mui/material";
 
 /**
  * MuiTextField Component
  *
- * @param {Object} props - Component props
- * @param {Object} props.control - React Hook Form control object
- * @param {string} props.name - Field name for form registration
- * @param {string} props.label - Field label
- * @param {Object} props.rules - Validation rules (react-hook-form format)
- * @param {any} props.defaultValue - Default value for the field
- * @param {string} props.placeholder - Placeholder text
- * @param {boolean} props.disabled - Whether field is disabled
- * @param {boolean} props.required - Whether field is required (visual indicator)
- * @param {string} props.type - Input type (text, email, password, etc.)
- * @param {Object} props.InputProps - Additional props for Input component
- * @param {Object} props.inputProps - Additional props for input element
- * @param {boolean} props.fullWidth - Whether field takes full width (default: true)
- * @param {string} props.size - Field size (small, medium)
- * @param {string} props.variant - Field variant (outlined, filled, standard)
- * @param {boolean} props.autoFocus - Whether field should auto-focus
- * @param {boolean} props.autoComplete - Autocomplete attribute
- * @param {number} props.maxRows - Maximum rows for multiline
- * @param {number} props.minRows - Minimum rows for multiline
- * @param {boolean} props.multiline - Whether field is multiline
- *
- * @returns {JSX.Element} MuiTextField component
- *
  * @example
- * // Basic usage
+ * // Basic usage with spread register
  * <MuiTextField
- *   control={control}
- *   name="firstName"
+ *   {...register("firstName", {
+ *     required: "First name is required",
+ *     maxLength: { value: 20, message: "Max 20 characters" }
+ *   })}
+ *   error={errors.firstName}
  *   label="First Name"
- *   rules={{ required: "First name is required", maxLength: { value: 20, message: "Max 20 characters" } }}
+ *   type="text"
+ *   fullWidth
+ *   size="small"
+ *   margin="normal"
+ *   autoComplete="given-name"
  * />
  *
  * @example
- * // With character counter
+ * // With start and end adornments
  * <MuiTextField
- *   control={control}
- *   name="description"
- *   label="Description"
- *   rules={{ maxLength: { value: 2000, message: "Max 2000 characters" } }}
- *   multiline
- *   rows={4}
- * />
- *
- * @example
- * // Email field
- * <MuiTextField
- *   control={control}
- *   name="email"
- *   label="Email"
- *   type="email"
- *   rules={{
+ *   {...register("email", {
  *     required: "Email is required",
  *     pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Invalid email" }
- *   }}
+ *   })}
+ *   error={errors.email}
+ *   label="Email"
+ *   type="email"
+ *   fullWidth
+ *   size="small"
+ *   startAdornment={<EmailIcon fontSize="small" color="primary" />}
  * />
  */
-const MuiTextField = ({
-  control,
-  name,
-  label,
-  rules = {},
-  defaultValue = "",
-  placeholder,
-  disabled = false,
-  required = false,
-  type = "text",
-  InputProps,
-  inputProps,
-  fullWidth = true,
-  size = "small",
-  variant = "outlined",
-  autoFocus = false,
-  autoComplete,
-  maxRows,
-  minRows,
-  multiline = false,
-  ...otherProps
-}) => {
-  // Extract maxLength from rules for character counter
-  const maxLength = rules.maxLength?.value || rules.maxLength;
+const MuiTextField = forwardRef(
+  (
+    {
+      name,
+      onChange,
+      onBlur,
+      error,
+      helperText,
+      label,
+      type = "text",
+      placeholder,
+      disabled = false,
+      required = false,
+      fullWidth = true,
+      size = "small",
+      variant = "outlined",
+      autoFocus = false,
+      autoComplete,
+      margin,
+      maxRows,
+      minRows,
+      multiline = false,
+      startAdornment,
+      endAdornment,
+      ...muiProps
+    },
+    ref
+  ) => {
+    // Memoize start adornment
+    const computedStartAdornment = useMemo(
+      () =>
+        startAdornment ? (
+          <InputAdornment position="start">{startAdornment}</InputAdornment>
+        ) : null,
+      [startAdornment]
+    );
 
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={rules}
-      defaultValue={defaultValue}
-      render={({ field, fieldState: { error } }) => {
-        const currentLength = field.value?.length || 0;
-        const showCounter = maxLength && currentLength > 0;
+    // Memoize end adornment
+    const computedEndAdornment = useMemo(
+      () =>
+        endAdornment ? (
+          <InputAdornment position="end">{endAdornment}</InputAdornment>
+        ) : null,
+      [endAdornment]
+    );
 
-        return (
-          <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-            <TextField
-              {...field}
-              label={label}
-              placeholder={placeholder}
-              disabled={disabled}
-              required={required}
-              type={type}
-              error={!!error}
-              helperText={error?.message || " "} // Reserve space for error message
-              slotProps={{
-                input: InputProps,
-                htmlInput: {
-                  ...inputProps,
-                  maxLength: maxLength, // Browser-level validation
-                },
-              }}
-              fullWidth={fullWidth}
-              size={size}
-              variant={variant}
-              autoFocus={autoFocus}
-              autoComplete={autoComplete}
-              maxRows={maxRows}
-              minRows={minRows}
-              multiline={multiline}
-              {...otherProps}
-            />
+    return (
+      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+        <TextField
+          name={name}
+          onChange={onChange}
+          onBlur={onBlur}
+          inputRef={ref}
+          label={label}
+          placeholder={placeholder}
+          disabled={disabled}
+          required={required}
+          type={type}
+          error={!!error}
+          helperText={error?.message || helperText || " "}
+          slotProps={{
+            input: {
+              startAdornment: computedStartAdornment,
+              endAdornment: computedEndAdornment,
+            },
+          }}
+          fullWidth={fullWidth}
+          size={size}
+          variant={variant}
+          autoFocus={autoFocus}
+          autoComplete={autoComplete}
+          margin={margin}
+          maxRows={maxRows}
+          minRows={minRows}
+          multiline={multiline}
+          {...muiProps}
+        />
+      </Box>
+    );
+  }
+);
 
-            {/* Character Counter */}
-            {showCounter && (
-              <FormHelperText
-                sx={{
-                  textAlign: "right",
-                  mt: 0.5,
-                  color:
-                    currentLength > maxLength
-                      ? "error.main"
-                      : currentLength > maxLength * 0.9
-                      ? "warning.main"
-                      : "text.secondary",
-                }}
-              >
-                {currentLength} / {maxLength}
-              </FormHelperText>
-            )}
-          </Box>
-        );
-      }}
-    />
-  );
-};
-
-MuiTextField.propTypes = {
-  control: PropTypes.object.isRequired,
-  name: PropTypes.string.isRequired,
-  label: PropTypes.string.isRequired,
-  rules: PropTypes.object,
-  defaultValue: PropTypes.any,
-  placeholder: PropTypes.string,
-  disabled: PropTypes.bool,
-  required: PropTypes.bool,
-  type: PropTypes.string,
-  InputProps: PropTypes.object,
-  inputProps: PropTypes.object,
-  fullWidth: PropTypes.bool,
-  size: PropTypes.oneOf(["small", "medium"]),
-  variant: PropTypes.oneOf(["outlined", "filled", "standard"]),
-  autoFocus: PropTypes.bool,
-  autoComplete: PropTypes.string,
-  maxRows: PropTypes.number,
-  minRows: PropTypes.number,
-  multiline: PropTypes.bool,
-};
+MuiTextField.displayName = "MuiTextField";
 
 export default MuiTextField;

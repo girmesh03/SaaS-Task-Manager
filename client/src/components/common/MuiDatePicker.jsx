@@ -1,8 +1,9 @@
 /**
- * MuiDatePicker Component - Reusable Date Picker with React Hook Form Integration
+ * MuiDatePicker Component - Reusable Date Picker Component
  *
- * Wraps MUI DatePicker (Community Version) with Controller from react-hook-form.
- * Automatically converts UTC ↔ local timezone for display and form state.
+ * MuiDatePicker is a pure UI component that wraps MUI's DatePicker.
+ * It does not depend on react-hook-form's Controller internally.
+ * It accepts standard controlled component props: value (UTC string or null), onChange (UTC string or null), error, helperText.
  *
  * Features:
  * - Automatic UTC to local conversion for display
@@ -15,193 +16,113 @@
  * Requirements: 15.6, 28.7, 29.3, 29.4, 29.5
  */
 
-import { Controller } from "react-hook-form";
+import { forwardRef } from "react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Box } from "@mui/material";
-import PropTypes from "prop-types";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-
-// Extend dayjs with plugins
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-// Timezone utility functions (inline to avoid import issues)
-const getUserTimezone = () => {
-  return dayjs.tz.guess();
-};
-
-const convertUTCToLocal = (utcDate) => {
-  if (!utcDate) return null;
-  return dayjs.utc(utcDate).tz(getUserTimezone());
-};
-
-const convertLocalToUTC = (localDate) => {
-  if (!localDate) return null;
-  return dayjs.tz(localDate, getUserTimezone()).utc().toISOString();
-};
+import { convertUTCToLocal, convertLocalToUTC } from "../../utils/dateUtils";
 
 /**
  * MuiDatePicker Component
  *
  * @param {Object} props - Component props
- * @param {Object} props.control - React Hook Form control object
- * @param {string} props.name - Field name for form registration
+ * @param {string} props.value - The selected date (UTC ISO string)
+ * @param {Function} props.onChange - Handler for change events (newValue as UTC ISO string)
+ * @param {Function} props.onBlur - Handler for blur events
+ * @param {string} props.name - Field name
  * @param {string} props.label - Field label
- * @param {Object} props.rules - Validation rules (react-hook-form format)
- * @param {string} props.defaultValue - Default value (UTC ISO string)
+ * @param {Object} props.error - Error object
+ * @param {string} props.helperText - Helper text to display
  * @param {string|Date} props.minDate - Minimum date (UTC ISO string or Date)
  * @param {string|Date} props.maxDate - Maximum date (UTC ISO string or Date)
  * @param {boolean} props.disablePast - Whether to disable past dates
  * @param {boolean} props.disableFuture - Whether to disable future dates
  * @param {string} props.placeholder - Placeholder text
  * @param {boolean} props.disabled - Whether field is disabled
- * @param {boolean} props.required - Whether field is required (visual indicator)
- * @param {boolean} props.fullWidth - Whether field takes full width (default: true)
- * @param {string} props.size - Field size (small, medium)
- * @param {string} props.variant - Field variant (outlined, filled, standard)
- * @param {string} props.format - Date format for display (default: "MMM DD, YYYY")
- * @param {string} props.views - Date picker views (default: ['year', 'month', 'day'])
- * @param {string} props.openTo - Initial view to open (default: 'day')
- *
- * @returns {JSX.Element} MuiDatePicker component
- *
- * @example
- * // Basic usage
- * <MuiDatePicker
- *   control={control}
- *   name="startDate"
- *   label="Start Date"
- *   rules={{ required: "Start date is required" }}
- * />
- *
- * @example
- * // With min/max validation
- * <MuiDatePicker
- *   control={control}
- *   name="dueDate"
- *   label="Due Date"
- *   minDate={startDate}
- *   rules={{
- *     required: "Due date is required",
- *     validate: (value) => {
- *       if (startDate && value < startDate) {
- *         return "Due date must be after start date";
- *       }
- *       return true;
- *     }
- *   }}
- * />
- *
- * @example
- * // Disable future dates
- * <MuiDatePicker
- *   control={control}
- *   name="dateOfBirth"
- *   label="Date of Birth"
- *   disableFuture
- *   rules={{ required: "Date of birth is required" }}
- * />
+ * @param {boolean} props.required - Whether field is required
+ * @param {boolean} props.fullWidth - Whether field takes full width
+ * @param {string} props.size - Field size
+ * @param {string} props.variant - Field variant
+ * @param {string} props.format - Date format for display
+ * @param {string} props.views - Date picker views
+ * @param {string} props.openTo - Initial view to open
  */
-const MuiDatePicker = ({
-  control,
-  name,
-  label,
-  rules = {},
-  defaultValue = null,
-  minDate,
-  maxDate,
-  disablePast = false,
-  disableFuture = false,
-  placeholder,
-  disabled = false,
-  required = false,
-  fullWidth = true,
-  size = "medium",
-  variant = "outlined",
-  format = "MMM DD, YYYY",
-  views = ["year", "month", "day"],
-  openTo = "day",
-  ...otherProps
-}) => {
-  return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Controller
-        name={name}
-        control={control}
-        rules={rules}
-        defaultValue={defaultValue}
-        render={({ field: { onChange, value }, fieldState: { error } }) => {
-          // Convert UTC to local for display
-          const displayValue = value ? convertUTCToLocal(value) : null;
+const MuiDatePicker = forwardRef(
+  (
+    {
+      value = null,
+      onChange,
+      onBlur,
+      name,
+      label,
+      error,
+      helperText,
+      minDate,
+      maxDate,
+      disablePast = false,
+      disableFuture = false,
+      placeholder,
+      disabled = false,
+      required = false,
+      fullWidth = true,
+      size = "medium",
+      variant = "outlined",
+      format = "MMM DD, YYYY",
+      views = ["year", "month", "day"],
+      openTo = "day",
+      ...otherProps
+    },
+    ref
+  ) => {
+    // Convert UTC to local for display
+    const displayValue = value ? convertUTCToLocal(value) : null;
 
-          // Convert min/max dates to local for picker
-          const localMinDate = minDate ? convertUTCToLocal(minDate) : undefined;
-          const localMaxDate = maxDate ? convertUTCToLocal(maxDate) : undefined;
+    // Convert min/max dates to local for picker
+    const localMinDate = minDate ? convertUTCToLocal(minDate) : undefined;
+    const localMaxDate = maxDate ? convertUTCToLocal(maxDate) : undefined;
 
-          return (
-            <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-              <DatePicker
-                value={displayValue}
-                onChange={(newValue) => {
-                  // Convert local to UTC for form state
-                  const utcValue = newValue
-                    ? convertLocalToUTC(newValue)
-                    : null;
-                  onChange(utcValue);
-                }}
-                minDate={localMinDate}
-                maxDate={localMaxDate}
-                disablePast={disablePast}
-                disableFuture={disableFuture}
-                disabled={disabled}
-                format={format}
-                views={views}
-                openTo={openTo}
-                slotProps={{
-                  textField: {
-                    label,
-                    placeholder,
-                    required,
-                    error: !!error,
-                    helperText: error?.message || " ", // Reserve space for error message
-                    fullWidth,
-                    size,
-                    variant,
-                  },
-                }}
-                {...otherProps}
-              />
-            </Box>
-          );
-        }}
-      />
-    </LocalizationProvider>
-  );
-};
+    return (
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+          <DatePicker
+            value={displayValue}
+            onChange={(newValue) => {
+              // Convert local to UTC for form state
+              const utcValue = newValue ? convertLocalToUTC(newValue) : null;
+              onChange(utcValue);
+            }}
+            minDate={localMinDate}
+            maxDate={localMaxDate}
+            disablePast={disablePast}
+            disableFuture={disableFuture}
+            disabled={disabled}
+            format={format}
+            views={views}
+            openTo={openTo}
+            inputRef={ref}
+            slotProps={{
+              textField: {
+                name,
+                onBlur,
+                label,
+                placeholder,
+                required,
+                error: !!error,
+                helperText: error?.message || helperText || " ", // Reserve space for error message
+                fullWidth,
+                size,
+                variant,
+              },
+            }}
+            {...otherProps}
+          />
+        </Box>
+      </LocalizationProvider>
+    );
+  }
+);
 
-MuiDatePicker.propTypes = {
-  control: PropTypes.object.isRequired,
-  name: PropTypes.string.isRequired,
-  label: PropTypes.string.isRequired,
-  rules: PropTypes.object,
-  defaultValue: PropTypes.string,
-  minDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
-  maxDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
-  disablePast: PropTypes.bool,
-  disableFuture: PropTypes.bool,
-  placeholder: PropTypes.string,
-  disabled: PropTypes.bool,
-  required: PropTypes.bool,
-  fullWidth: PropTypes.bool,
-  size: PropTypes.oneOf(["small", "medium"]),
-  variant: PropTypes.oneOf(["outlined", "filled", "standard"]),
-  format: PropTypes.string,
-  views: PropTypes.arrayOf(PropTypes.oneOf(["year", "month", "day"])),
-  openTo: PropTypes.oneOf(["year", "month", "day"]),
-};
+MuiDatePicker.displayName = "MuiDatePicker";
 
 export default MuiDatePicker;
