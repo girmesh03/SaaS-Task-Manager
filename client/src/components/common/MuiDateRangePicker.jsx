@@ -13,13 +13,13 @@
  * - Theme styling applied
  * - Timezone awareness
  *
+ * NOTE: LocalizationProvider is now provided at the app level in main.jsx
+ *
  * Requirements: 15.7, 28.8, 29.3, 29.4, 29.5
  */
 
 import { forwardRef } from "react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Box, Stack } from "@mui/material";
 import { convertUTCToLocal, convertLocalToUTC } from "../../utils/dateUtils";
 
@@ -61,7 +61,7 @@ const MuiDateRangePicker = forwardRef(
       disableFuture = false,
       disabled = false,
       required = false,
-    fullWidth = true,
+      fullWidth = true,
       size = "small",
       variant = "outlined",
       format = "MMM DD, YYYY",
@@ -70,7 +70,8 @@ const MuiDateRangePicker = forwardRef(
     ref
   ) => {
     // Ensure dateRange is always an object with start/end
-    const dateRange = (value && typeof value === "object") ? value : { start: null, end: null };
+    const dateRange =
+      value && typeof value === "object" ? value : { start: null, end: null };
 
     // Convert UTC to local for display
     const displayStartDate = dateRange.start
@@ -101,64 +102,62 @@ const MuiDateRangePicker = forwardRef(
     };
 
     return (
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-          <Stack spacing={2}>
-            {/* Start Date Picker */}
-            <DatePicker
-              label={`${label} - Start`}
-              value={displayStartDate}
-              onChange={handleStartDateChange}
-              minDate={localMinDate}
-              maxDate={displayEndDate || localMaxDate}
-              disablePast={disablePast}
-              disableFuture={disableFuture}
-              disabled={disabled}
-              format={format}
-              inputRef={ref} // Forward ref to the first input for focus management
-              slotProps={{
-                textField: {
-                  name: `${name}.start`,
-                  onBlur,
-                  required,
-                  error: !!error,
-                  helperText: error?.message || helperText || " ",
-                  fullWidth,
-                  size,
-                  variant,
-                },
-              }}
-              {...otherProps}
-            />
+      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+        <Stack spacing={2}>
+          {/* Start Date Picker */}
+          <DatePicker
+            label={`${label} - Start`}
+            value={displayStartDate}
+            onChange={handleStartDateChange}
+            minDate={localMinDate}
+            maxDate={displayEndDate || localMaxDate}
+            disablePast={disablePast}
+            disableFuture={disableFuture}
+            disabled={disabled}
+            format={format}
+            inputRef={ref} // Forward ref to the first input for focus management
+            slotProps={{
+              textField: {
+                name: `${name}.start`,
+                onBlur,
+                required,
+                error: !!error,
+                helperText: error?.message || helperText || " ",
+                fullWidth,
+                size,
+                variant,
+              },
+            }}
+            {...otherProps}
+          />
 
-            {/* End Date Picker */}
-            <DatePicker
-              label={`${label} - End`}
-              value={displayEndDate}
-              onChange={handleEndDateChange}
-              minDate={displayStartDate || localMinDate}
-              maxDate={localMaxDate}
-              disablePast={disablePast}
-              disableFuture={disableFuture}
-              disabled={disabled}
-              format={format}
-              slotProps={{
-                textField: {
-                  name: `${name}.end`,
-                  onBlur,
-                  required,
-                  error: !!error,
-                  helperText: " ", // Reserve space
-                  fullWidth,
-                  size,
-                  variant,
-                },
-              }}
-              {...otherProps}
-            />
-          </Stack>
-        </Box>
-      </LocalizationProvider>
+          {/* End Date Picker */}
+          <DatePicker
+            label={`${label} - End`}
+            value={displayEndDate}
+            onChange={handleEndDateChange}
+            minDate={displayStartDate || localMinDate}
+            maxDate={localMaxDate}
+            disablePast={disablePast}
+            disableFuture={disableFuture}
+            disabled={disabled}
+            format={format}
+            slotProps={{
+              textField: {
+                name: `${name}.end`,
+                onBlur,
+                required,
+                error: !!error,
+                helperText: " ", // Reserve space
+                fullWidth,
+                size,
+                variant,
+              },
+            }}
+            {...otherProps}
+          />
+        </Stack>
+      </Box>
     );
   }
 );

@@ -13,13 +13,13 @@
  * - Theme styling applied
  * - Timezone awareness
  *
+ * NOTE: LocalizationProvider is now provided at the app level in main.jsx
+ *
  * Requirements: 15.6, 28.7, 29.3, 29.4, 29.5
  */
 
 import { forwardRef } from "react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Box } from "@mui/material";
 import { convertUTCToLocal, convertLocalToUTC } from "../../utils/dateUtils";
 
@@ -83,42 +83,40 @@ const MuiDatePicker = forwardRef(
     const localMaxDate = maxDate ? convertUTCToLocal(maxDate) : undefined;
 
     return (
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-          <DatePicker
-            value={displayValue}
-            onChange={(newValue) => {
-              // Convert local to UTC for form state
-              const utcValue = newValue ? convertLocalToUTC(newValue) : null;
-              onChange(utcValue);
-            }}
-            minDate={localMinDate}
-            maxDate={localMaxDate}
-            disablePast={disablePast}
-            disableFuture={disableFuture}
-            disabled={disabled}
-            format={format}
-            views={views}
-            openTo={openTo}
-            inputRef={ref}
-            slotProps={{
-              textField: {
-                name,
-                onBlur,
-                label,
-                placeholder,
-                required,
-                error: !!error,
-                helperText: error?.message || helperText || " ", // Reserve space for error message
-                fullWidth,
-                size,
-                variant,
-              },
-            }}
-            {...otherProps}
-          />
-        </Box>
-      </LocalizationProvider>
+      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+        <DatePicker
+          value={displayValue}
+          onChange={(newValue) => {
+            // Convert local to UTC for form state
+            const utcValue = newValue ? convertLocalToUTC(newValue) : null;
+            onChange(utcValue);
+          }}
+          minDate={localMinDate}
+          maxDate={localMaxDate}
+          disablePast={disablePast}
+          disableFuture={disableFuture}
+          disabled={disabled}
+          format={format}
+          views={views}
+          openTo={openTo}
+          inputRef={ref}
+          slotProps={{
+            textField: {
+              name,
+              onBlur,
+              label,
+              placeholder,
+              required,
+              error: !!error,
+              helperText: error?.message || helperText || " ", // Reserve space for error message
+              fullWidth,
+              size,
+              variant,
+            },
+          }}
+          {...otherProps}
+        />
+      </Box>
     );
   }
 );
