@@ -4,7 +4,7 @@
  * Requirements: 17.3, 9.4
  */
 
-import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { Outlet, Navigate, useLocation } from "react-router";
 import { Box, Container } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../redux/features/authSlice";

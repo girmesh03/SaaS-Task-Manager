@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { Outlet, Navigate, useLocation } from "react-router";
 import { Box, Toolbar, useMediaQuery, useTheme } from "@mui/material";
 import { useSelector } from "react-redux";
 import { selectCurrentUser, selectIsLoading } from "../../redux/features/authSlice";

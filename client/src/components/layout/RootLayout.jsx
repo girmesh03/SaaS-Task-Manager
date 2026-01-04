@@ -5,12 +5,10 @@
  */
 
 import { useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import { Provider } from "react-redux";
+import { Outlet } from "react-router";
 import { CssBaseline, Box, Typography } from "@mui/material";
 import { ErrorBoundary } from "react-error-boundary";
 import AppTheme from "../../theme/AppTheme";
-import store from "../../redux/app/store";
 import socketService from "../../services/socketService";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../redux/features/authSlice";
@@ -70,12 +68,10 @@ const RootLayoutContent = () => {
 const RootLayout = () => {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <Provider store={store}>
-        {/* AppTheme provides ThemeProvider */}
-        <AppTheme>
-          <RootLayoutContent />
-        </AppTheme>
-      </Provider>
+      {/* AppTheme provides ThemeProvider */}
+      <AppTheme>
+        <RootLayoutContent />
+      </AppTheme>
     </ErrorBoundary>
   );
 };
