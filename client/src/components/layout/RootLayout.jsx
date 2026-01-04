@@ -6,12 +6,12 @@
 
 import { useEffect } from "react";
 import { Outlet } from "react-router";
-import { CssBaseline, Box, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { ErrorBoundary } from "react-error-boundary";
-import AppTheme from "../../theme/AppTheme";
 import socketService from "../../services/socketService";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../redux/features/authSlice";
+import { store } from "../../redux/app/store";
 
 // Simple Error Fallback
 const ErrorFallback = ({ error }) => {
@@ -30,7 +30,7 @@ const ErrorFallback = ({ error }) => {
       <Typography variant="h4" color="error" gutterBottom>
         Something went wrong
       </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
         {error.message}
       </Typography>
       <Typography variant="body2" color="text.disabled">
@@ -53,25 +53,17 @@ const RootLayoutContent = () => {
     }
 
     return () => {
-      // Cleanup? usually socketService handles singleton logic
+      // Cleanup handled by socketService singleton
     };
   }, [user]);
 
-  return (
-    <>
-      <CssBaseline />
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 };
 
 const RootLayout = () => {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      {/* AppTheme provides ThemeProvider */}
-      <AppTheme>
-        <RootLayoutContent />
-      </AppTheme>
+      <RootLayoutContent />
     </ErrorBoundary>
   );
 };

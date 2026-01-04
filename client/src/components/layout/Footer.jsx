@@ -20,7 +20,7 @@ const Footer = () => {
         backgroundColor: (theme) =>
           theme.palette.mode === "light"
             ? theme.palette.grey[100]
-            : theme.palette.grey[900],
+            : theme.palette.grey[800],
       }}
     >
       <Typography variant="body2" color="text.secondary">
@@ -33,18 +33,37 @@ const Footer = () => {
       </Typography>
 
       <Box sx={{ mt: 1, display: "flex", justifyContent: "center", gap: 2 }}>
-        <Link href="#" color="text.secondary" variant="caption" underline="hover">
+        <Link
+          href="#"
+          color="text.secondary"
+          variant="caption"
+          underline="hover"
+        >
           Privacy Policy
         </Link>
-        <Link href="#" color="text.secondary" variant="caption" underline="hover">
+        <Link
+          href="#"
+          color="text.secondary"
+          variant="caption"
+          underline="hover"
+        >
           Terms of Service
         </Link>
-        <Link href="#" color="text.secondary" variant="caption" underline="hover">
+        <Link
+          href="#"
+          color="text.secondary"
+          variant="caption"
+          underline="hover"
+        >
           Help Center
         </Link>
       </Box>
 
-      <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 1 }}>
+      <Typography
+        variant="caption"
+        color="text.disabled"
+        sx={{ display: "block", mt: 1 }}
+      >
         v1.0.0
       </Typography>
     </Box>

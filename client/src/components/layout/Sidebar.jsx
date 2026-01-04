@@ -4,7 +4,6 @@
  * Requirements: 17.5, 17.6, 9.2
  */
 
-
 import { useLocation, useNavigate } from "react-router";
 import {
   Drawer,
@@ -31,6 +30,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../redux/features/authSlice";
 import { USER_ROLES } from "../../utils/constants";
+import { canAccessRoute } from "../../router/routeUtils";
 
 const drawerWidth = 240;
 const collapsedWidth = 65;
@@ -41,50 +41,58 @@ const Sidebar = ({ open, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector(selectCurrentUser);
-  const isSuperAdmin = user?.role === USER_ROLES.SUPER_ADMIN;
 
+  // Menu items with role-based access control using canAccessRoute helper
   const menuItems = [
     {
       text: "Dashboard",
       icon: <DashboardIcon />,
       path: "/dashboard",
-      allowed: true, // Everyone sees dashboard
+      // Everyone can access dashboard
+      allowed: true,
     },
     {
       text: "Tasks",
       icon: <AssignmentIcon />,
       path: "/tasks",
+      // Everyone can access tasks
       allowed: true,
     },
     {
       text: "Departments",
       icon: <BusinessIcon />,
       path: "/departments",
+      // Everyone can view departments (read access varies by role)
       allowed: true,
     },
     {
       text: "Users",
       icon: <PeopleIcon />,
       path: "/users",
+      // Everyone can view users (read access varies by role)
       allowed: true,
     },
     {
       text: "Materials",
       icon: <CategoryIcon />,
       path: "/materials",
+      // Everyone can view materials (read access varies by role)
       allowed: true,
     },
     {
       text: "Vendors",
       icon: <LocalShippingIcon />,
       path: "/vendors",
+      // Everyone can view vendors (read access varies by role)
       allowed: true,
     },
     {
       text: "Organizations",
       icon: <ApartmentIcon />,
       path: "/organizations",
-      allowed: isSuperAdmin, // Only SuperAdmin
+      // Only Platform SuperAdmin can access organizations
+      // Uses canAccessRoute helper for consistency with route guards
+      allowed: canAccessRoute(user, [USER_ROLES.SUPER_ADMIN], true),
     },
   ];
 
@@ -100,68 +108,76 @@ const Sidebar = ({ open, onClose }) => {
       <Toolbar /> {/* Spacer for Header */}
       <List>
         {menuItems.map((item) => {
-           if (!item.allowed) return null;
+          if (!item.allowed) return null;
 
-           const isActive = location.pathname.startsWith(item.path);
+          const isActive = location.pathname.startsWith(item.path);
 
-           return (
-             <ListItem key={item.text} disablePadding sx={{ display: "block" }}>
-                <Tooltip title={!open && !isMobile ? item.text : ""} placement="right">
-                 <ListItemButton
-                   sx={{
-                     minHeight: 48,
-                     justifyContent: open ? "initial" : "center",
-                     px: 2.5,
-                     bgcolor: isActive ? "action.selected" : "transparent",
-                     borderRight: isActive ? `3px solid ${theme.palette.primary.main}` : "3px solid transparent",
-                     "&:hover": {
-                       bgcolor: "action.hover",
-                     },
-                   }}
-                   onClick={() => handleNavigate(item.path)}
-                 >
-                   <ListItemIcon
-                     sx={{
-                       minWidth: 0,
-                       mr: open ? 3 : "auto",
-                       justifyContent: "center",
-                       color: isActive ? "primary.main" : "text.secondary",
-                     }}
-                   >
-                     {item.icon}
-                   </ListItemIcon>
-                   <ListItemText
-                     primary={item.text}
-                     sx={{
-                       opacity: open ? 1 : 0,
-                       color: isActive ? "text.primary" : "text.secondary",
-                       fontWeight: isActive ? 600 : 400
-                     }}
-                   />
-                 </ListItemButton>
-               </Tooltip>
-             </ListItem>
-           );
+          return (
+            <ListItem key={item.text} disablePadding sx={{ display: "block" }}>
+              <Tooltip
+                title={!open && !isMobile ? item.text : ""}
+                placement="right"
+              >
+                <ListItemButton
+                  sx={{
+                    minHeight: 48,
+                    justifyContent: open ? "initial" : "center",
+                    px: 2.5,
+                    bgcolor: isActive ? "action.selected" : "transparent",
+                    borderRight: isActive
+                      ? `3px solid ${theme.palette.primary.main}`
+                      : "3px solid transparent",
+                    "&:hover": {
+                      bgcolor: "action.hover",
+                    },
+                  }}
+                  onClick={() => handleNavigate(item.path)}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: open ? 3 : "auto",
+                      justifyContent: "center",
+                      color: isActive ? "primary.main" : "text.secondary",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    sx={{
+                      opacity: open ? 1 : 0,
+                      color: isActive ? "text.primary" : "text.secondary",
+                      fontWeight: isActive ? 600 : 400,
+                    }}
+                  />
+                </ListItemButton>
+              </Tooltip>
+            </ListItem>
+          );
         })}
       </List>
       <Divider sx={{ my: 1 }} />
       <List>
         <ListItem disablePadding sx={{ display: "block" }}>
-          <Tooltip title={!open && !isMobile ? "Settings" : ""} placement="right">
+          <Tooltip
+            title={!open && !isMobile ? "Settings" : ""}
+            placement="right"
+          >
             <ListItemButton
               sx={{
-                 minHeight: 48,
-                 justifyContent: open ? "initial" : "center",
-                 px: 2.5,
-               }}
-               onClick={() => handleNavigate("/settings")}
+                minHeight: 48,
+                justifyContent: open ? "initial" : "center",
+                px: 2.5,
+              }}
+              onClick={() => handleNavigate("/settings")}
             >
               <ListItemIcon
-                 sx={{
-                   minWidth: 0,
-                   mr: open ? 3 : "auto",
-                   justifyContent: "center",
-                 }}
+                sx={{
+                  minWidth: 0,
+                  mr: open ? 3 : "auto",
+                  justifyContent: "center",
+                }}
               >
                 <SettingsIcon />
               </ListItemIcon>
@@ -176,7 +192,10 @@ const Sidebar = ({ open, onClose }) => {
   return (
     <Box
       component="nav"
-      sx={{ width: { md: open ? drawerWidth : collapsedWidth }, flexShrink: { md: 0 } }}
+      sx={{
+        width: { md: open ? drawerWidth : collapsedWidth },
+        flexShrink: { md: 0 },
+      }}
       aria-label="mailbox folders"
     >
       {/* Mobile Drawer */}
