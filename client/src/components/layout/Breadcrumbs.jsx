@@ -24,7 +24,7 @@ const Breadcrumbs = () => {
   }
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box >
       <MuiBreadcrumbs
         separator={<NavigateNextIcon fontSize="small" />}
         aria-label="breadcrumb"

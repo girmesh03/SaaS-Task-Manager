@@ -17,7 +17,7 @@
  */
 
 import { forwardRef } from "react";
-import { Autocomplete, TextField, CircularProgress, Box } from "@mui/material";
+import { Autocomplete, TextField, CircularProgress } from "@mui/material";
 
 /**
  * MuiSelectAutocomplete Component
@@ -87,59 +87,57 @@ const MuiSelectAutocomplete = forwardRef(
     ref
   ) => {
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-        <Autocomplete
-          value={value || (multiple ? [] : null)}
-          onChange={(event, newValue) => {
-            if (onChange) {
-              onChange(newValue);
-            }
-          }}
-          onBlur={onBlur}
-          ref={ref}
-          options={options}
-          multiple={multiple}
-          loading={isLoading}
-          getOptionLabel={getOptionLabel}
-          isOptionEqualToValue={isOptionEqualToValue}
-          filterOptions={filterOptions}
-          groupBy={groupBy}
-          disabled={disabled}
-          freeSolo={freeSolo}
-          disableClearable={disableClearable}
-          limitTags={limitTags}
-          noOptionsText={noOptionsText}
-          loadingText={loadingText}
-          size={size}
-          fullWidth={fullWidth}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={label}
-              placeholder={placeholder}
-              required={required}
-              error={!!error}
-              helperText={error?.message || helperText}
-              variant={variant}
-              name={name}
-              slotProps={{
-                input: {
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {isLoading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                },
-              }}
-            />
-          )}
-          {...otherProps}
-        />
-      </Box>
+      <Autocomplete
+        value={value || (multiple ? [] : null)}
+        onChange={(event, newValue) => {
+          if (onChange) {
+            onChange(newValue);
+          }
+        }}
+        onBlur={onBlur}
+        ref={ref}
+        options={options}
+        multiple={multiple}
+        loading={isLoading}
+        getOptionLabel={getOptionLabel}
+        isOptionEqualToValue={isOptionEqualToValue}
+        filterOptions={filterOptions}
+        groupBy={groupBy}
+        disabled={disabled}
+        freeSolo={freeSolo}
+        disableClearable={disableClearable}
+        limitTags={limitTags}
+        noOptionsText={noOptionsText}
+        loadingText={loadingText}
+        size={size}
+        fullWidth={fullWidth}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            placeholder={placeholder}
+            required={required}
+            error={!!error}
+            helperText={error?.message || helperText}
+            variant={variant}
+            name={name}
+            slotProps={{
+              input: {
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {isLoading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              },
+            }}
+          />
+        )}
+        {...otherProps}
+      />
     );
   }
 );

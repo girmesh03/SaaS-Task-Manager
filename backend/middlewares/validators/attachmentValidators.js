@@ -30,13 +30,13 @@ export const createAttachmentValidator = [
       return true;
     }),
 
-  body("parent").trim().notEmpty().withMessage("Parent ID is required")
+  body("parentId").trim().notEmpty().withMessage("Parent ID is required")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid parent ID"); })()),
 
   body("parentModel").trim().notEmpty().withMessage("Parent model is required")
     .isIn(["BaseTask", "TaskActivity", "TaskComment"]).withMessage("Parent model must be BaseTask, TaskActivity, or TaskComment")
     .custom(async (value, { req }) => {
-      const parentId = req.body.parent;
+      const parentId = req.body.parentId;
       if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) return true;
 
       let ParentModel;
@@ -85,7 +85,7 @@ export const attachmentIdValidator = [
 export const getAttachmentsValidator = [
   query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
   query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
-  query("parent").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
+  query("parentId").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
   query("parentModel").optional().isIn(["BaseTask", "TaskActivity", "TaskComment"]),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,

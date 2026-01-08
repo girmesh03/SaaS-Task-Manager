@@ -57,6 +57,8 @@ const GlobalSearch = () => {
         onClose={handleClose}
         fullWidth
         maxWidth="sm"
+        disableAutoFocus
+        disableEnforceFocus
         slotProps={{
           paper: {
             sx: {

@@ -64,7 +64,7 @@ router.post(
  * @desc    Update department
  * @access  Protected (authorize Department update)
  */
-router.put(
+router.patch(
   "/:departmentId",
   verifyJWT,
   departmentIdValidator,

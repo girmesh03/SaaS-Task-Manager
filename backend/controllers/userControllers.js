@@ -34,7 +34,7 @@ export const getUsers = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     search,
     role,
-    department,
+    departmentId,
     deleted = "false", // Show only active users by default
   } = req.validated.query;
 
@@ -59,8 +59,8 @@ export const getUsers = asyncHandler(async (req, res) => {
   }
 
   // Filter by department
-  if (department) {
-    filter.department = department;
+  if (departmentId) {
+    filter.department = departmentId;
   }
 
   // Build query
@@ -152,7 +152,7 @@ export const createUser = asyncHandler(async (req, res) => {
       role,
       email,
       password,
-      department,
+      departmentId,
       employeeId,
       dateOfBirth,
       joinedAt,
@@ -169,7 +169,7 @@ export const createUser = asyncHandler(async (req, res) => {
       email,
       password,
       organization: req.user.organization._id,
-      department,
+      department: departmentId,
       employeeId,
       dateOfBirth,
       joinedAt,
@@ -242,7 +242,7 @@ export const updateUser = asyncHandler(async (req, res) => {
 
   try {
     const { userId } = req.validated.params;
-    const updates = req.validated.body;
+    const { departmentId, ...otherUpdates } = req.validated.body;
 
     const user = await User.findById(userId).session(session);
 
@@ -259,11 +259,16 @@ export const updateUser = asyncHandler(async (req, res) => {
       );
     }
 
+    // If departmentId is provided, map it
+    if (departmentId) {
+      user.department = departmentId;
+    }
+
     // Apply updates
-    Object.keys(updates).forEach((key) => {
+    Object.keys(otherUpdates).forEach((key) => {
       // Prevent updating immutable fields
       if (key !== "organization" && key !== "isPlatformUser") {
-        user[key] = updates[key];
+        user[key] = otherUpdates[key];
       }
     });
 

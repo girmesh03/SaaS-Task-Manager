@@ -40,15 +40,15 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
   const {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    parent,
+    taskId,
     deleted = "false",
   } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
 
   // Filter by parent task if provided
-  if (parent) {
-    filter.parent = parent;
+  if (taskId) {
+    filter.parent = taskId;
   }
 
   let query = TaskActivity.find(filter);
@@ -140,10 +140,10 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { activity, parent, materials } = req.validated.body;
+    const { activity, taskId, materials } = req.validated.body;
 
     // Verify parent task exists and belongs to org
-    const parentTask = await BaseTask.findById(parent).session(session);
+    const parentTask = await BaseTask.findById(taskId).session(session);
     if (!parentTask) {
       throw CustomError.validation("Parent task not found");
     }
@@ -159,9 +159,9 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
 
     const activityData = {
       activity,
-      parent,
+      parent: taskId,
       parentModel: parentTask.taskType,
-      materials: materials || [],
+      materials: materials ? materials.map(m => ({ material: m.materialId, quantity: m.quantity })) : [],
       organization: req.user.organization._id,
       department: parentTask.department, // Inherit department from parent task
       createdBy: req.user._id,
@@ -177,13 +177,13 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
       "task_activity:created",
       {
         activityId: newActivity._id,
-        taskId: parent,
+        taskId: taskId,
         organizationId: newActivity.organization,
       },
       [
         `organization:${parentTask.organization}`,
         `department:${parentTask.department}`,
-        `task:${parent}`,
+        `task:${taskId}`,
       ]
     );
 
@@ -241,7 +241,9 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
 
     // Apply updates
     if (updates.activity) activity.activity = updates.activity;
-    if (updates.materials) activity.materials = updates.materials;
+    if (updates.materials) {
+      activity.materials = updates.materials.map(m => ({ material: m.materialId, quantity: m.quantity }));
+    }
 
     await activity.save({ session });
 

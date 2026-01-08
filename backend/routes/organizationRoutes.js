@@ -49,7 +49,7 @@ router.get(
  * @desc    Update organization
  * @access  Protected (authorize Organization update)
  */
-router.put(
+router.patch(
   "/:organizationId",
   verifyJWT,
   organizationIdValidator,

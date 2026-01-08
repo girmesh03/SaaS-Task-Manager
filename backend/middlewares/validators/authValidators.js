@@ -1,6 +1,6 @@
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import { handleValidationErrors } from "./validation.js";
-import { USER_ROLES, LIMITS, PHONE_REGEX } from "../../utils/constants.js";
+import { USER_ROLES, LIMITS, PHONE_REGEX, INDUSTRIES } from "../../utils/constants.js";
 import { isValidDate, isFutureDate } from "../../utils/dateUtils.js";
 
 /**
@@ -55,7 +55,7 @@ export const registerValidator = [
     .withMessage("Organization email is required")
     .isEmail()
     .withMessage("Invalid organization email format")
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(
       `Organization email cannot exceed ${LIMITS.EMAIL_MAX} characters`
@@ -104,8 +104,16 @@ export const registerValidator = [
   body("organization.industry")
     .optional()
     .trim()
-    .isLength({ max: LIMITS.INDUSTRY_MAX })
-    .withMessage(`Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`)
+    .isIn(Object.values(INDUSTRIES))
+    .withMessage("Invalid industry type")
+    .escape(),
+
+  body("organization.size")
+    .trim()
+    .notEmpty()
+    .withMessage("Organization size is required")
+    .isIn(["small", "medium", "large"])
+    .withMessage("Invalid organization size")
     .escape(),
 
   body("organization.logo.url")
@@ -170,9 +178,19 @@ export const registerValidator = [
     .withMessage("Email is required")
     .isEmail()
     .withMessage("Invalid email format")
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .isLength({ max: LIMITS.EMAIL_MAX })
-    .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`),
+    .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`)
+    .custom(async (value) => {
+      const { default: User } = await import("../../models/User.js");
+      const existing = await User.findOne({ email: value })
+        .withDeleted()
+        .lean();
+      if (existing) {
+        throw new Error("Email already in use");
+      }
+      return true;
+    }),
 
   body("user.password")
     .trim()
@@ -180,6 +198,7 @@ export const registerValidator = [
     .withMessage("Password is required")
     .isLength({ min: LIMITS.PASSWORD_MIN })
     .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`)
+    .if(() => process.env.NODE_ENV === "production")
     .isStrongPassword()
     .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
@@ -213,7 +232,9 @@ export const loginValidator = [
     .withMessage("Email is required")
     .isEmail()
     .withMessage("Invalid email format")
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false })
+    .isLength({ max: LIMITS.EMAIL_MAX })
+    .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`),
 
   body("password").trim().notEmpty().withMessage("Password is required"),
 
@@ -231,7 +252,9 @@ export const forgotPasswordValidator = [
     .withMessage("Email is required")
     .isEmail()
     .withMessage("Invalid email format")
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false })
+    .isLength({ max: LIMITS.EMAIL_MAX })
+    .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`),
 
   handleValidationErrors,
 ];
@@ -241,7 +264,7 @@ export const forgotPasswordValidator = [
  * Validates token and new password
  */
 export const resetPasswordValidator = [
-  body("token").trim().notEmpty().withMessage("Reset token is required"),
+  param("token").trim().notEmpty().withMessage("Reset token is required"),
 
   body("password")
     .trim()
@@ -249,6 +272,7 @@ export const resetPasswordValidator = [
     .withMessage("Password is required")
     .isLength({ min: LIMITS.PASSWORD_MIN })
     .withMessage(`Password must be at least ${LIMITS.PASSWORD_MIN} characters`)
+    .if(() => process.env.NODE_ENV === "production")
     .isStrongPassword()
     .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 

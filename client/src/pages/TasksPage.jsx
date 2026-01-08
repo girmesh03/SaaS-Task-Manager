@@ -11,7 +11,7 @@ import { Box, Typography, Paper } from "@mui/material";
 
 const TasksPage = () => {
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 1 }}>
       <Typography variant="h4" component="h1" gutterBottom>
         Tasks
       </Typography>
@@ -19,7 +19,7 @@ const TasksPage = () => {
         Manage tasks - ProjectTask, RoutineTask, AssignedTask
       </Typography>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 1 }}>
         <Typography variant="body2" color="text.disabled">
           Tasks list with cards - To be implemented
         </Typography>

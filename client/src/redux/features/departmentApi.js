@@ -3,11 +3,11 @@
  *
  * RTK Query endpoints for department operations:
  * - Get Departments: GET /api/departments
- * - Get Department: GET /api/departments/:id
+ * - Get Department: GET /api/departments/:departmentId
  * - Create Department: POST /api/departments
- * - Update Department: PATCH /api/departments/:id
- * - Delete Department: DELETE /api/departments/:id
- * - Restore Department: PATCH /api/departments/:id/restore
+ * - Update Department: PATCH /api/departments/:departmentId
+ * - Delete Department: DELETE /api/departments/:departmentId
+ * - Restore Department: PATCH /api/departments/:departmentId/restore
  *
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.10
  */
@@ -36,7 +36,7 @@ export const departmentApi = api.injectEndpoints({
      * @param {string} params.search - Search term (name)
      * @param {string} params.sort - Sort field (default 'createdAt')
      * @param {string} params.order - Sort order ('asc' or 'desc')
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {boolean} params.deleted - Filter by deleted status
      * @param {string} params.organizationId - Filter by organization (for Platform Admins)
      *
      * @returns {Object} Response with departments array and pagination meta
@@ -62,17 +62,17 @@ export const departmentApi = api.injectEndpoints({
     /**
      * Get department query
      *
-     * GET /api/departments/:id
+     * GET /api/departments/:departmentId
      *
      * Retrieves a single department by ID.
      *
-     * @param {string} id - Department ID
+     * @param {string} departmentId - Department ID
      *
      * @returns {Object} Response with department object
      */
     getDepartment: builder.query({
-      query: (id) => `/departments/${id}`,
-      providesTags: (result, error, id) => [{ type: "Department", id }],
+      query: (departmentId) => `/departments/${departmentId}`,
+      providesTags: (result, error, departmentId) => [{ type: "Department", id: departmentId }],
     }),
 
     /**
@@ -99,24 +99,24 @@ export const departmentApi = api.injectEndpoints({
     /**
      * Update department mutation
      *
-     * PATCH /api/departments/:id
+     * PATCH /api/departments/:departmentId
      *
      * Updates an existing department.
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - Department ID
+     * @param {string} args.departmentId - Department ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated department
      */
     updateDepartment: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/departments/${id}`,
+      query: ({ departmentId, data }) => ({
+        url: `/departments/${departmentId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Department", id },
+      invalidatesTags: (result, error, { departmentId }) => [
+        { type: "Department", id: departmentId },
         { type: "Department", id: "LIST" },
       ],
     }),
@@ -124,21 +124,21 @@ export const departmentApi = api.injectEndpoints({
     /**
      * Delete department mutation
      *
-     * DELETE /api/departments/:id
+     * DELETE /api/departments/:departmentId
      *
      * Soft deletes a department.
      *
-     * @param {string} id - Department ID
+     * @param {string} departmentId - Department ID
      *
      * @returns {Object} Response with success message
      */
     deleteDepartment: builder.mutation({
-      query: (id) => ({
-        url: `/departments/${id}`,
+      query: (departmentId) => ({
+        url: `/departments/${departmentId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Department", id },
+      invalidatesTags: (result, error, departmentId) => [
+        { type: "Department", id: departmentId },
         { type: "Department", id: "LIST" },
       ],
     }),
@@ -146,21 +146,21 @@ export const departmentApi = api.injectEndpoints({
     /**
      * Restore department mutation
      *
-     * PATCH /api/departments/:id/restore
+     * PATCH /api/departments/:departmentId/restore
      *
      * Restores a soft-deleted department.
      *
-     * @param {string} id - Department ID
+     * @param {string} departmentId - Department ID
      *
      * @returns {Object} Response with restored department
      */
     restoreDepartment: builder.mutation({
-      query: (id) => ({
-        url: `/departments/${id}/restore`,
+      query: (departmentId) => ({
+        url: `/departments/${departmentId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Department", id },
+      invalidatesTags: (result, error, departmentId) => [
+        { type: "Department", id: departmentId },
         { type: "Department", id: "LIST" },
       ],
     }),

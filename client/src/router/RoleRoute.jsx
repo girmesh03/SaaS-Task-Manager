@@ -8,11 +8,11 @@
  * Requirements: 21.1, 21.2, 21.3
  */
 
-import { Navigate, Outlet, useLocation } from "react-router";
-import { useSelector } from "react-redux";
-import { selectCurrentUser } from "../redux/features/authSlice";
+import { Navigate, useLocation } from "react-router";
+import useAuth from "../hooks/useAuth";
 import { USER_ROLES } from "../utils/constants";
-import MuiLoading from "../components/common/MuiLoading";
+import { MuiLoading } from "../components/common";
+import { toast } from "react-toastify";
 import { canAccessRoute } from "./routeUtils";
 
 /**
@@ -23,34 +23,16 @@ import { canAccessRoute } from "./routeUtils";
  * @param {boolean} props.requirePlatformUser - If true, only platform users can access
  * @param {boolean} props.requireHod - If true, only HOD users can access
  * @param {string} props.redirectTo - Custom redirect path (default: /dashboard)
- * @param {React.ReactNode} props.children - Optional children to render instead of Outlet
+ * @param {React.ReactNode} props.children - Children to render
  *
  * @returns {React.ReactElement} Protected content or redirect
  *
  * @example
  * // Allow only SuperAdmin and Admin
  * {
- *   Component: () => <RoleRoute allowedRoles={["SuperAdmin", "Admin"]} />,
+ *   Component: () => <RoleRoute allowedRoles={["SuperAdmin", "Admin"]}><Outlet /></RoleRoute>,
  *   children: [
  *     { path: "users", Component: UsersPage }
- *   ]
- * }
- *
- * @example
- * // Platform SuperAdmin only (Organizations page)
- * {
- *   Component: () => <RoleRoute allowedRoles={["SuperAdmin"]} requirePlatformUser />,
- *   children: [
- *     { path: "organizations", Component: OrganizationsPage }
- *   ]
- * }
- *
- * @example
- * // HOD users only
- * {
- *   Component: () => <RoleRoute requireHod />,
- *   children: [
- *     { path: "department-settings", Component: DepartmentSettingsPage }
  *   ]
  * }
  */
@@ -62,7 +44,7 @@ const RoleRoute = ({
   children,
 }) => {
   const location = useLocation();
-  const user = useSelector(selectCurrentUser);
+  const { user } = useAuth();
 
   // If no user, show loading (should be handled by ProtectedRoute parent)
   if (!user) {
@@ -79,6 +61,9 @@ const RoleRoute = ({
 
   // Redirect if access check fails
   if (!hasAccess) {
+    // Show toast error
+    toast.error("You do not have permission to access this page.");
+
     return (
       <Navigate
         to={redirectTo}
@@ -91,8 +76,8 @@ const RoleRoute = ({
     );
   }
 
-  // Render children if provided, otherwise render Outlet for nested routes
-  return children ? children : <Outlet />;
+  // Render children
+  return children;
 };
 
 export default RoleRoute;

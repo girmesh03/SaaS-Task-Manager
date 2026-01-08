@@ -63,16 +63,16 @@ const loadTemplate = (templateName, data) => {
 };
 
 /**
- * Send email (async, non-blocking)
+ * Send email (async)
  * @param {string} to - Recipient email
  * @param {string} subject - Email subject
  * @param {string} html - HTML content
- * @returns {Promise<void>}
+ * @returns {Promise<{success: boolean, message?: string, error?: string}>}
  */
 export const sendEmail = async (to, subject, html) => {
   if (!html) {
     logger.error({ message: "Empty HTML content, aborting email send", to, subject });
-    return;
+    return { success: false, error: "Empty HTML content" };
   }
 
   try {
@@ -93,6 +93,7 @@ export const sendEmail = async (to, subject, html) => {
       subject,
       messageId: info.messageId,
     });
+    return { success: true, message: `Email sent successfully to ${to}` };
   } catch (error) {
     logger.error({
       message: "Failed to send email",
@@ -100,6 +101,7 @@ export const sendEmail = async (to, subject, html) => {
       subject,
       error: error.message,
     });
+    return { success: false, error: error.message };
   }
 };
 
@@ -115,7 +117,7 @@ export const sendWelcomeEmail = async (user) => {
     role: user.role,
   });
 
-  await sendEmail(user.email, subject, html);
+  return await sendEmail(user.email, subject, html);
 };
 
 /**
@@ -134,7 +136,7 @@ export const sendVerificationEmail = async (user, token) => {
     <p>If you didn't create an account, you can safely ignore this email.</p>
   `;
 
-  await sendEmail(user.email, subject, html);
+  return await sendEmail(user.email, subject, html);
 };
 
 /**
@@ -142,14 +144,14 @@ export const sendVerificationEmail = async (user, token) => {
  */
 export const sendPasswordResetEmail = async (user, resetToken) => {
   const subject = "Password Reset Request";
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
   const html = loadTemplate("passwordReset", {
     firstName: user.firstName,
     resetUrl,
   });
 
-  await sendEmail(user.email, subject, html);
+  return await sendEmail(user.email, subject, html);
 };
 
 /**
@@ -161,7 +163,7 @@ export const sendPasswordResetConfirmation = async (user) => {
     firstName: user.firstName,
   });
 
-  await sendEmail(user.email, subject, html);
+  return await sendEmail(user.email, subject, html);
 };
 
 /**

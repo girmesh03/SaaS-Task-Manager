@@ -76,6 +76,14 @@ const organizationSchema = new mongoose.Schema(
         `Industry cannot exceed ${LIMITS.INDUSTRY_MAX} characters`,
       ],
     },
+    size: {
+      type: String,
+      enum: {
+        values: ["small", "medium", "large"],
+        message: "{VALUE} is not a valid organization size",
+      },
+      required: [true, "Organization size is required"],
+    },
     logo: {
       url: {
         type: String,

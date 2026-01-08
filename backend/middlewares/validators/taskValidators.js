@@ -15,7 +15,7 @@ export const createTaskValidator = [
   body("taskType").trim().notEmpty().withMessage("Task type is required")
     .isIn(Object.values(TASK_TYPES)).withMessage("Invalid task type"),
 
-  body("department").trim().notEmpty().withMessage("Department is required")
+  body("departmentId").trim().notEmpty().withMessage("Department is required")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid department ID"); })())
     .custom(async (value, { req }) => {
       const { default: Department } = await import("../../models/Department.js");
@@ -48,7 +48,7 @@ export const createTaskValidator = [
       }
       return true;
     }),
-  body("vendor").if(body("taskType").equals(TASK_TYPES.PROJECT_TASK))
+  body("vendorId").if(body("taskType").equals(TASK_TYPES.PROJECT_TASK))
     .notEmpty().withMessage("Vendor required for ProjectTask")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid vendor ID"); })())
     .custom(async (value, { req }) => {
@@ -104,7 +104,7 @@ export const createTaskValidator = [
       if (!value || value.length === 0) return true;
       const { default: Material } = await import("../../models/Material.js");
       const organizationId = req.user.organization._id;
-      const materialIds = value.map(m => m.material);
+      const materialIds = value.map(m => m.materialId || m.material);
       const materials = await Material.find({
         _id: { $in: materialIds },
         organization: organizationId
@@ -118,7 +118,7 @@ export const createTaskValidator = [
     }),
 
   // AssignedTask specific
-  body("assignees").if(body("taskType").equals(TASK_TYPES.ASSIGNED_TASK))
+  body("assigneeIds").if(body("taskType").equals(TASK_TYPES.ASSIGNED_TASK))
     .isArray({ min: 1 }).withMessage("At least one assignee required for AssignedTask")
     .custom((value) => {
       if (value.length > LIMITS.MAX_ASSIGNEES) {
@@ -140,7 +140,7 @@ export const createTaskValidator = [
       return true;
     }),
 
-  body("assignees").optional().isArray().withMessage("Assignees must be an array")
+  body("assigneeIds").optional().isArray().withMessage("Assignee IDs must be an array")
     .custom((value) => value.length <= LIMITS.MAX_ASSIGNEES || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_ASSIGNEES} assignees`); })())
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
@@ -161,7 +161,7 @@ export const createTaskValidator = [
       return true;
     }),
 
-  body("watchers").optional().isArray().withMessage("Watchers must be an array")
+  body("watcherIds").optional().isArray().withMessage("Watcher IDs must be an array")
     .custom((value) => value.length <= LIMITS.MAX_WATCHERS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_WATCHERS} watchers`); })())
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
@@ -196,7 +196,7 @@ export const createTaskValidator = [
       return true;
     }),
 
-  body("attachments").optional().isArray().withMessage("Attachments must be an array")
+  body("attachmentIds").optional().isArray().withMessage("Attachment IDs must be an array")
     .custom((value) => value.length <= LIMITS.MAX_ATTACHMENTS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_ATTACHMENTS} attachments`); })())
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
@@ -263,7 +263,7 @@ export const updateTaskValidator = [
       return true;
     }),
 
-  body("vendor").optional().custom((value) => !value || mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid vendor ID"); })()),
+  body("vendorId").optional().custom((value) => !value || mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid vendor ID"); })()),
   body("estimatedCost").optional().isFloat({ min: 0 }).withMessage("Estimated cost cannot be negative"),
   body("actualCost").optional().isFloat({ min: 0 }).withMessage("Actual cost cannot be negative"),
   body("currency").optional().trim().escape(),
@@ -274,7 +274,7 @@ export const updateTaskValidator = [
       if (!value || value.length === 0) return true;
       const { default: Material } = await import("../../models/Material.js");
       const organizationId = req.user.organization._id;
-      const materialIds = value.map(m => m.material);
+      const materialIds = value.map(m => m.materialId || m.material);
       const materials = await Material.find({
         _id: { $in: materialIds },
         organization: organizationId
@@ -287,7 +287,7 @@ export const updateTaskValidator = [
       return true;
     }),
 
-  body("assignees").optional().isArray().withMessage("Assignees must be an array")
+  body("assigneeIds").optional().isArray().withMessage("Assignee IDs must be an array")
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       if (value.length > LIMITS.MAX_ASSIGNEES) {
@@ -309,7 +309,7 @@ export const updateTaskValidator = [
       }
       return true;
     }),
-  body("watchers").optional().isArray().withMessage("Watchers must be an array")
+  body("watcherIds").optional().isArray().withMessage("Watcher IDs must be an array")
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       if (value.length > LIMITS.MAX_WATCHERS) {
@@ -347,7 +347,7 @@ export const updateTaskValidator = [
       return true;
     }),
 
-  body("attachments").optional().isArray().withMessage("Attachments must be an array")
+  body("attachmentIds").optional().isArray().withMessage("Attachment IDs must be an array")
     .custom((value) => value.length <= LIMITS.MAX_ATTACHMENTS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_ATTACHMENTS} attachments`); })())
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
@@ -399,9 +399,9 @@ export const getTasksValidator = [
   query("taskType").optional().isIn(Object.values(TASK_TYPES)),
   query("status").optional().isIn(Object.values(TASK_STATUS)),
   query("priority").optional().isIn(Object.values(TASK_PRIORITY)),
-  query("department").optional().isMongoId(),
+  query("departmentId").optional().isMongoId(),
   query("assigneeId").optional().isMongoId(),
-  query("vendor").optional().isMongoId(),
+  query("vendorId").optional().isMongoId(),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

@@ -14,17 +14,59 @@ import { io } from "socket.io-client";
 
 // Socket.IO client instance
 let socket = null;
+let currentUser = null;
+let disconnectTimeout = null;
 
 /**
- * Initialize Socket.IO connection
+ * Connect to Socket.IO server and join rooms
  *
- * @param {Object} user - Authenticated user object
- * @returns {Object} Socket.IO client instance
+ * @param {Object} store - Redux store for accessing user state
  */
-export const initializeSocket = (user) => {
-  if (socket && socket.connected) {
-    return socket;
+export const connect = (store) => {
+  // Get user from store
+  const state = store.getState();
+  const user = state.auth?.user;
+
+  if (!user) {
+    console.warn("Cannot connect socket: user is not authenticated");
+    return;
   }
+
+  // If there is a pending disconnect for this user, cancel it
+  if (disconnectTimeout) {
+    if (currentUser?._id === user._id) {
+      console.log("Socket.IO connection preserved (cancelled pending disconnect)");
+      clearTimeout(disconnectTimeout);
+      disconnectTimeout = null;
+
+      // Ensure it's active
+      if (socket && !socket.connected) {
+         socket.connect();
+      }
+      return;
+    } else {
+      // Different user, allow the disconnect to happen immediately (or force it)
+      // We will force it below by calling cleanup
+      clearTimeout(disconnectTimeout);
+      disconnectTimeout = null;
+      performDisconnect();
+    }
+  }
+
+  // If already connected/connecting with same user, check status and return
+  if (socket && currentUser?._id === user._id) {
+    if (!socket.connected) {
+      socket.connect();
+    }
+    return;
+  }
+
+  // Disconnect existing socket if user changed (and no pending disconnect handled above)
+  if (socket) {
+    performDisconnect();
+  }
+
+  currentUser = user;
 
   // Get base URL from environment (remove /api suffix for socket connection)
   const baseURL =
@@ -34,33 +76,18 @@ export const initializeSocket = (user) => {
   // Initialize socket with authentication and reconnection configuration
   socket = io(baseURL, {
     auth: {
-      user,
+      userId: user._id,
+      organizationId: user.organization?._id,
+      departmentId: user.department?._id,
     },
+    withCredentials: true,
     reconnection: true,
-    reconnectionDelay: 1000, // Start with 1 second delay
-    reconnectionDelayMax: 5000, // Max 5 seconds between attempts
-    reconnectionAttempts: 5, // Try 5 times before giving up
-    transports: ["websocket", "polling"], // Prefer websocket, fallback to polling
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 10,
+    transports: ["websocket", "polling"],
+    autoConnect: true,
   });
-
-  return socket;
-};
-
-/**
- * Connect to Socket.IO server and join rooms
- *
- * @param {Object} user - Authenticated user object with _id, department, organization
- */
-export const connect = (user) => {
-  if (!user) {
-    console.error("Cannot connect socket: user is required");
-    return;
-  }
-
-  // Initialize socket if not already initialized
-  if (!socket) {
-    initializeSocket(user);
-  }
 
   // Handle successful connection
   socket.on("connect", () => {
@@ -84,6 +111,11 @@ export const connect = (user) => {
       userId: user._id,
       status: "Online",
     });
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", (reason) => {
+    console.log("Socket.IO disconnected:", reason);
   });
 
   // Handle connection errors
@@ -110,29 +142,59 @@ export const connect = (user) => {
 /**
  * Disconnect from Socket.IO server and cleanup
  *
- * @param {Object} user - Authenticated user object
+ * Uses a delay to handle React Strict Mode unmount/remount cycles.
  */
-export const disconnect = (user) => {
+export const disconnect = () => {
   if (!socket) {
     return;
   }
 
-  // Emit user offline event before disconnecting
-  if (user) {
-    socket.emit("user:offline", {
-      userId: user._id,
-      status: "Offline",
-    });
+  // Clear any existing timeout
+  if (disconnectTimeout) {
+    clearTimeout(disconnectTimeout);
   }
 
-  // Disconnect socket
-  socket.disconnect();
+  // Set timeout to perform the actual disconnect
+  disconnectTimeout = setTimeout(() => {
+    performDisconnect();
+    disconnectTimeout = null;
+  }, 1000); // 1 second delay should be plenty for Strict Mode or quick nav
+};
 
-  // Remove all event listeners
+/**
+ * internal function to actually perform the disconnect logic
+ */
+const performDisconnect = () => {
+  if (!socket) return;
+
+  // Emit user offline event before disconnecting
+  if (currentUser) {
+    // We try/catch this as socket might be closed
+    try {
+      if (socket.connected) {
+         socket.emit("user:offline", {
+            userId: currentUser._id,
+            status: "Offline",
+          });
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Remove all event listeners first
   socket.removeAllListeners();
 
-  // Clear socket instance
+  // Disconnect socket if connected
+  if (socket.connected) {
+    socket.disconnect();
+  } else {
+    socket.disconnect();
+  }
+
+  // Clear references
   socket = null;
+  currentUser = null;
 
   console.log("Socket.IO disconnected and cleaned up");
 };
@@ -155,10 +217,52 @@ export const isConnected = () => {
   return socket?.connected || false;
 };
 
+/**
+ * Subscribe to a socket event
+ *
+ * @param {string} event - Event name
+ * @param {Function} callback - Event handler
+ */
+export const on = (event, callback) => {
+  if (socket) {
+    socket.on(event, callback);
+  }
+};
+
+/**
+ * Unsubscribe from a socket event
+ *
+ * @param {string} event - Event name
+ * @param {Function} callback - Event handler (optional)
+ */
+export const off = (event, callback) => {
+  if (socket) {
+    if (callback) {
+      socket.off(event, callback);
+    } else {
+      socket.off(event);
+    }
+  }
+};
+
+/**
+ * Emit a socket event
+ *
+ * @param {string} event - Event name
+ * @param {any} data - Event data
+ */
+export const emit = (event, data) => {
+  if (socket?.connected) {
+    socket.emit(event, data);
+  }
+};
+
 export default {
-  initializeSocket,
   connect,
   disconnect,
   getSocket,
   isConnected,
+  on,
+  off,
+  emit,
 };

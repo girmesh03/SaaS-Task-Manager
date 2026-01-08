@@ -3,13 +3,11 @@
  *
  * RTK Query endpoints for user operations:
  * - Get Users: GET /api/users
- * - Get User: GET /api/users/:id
- * - Get Own Profile: GET /api/users/me (handled by authApi typically, but added here for completeness if needed)
+ * - Get User: GET /api/users/:userId
  * - Create User: POST /api/users
- * - Update User: PATCH /api/users/:id
- * - Update Own Profile: PATCH /api/users/me
- * - Delete User: DELETE /api/users/:id
- * - Restore User: PATCH /api/users/:id/restore
+ * - Update User: PATCH /api/users/:userId
+ * - Delete User: DELETE /api/users/:userId
+ * - Restore User: PATCH /api/users/:userId/restore
  *
  * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 4.10
  */
@@ -38,9 +36,9 @@ export const userApi = api.injectEndpoints({
      * @param {string} params.search - Search term (name, email)
      * @param {string} params.sort - Sort field (default 'createdAt')
      * @param {string} params.order - Sort order ('asc' or 'desc')
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {boolean} params.deleted - Filter by deleted status
      * @param {string} params.role - Filter by user role
-     * @param {string} params.department - Filter by department ID
+     * @param {string} params.departmentId - Filter by department ID
      * @param {string} params.organizationId - Filter by organization (for Platform Admins)
      *
      * @returns {Object} Response with users array and pagination meta
@@ -66,31 +64,17 @@ export const userApi = api.injectEndpoints({
     /**
      * Get user query
      *
-     * GET /api/users/:id
+     * GET /api/users/:userId
      *
      * Retrieves a single user by ID.
      *
-     * @param {string} id - User ID
+     * @param {string} userId - User ID
      *
      * @returns {Object} Response with user object
      */
     getUser: builder.query({
-      query: (id) => `/users/${id}`,
-      providesTags: (result, error, id) => [{ type: "User", id }],
-    }),
-
-    /**
-     * Get user profile query (ME)
-     *
-     * GET /api/users/me
-     *
-     * Retrieves the currently authenticated user's profile.
-     *
-     * @returns {Object} Response with user object
-     */
-    getUserProfile: builder.query({
-      query: () => "/users/me",
-      providesTags: [{ type: "User", id: "ME" }],
+      query: (userId) => `/users/${userId}`,
+      providesTags: (result, error, userId) => [{ type: "User", id: userId }],
     }),
 
     /**
@@ -116,51 +100,22 @@ export const userApi = api.injectEndpoints({
     /**
      * Update user mutation
      *
-     * PATCH /api/users/:id
-     *
-     * Updates an existing user by ID (Admin/Manager action).
+     * PATCH /api/users/:userId
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - User ID
+     * @param {string} args.userId - User ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated user
      */
     updateUser: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/users/${id}`,
+      query: ({ userId, data }) => ({
+        url: `/users/${userId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "User", id },
-        { type: "User", id: "LIST" },
-        // If updating self via this route (unlikely but possible), invalidate ME
-        // But ME is usually separate cache. We'll leave it simple.
-      ],
-    }),
-
-    /**
-     * Update own profile mutation
-     *
-     * PATCH /api/users/me
-     *
-     * Updates the currently authenticated user's profile.
-     *
-     * @param {Object} data - Data to update
-     *
-     * @returns {Object} Response with updated user
-     */
-    updateOwnProfile: builder.mutation({
-      query: (data) => ({
-        url: "/users/me",
-        method: "PATCH",
-        body: data,
-      }),
-      invalidatesTags: [
-        { type: "User", id: "ME" },
-        // Also invalidate specific ID if we knew it, but "ME" handles the profile view.
-        // List view might be stale if user appears there.
+      invalidatesTags: (result, error, { userId }) => [
+        { type: "User", id: userId },
         { type: "User", id: "LIST" },
       ],
     }),
@@ -168,21 +123,21 @@ export const userApi = api.injectEndpoints({
     /**
      * Delete user mutation
      *
-     * DELETE /api/users/:id
+     * DELETE /api/users/:userId
      *
      * Soft deletes a user.
      *
-     * @param {string} id - User ID
+     * @param {string} userId - User ID
      *
      * @returns {Object} Response with success message
      */
     deleteUser: builder.mutation({
-      query: (id) => ({
-        url: `/users/${id}`,
+      query: (userId) => ({
+        url: `/users/${userId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "User", id },
+      invalidatesTags: (result, error, userId) => [
+        { type: "User", id: userId },
         { type: "User", id: "LIST" },
       ],
     }),
@@ -190,21 +145,21 @@ export const userApi = api.injectEndpoints({
     /**
      * Restore user mutation
      *
-     * PATCH /api/users/:id/restore
+     * PATCH /api/users/:userId/restore
      *
      * Restores a soft-deleted user.
      *
-     * @param {string} id - User ID
+     * @param {string} userId - User ID
      *
      * @returns {Object} Response with restored user
      */
     restoreUser: builder.mutation({
-      query: (id) => ({
-        url: `/users/${id}/restore`,
+      query: (userId) => ({
+        url: `/users/${userId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "User", id },
+      invalidatesTags: (result, error, userId) => [
+        { type: "User", id: userId },
         { type: "User", id: "LIST" },
       ],
     }),
@@ -214,10 +169,8 @@ export const userApi = api.injectEndpoints({
 export const {
   useGetUsersQuery,
   useGetUserQuery,
-  useGetUserProfileQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
-  useUpdateOwnProfileMutation,
   useDeleteUserMutation,
   useRestoreUserMutation,
 } = userApi;

@@ -26,7 +26,7 @@ export const getMaterials = asyncHandler(async (req, res) => {
     limit = PAGINATION.DEFAULT_LIMIT,
     search,
     category,
-    department,
+    departmentId,
     deleted = "false",
   } = req.validated.query;
 
@@ -40,7 +40,7 @@ export const getMaterials = asyncHandler(async (req, res) => {
   }
 
   if (category) filter.category = category;
-  if (department) filter.department = department;
+  if (departmentId) filter.department = departmentId;
 
   let query = Material.find(filter);
   if (deleted === "true") query = query.withDeleted();
@@ -111,7 +111,7 @@ export const createMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, description, category, unitType, price, department } = req.validated.body;
+    const { name, description, category, unitType, price, departmentId } = req.validated.body;
 
     const materialData = {
       name,
@@ -119,7 +119,7 @@ export const createMaterial = asyncHandler(async (req, res) => {
       category,
       unitType,
       price,
-      department,
+      department: departmentId,
       organization: req.user.organization._id,
       addedBy: req.user._id,
     };
@@ -183,8 +183,12 @@ export const updateMaterial = asyncHandler(async (req, res) => {
       );
     }
 
+    if (updates.departmentId) {
+      material.department = updates.departmentId;
+    }
+
     Object.keys(updates).forEach((key) => {
-      if (key !== "organization" && key !== "addedBy") {
+      if (key !== "organization" && key !== "addedBy" && key !== "departmentId") {
         material[key] = updates[key];
       }
     });

@@ -14,7 +14,7 @@ const MuiChip = forwardRef(
       avatar,
       icon,
       variant = "filled",
-      size = "medium",
+      size = "small",
       color = "default",
       clickable = false,
       onDelete,

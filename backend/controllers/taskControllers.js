@@ -36,9 +36,9 @@ export const getTasks = asyncHandler(async (req, res) => {
     taskType,
     status,
     priority,
-    department,
+    departmentId,
     assigneeId,
-    vendor,
+    vendorId,
     deleted = "false",
   } = req.validated.query;
 
@@ -48,9 +48,9 @@ export const getTasks = asyncHandler(async (req, res) => {
   if (taskType) filter.taskType = taskType;
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
-  if (department) filter.department = department;
+  if (departmentId) filter.department = departmentId;
   if (assigneeId) filter.assignees = assigneeId;
-  if (vendor) filter.vendor = vendor;
+  if (vendorId) filter.vendor = vendorId;
 
   let query = BaseTask.find(filter);
   if (deleted === "true") query = query.withDeleted();
@@ -166,33 +166,34 @@ export const createTask = asyncHandler(async (req, res) => {
 
   try {
     const {
-      taskType,
       title,
       description,
       status,
       priority,
-      department,
+      taskType,
+      departmentId,
       startDate,
       dueDate,
-      vendor,
+      vendorId,
       estimatedCost,
       actualCost,
       currency,
       materials,
-      assignees,
-      watchers,
+      assigneeIds,
+      watcherIds,
       tags,
+      attachmentIds,
     } = req.validated.body;
 
     const taskData = {
       description,
       status,
       priority,
-      department,
+      department: departmentId,
       organization: req.user.organization._id,
       createdBy: req.user._id,
-      attachments: req.validated.body.attachments || [],
-      watchers: watchers || [],
+      attachments: attachmentIds || [],
+      watchers: watcherIds || [],
       tags: tags || [],
       taskType,
     };
@@ -204,7 +205,7 @@ export const createTask = asyncHandler(async (req, res) => {
       taskData.title = title;
       taskData.startDate = startDate;
       taskData.dueDate = dueDate;
-      taskData.vendor = vendor;
+      taskData.vendor = vendorId;
       taskData.estimatedCost = estimatedCost;
       taskData.actualCost = actualCost;
       taskData.currency = currency;
@@ -218,7 +219,7 @@ export const createTask = asyncHandler(async (req, res) => {
       taskData.title = title;
       taskData.startDate = startDate;
       taskData.dueDate = dueDate;
-      taskData.assignees = assignees;
+      taskData.assignees = assigneeIds;
       [task] = await AssignedTask.create([taskData], { session });
     } else {
       throw CustomError.validation("Invalid task type");
@@ -311,7 +312,14 @@ export const updateTask = asyncHandler(async (req, res) => {
 
   try {
     const { taskId } = req.validated.params;
-    const updates = req.validated.body;
+    const {
+      departmentId,
+      vendorId,
+      assigneeIds,
+      watcherIds,
+      attachmentIds,
+      ...otherUpdates
+    } = req.validated.body;
 
     const task = await BaseTask.findById(taskId).session(session);
     if (!task) {
@@ -326,9 +334,16 @@ export const updateTask = asyncHandler(async (req, res) => {
       );
     }
 
-    Object.keys(updates).forEach((key) => {
+    // Map fields
+    if (departmentId) task.department = departmentId;
+    if (vendorId) task.vendor = vendorId;
+    if (assigneeIds) task.assignees = assigneeIds;
+    if (watcherIds) task.watchers = watcherIds;
+    if (attachmentIds) task.attachments = attachmentIds;
+
+    Object.keys(otherUpdates).forEach((key) => {
       if (!["organization", "createdBy", "taskType"].includes(key)) {
-        task[key] = updates[key];
+        task[key] = otherUpdates[key];
       }
     });
 

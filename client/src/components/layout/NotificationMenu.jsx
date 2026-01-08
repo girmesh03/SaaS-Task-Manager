@@ -14,6 +14,7 @@ import {
   Box,
   Divider,
 } from "@mui/material";
+
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MuiAvatar from "../common/MuiAvatar";
 import { formatRelativeTime } from "../../utils/dateUtils";
@@ -52,7 +53,7 @@ const NotificationMenu = () => {
 
   return (
     <>
-      <IconButton color="inherit" onClick={handleClick} size="large">
+      <IconButton color="inherit" onClick={handleClick} size="small">
         <Badge badgeContent={unreadCount} color="error">
           <NotificationsIcon />
         </Badge>
@@ -92,7 +93,7 @@ const NotificationMenu = () => {
               <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
                 <MuiAvatar
                   name={notification.title} // Or sender name if available
-                  sx={{ width: 40, height: 40, fontSize: "1rem" }}
+                  size={40}
                 />
                 <Box sx={{ flex: 1 }}>
                   <Typography

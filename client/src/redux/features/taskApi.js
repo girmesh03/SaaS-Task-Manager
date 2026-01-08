@@ -3,11 +3,11 @@
  *
  * RTK Query endpoints for task operations:
  * - Get Tasks: GET /api/tasks
- * - Get Task: GET /api/tasks/:id
+ * - Get Task: GET /api/tasks/:taskId
  * - Create Task: POST /api/tasks
- * - Update Task: PATCH /api/tasks/:id
- * - Delete Task: DELETE /api/tasks/:id
- * - Restore Task: PATCH /api/tasks/:id/restore
+ * - Update Task: PATCH /api/tasks/:taskId
+ * - Delete Task: DELETE /api/tasks/:taskId
+ * - Restore Task: PATCH /api/tasks/:taskId/restore
  *
  * Requirements: 5.1 - 5.10
  */
@@ -39,10 +39,10 @@ export const taskApi = api.injectEndpoints({
      * @param {string} params.status - Filter by status
      * @param {string} params.priority - Filter by priority
      * @param {string} params.taskType - Filter by task type (ProjectTask, RoutineTask, AssignedTask)
-     * @param {string} params.department - Filter by department
-     * @param {string} params.assignedTo - Filter by assignee
-     * @param {string} params.createdBy - Filter by creator
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {string} params.departmentId - Filter by department
+     * @param {string} params.assigneeId - Filter by assignee
+     * @param {string} params.vendorId - Filter by vendor
+     * @param {boolean} params.deleted - Filter by deleted status
      *
      * @returns {Object} Response with tasks array and pagination meta
      */
@@ -71,13 +71,13 @@ export const taskApi = api.injectEndpoints({
      *
      * Retrieves a single task by ID.
      *
-     * @param {string} id - Task ID
+     * @param {string} taskId - Task ID
      *
      * @returns {Object} Response with task object
      */
     getTask: builder.query({
-      query: (id) => `/tasks/${id}`,
-      providesTags: (result, error, id) => [{ type: "Task", id }],
+      query: (taskId) => `/tasks/${taskId}`,
+      providesTags: (result, error, taskId) => [{ type: "Task", id: taskId }],
     }),
 
     /**
@@ -104,24 +104,24 @@ export const taskApi = api.injectEndpoints({
     /**
      * Update task mutation
      *
-     * PATCH /api/tasks/:id
+     * PATCH /api/tasks/:taskId
      *
      * Updates an existing task.
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - Task ID
+     * @param {string} args.taskId - Task ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated task
      */
     updateTask: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/tasks/${id}`,
+      query: ({ taskId, data }) => ({
+        url: `/tasks/${taskId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Task", id },
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],
     }),
@@ -129,21 +129,21 @@ export const taskApi = api.injectEndpoints({
     /**
      * Delete task mutation
      *
-     * DELETE /api/tasks/:id
+     * DELETE /api/tasks/:taskId
      *
      * Soft deletes a task.
      *
-     * @param {string} id - Task ID
+     * @param {string} taskId - Task ID
      *
      * @returns {Object} Response with success message
      */
     deleteTask: builder.mutation({
-      query: (id) => ({
-        url: `/tasks/${id}`,
+      query: (taskId) => ({
+        url: `/tasks/${taskId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Task", id },
+      invalidatesTags: (result, error, taskId) => [
+        { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],
     }),
@@ -151,21 +151,21 @@ export const taskApi = api.injectEndpoints({
     /**
      * Restore task mutation
      *
-     * PATCH /api/tasks/:id/restore
+     * PATCH /api/tasks/:taskId/restore
      *
      * Restores a soft-deleted task.
      *
-     * @param {string} id - Task ID
+     * @param {string} taskId - Task ID
      *
      * @returns {Object} Response with restored task
      */
     restoreTask: builder.mutation({
-      query: (id) => ({
-        url: `/tasks/${id}/restore`,
+      query: (taskId) => ({
+        url: `/tasks/${taskId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Task", id },
+      invalidatesTags: (result, error, taskId) => [
+        { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],
     }),

@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import {
   AppBar,
   Toolbar,
@@ -14,27 +15,28 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  Avatar,
   Chip,
   useTheme,
   Button,
   Divider,
 } from "@mui/material";
+import UserIcon from "@mui/icons-material/Person";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
-import { useSelector, useDispatch } from "react-redux";
-import { selectCurrentUser, logout } from "../../redux/features/authSlice";
+import useAuth from "../../hooks/useAuth";
 import NotificationMenu from "./NotificationMenu";
 import GlobalSearch from "./GlobalSearch";
 import MuiAvatar from "../common/MuiAvatar";
+import MuiThemeDropDown from "../common/MuiThemeDropDown";
+import { PlatformIconLogo } from "../common/CustomIcons";
 
 const Header = ({ onMenuClick }) => {
   const theme = useTheme();
-  const dispatch = useDispatch();
-  const user = useSelector(selectCurrentUser);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [anchorElUser, setAnchorElUser] = useState(null);
 
   // Trigger search modal via event or state
@@ -62,13 +64,16 @@ const Header = ({ onMenuClick }) => {
     setAnchorElUser(null);
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // Error handling is managed in hook/layout, just ensure menu closes
+    }
     handleCloseUserMenu();
   };
 
   // Safe checks for user data
-  const orgName = user?.organization?.name || "Task Manager";
   const isPlatformOrg = user?.organization?.isPlatformOrg;
 
   return (
@@ -78,32 +83,57 @@ const Header = ({ onMenuClick }) => {
         zIndex: (theme) => theme.zIndex.drawer + 1,
         bgcolor: "background.paper",
         color: "text.primary",
-        boxShadow: 1,
-        borderBottom: `1px solid ${theme.palette.divider}`,
+        boxShadow: 1
       }}
       elevation={0}
     >
       <Toolbar>
-        {/* Sidebar Toggle */}
+        {/* Sidebar Toggle / Mobile Logo */}
         <IconButton
           color="inherit"
           aria-label="open drawer"
           edge="start"
           onClick={onMenuClick}
-          sx={{ mr: 2 }}
+          sx={{ mr: { xs: 1, sm: 2 } }}
+          size="small"
         >
-          <MenuIcon />
+          <Box sx={{ display: { xs: "flex", sm: "none" } }}>
+            <PlatformIconLogo />
+          </Box>
+          <Box sx={{ display: { xs: "none", sm: "flex" } }}>
+            <MenuIcon />
+          </Box>
         </IconButton>
 
-        {/* Logo / Org Name */}
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
-          sx={{ display: { xs: "none", sm: "block" }, fontWeight: "bold", mr: 2 }}
+        {/* Branding */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            cursor: "pointer",
+            mr: 2,
+            "&:hover": { opacity: 0.8 }
+          }}
+          onClick={() => navigate("/dashboard")}
         >
-          {orgName}
-        </Typography>
+          <Box sx={{ display: { xs: "none", sm: "flex" } }}>
+            <PlatformIconLogo />
+          </Box>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              display: { xs: "none", sm: "block" },
+              fontWeight: 700,
+              fontSize: { sm: "1.1rem", md: "1.25rem" },
+              color: "text.primary",
+            }}
+          >
+            TaskManager
+          </Typography>
+        </Box>
 
         {isPlatformOrg && (
           <Chip
@@ -111,14 +141,19 @@ const Header = ({ onMenuClick }) => {
             size="small"
             color="primary"
             variant="outlined"
-            sx={{ mr: 2, height: 20, fontSize: "0.625rem" }}
+            sx={{
+              mr: 2,
+              height: 20,
+              fontSize: "0.625rem",
+              display: { xs: "none", sm: "inline-flex" }
+            }}
           />
         )}
 
         {/* Spacer */}
         <Box sx={{ flexGrow: 1 }} />
 
-        {/* Search Trigger */}
+        {/* Search Trigger - Desktop */}
         <Button
           color="inherit"
           startIcon={<SearchIcon />}
@@ -135,21 +170,28 @@ const Header = ({ onMenuClick }) => {
             border: 1,
             borderColor: "divider",
           }}
+          size="small"
         >
-           <Typography variant="body2" color="text.secondary">
-             Search...
-           </Typography>
-           <Typography variant="caption" sx={{ border: 1, borderColor: "divider", px: 0.5, borderRadius: 0.5 }}>
-             Ctrl K
-           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Search...
+          </Typography>
+          <Typography variant="caption" sx={{ border: 1, borderColor: "divider", px: 0.5, borderRadius: 0.5 }}>
+            Ctrl K
+          </Typography>
         </Button>
+
+        {/* Search - Mobile */}
         <IconButton
           color="inherit"
           onClick={handleSearchClick}
-          sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}
+          size="small"
+          sx={{ display: { xs: "flex", md: "none" }, mr: 0.5 }}
         >
           <SearchIcon />
         </IconButton>
+
+        {/* Theme Toggle */}
+        <MuiThemeDropDown />
 
         {/* Notifications */}
         <NotificationMenu />
@@ -157,11 +199,12 @@ const Header = ({ onMenuClick }) => {
         {/* User Menu */}
         <Box sx={{ ml: 1 }}>
           <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-             <MuiAvatar
-               src={user?.profilePicture}
-               name={user?.fullName || "User"}
-               sx={{ width: 40, height: 40 }}
-             />
+            <MuiAvatar
+              src={user?.profilePicture}
+              name={user?.fullName || "User"}
+              icon={<UserIcon fontSize="small" />}
+              size={24}
+            />
           </IconButton>
           <Menu
             sx={{ mt: "45px" }}
@@ -179,16 +222,16 @@ const Header = ({ onMenuClick }) => {
             open={Boolean(anchorElUser)}
             onClose={handleCloseUserMenu}
             slotProps={{
-                paper: { sx: { width: 200 } }
+              paper: { sx: { width: 200 } }
             }}
           >
             <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="subtitle2" noWrap>
-                  {user?.fullName}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {user?.email}
-                </Typography>
+              <Typography variant="subtitle2" noWrap>
+                {user?.fullName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {user?.email}
+              </Typography>
             </Box>
             <Divider />
             <MenuItem onClick={handleCloseUserMenu}>

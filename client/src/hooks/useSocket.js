@@ -11,12 +11,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { useStore } from "react-redux";
-import {
-  selectCurrentUser,
-  selectIsAuthenticated,
-} from "../redux/features/authSlice";
+import useAuth from "./useAuth";
 import {
   connect,
   disconnect,
@@ -38,8 +34,7 @@ import {
  * @returns {boolean} isConnected - Connection status
  */
 const useSocket = () => {
-  const user = useSelector(selectCurrentUser);
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const { user, isAuthenticated } = useAuth();
   const store = useStore();
 
   // Initialize socket state from getSocket() to avoid setState in effect
@@ -47,43 +42,45 @@ const useSocket = () => {
   const [connected, setConnected] = useState(() => isConnected());
 
   useEffect(() => {
-    // Only connect if user is authenticated
-    if (!isAuthenticated || !user) {
+    // Only connect if user is authenticated and has an ID
+    if (!isAuthenticated || !user?._id) {
       return;
     }
 
-    // Connect to Socket.IO server
-    connect(user);
+    // Connect to Socket.IO server utilizing the robust service
+    // Pass the store as required by the updated service signature
+    connect(store);
 
-    // Get socket instance
+    // Get socket instance to attach local listeners if needed
+    // Note: ensure we get the latest instance after connect
     const socketInstance = getSocket();
 
-    // Register event handlers
+    // Register global application event handlers
+    // Ideally this might be better placed inside the service's connect method to avoid duplication,
+    // but preserving existing structure:
     if (socketInstance) {
       registerSocketEvents(socketInstance, store);
 
-      // Update connection status on connect/disconnect
-      const handleConnect = () => {
-        setConnected(true);
-      };
-
-      const handleDisconnect = () => {
-        setConnected(false);
-      };
+      // Update local state based on socket events
+      const handleConnect = () => setConnected(true);
+      const handleDisconnect = () => setConnected(false);
 
       socketInstance.on("connect", handleConnect);
       socketInstance.on("disconnect", handleDisconnect);
-    }
 
-    // Cleanup on unmount or when user changes
-    return () => {
-      const socketInstance = getSocket();
-      if (socketInstance) {
+      // Cleanup function
+      return () => {
         unregisterSocketEvents(socketInstance);
-        disconnect(user);
-      }
-    };
-  }, [isAuthenticated, user, store]);
+
+        // Remove local listeners
+        socketInstance.off("connect", handleConnect);
+        socketInstance.off("disconnect", handleDisconnect);
+
+        // Disconnect using the service which now handles safe disconnection
+        disconnect();
+      };
+    }
+  }, [isAuthenticated, user?._id, store]);
 
   return {
     socket,

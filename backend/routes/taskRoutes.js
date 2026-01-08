@@ -21,7 +21,7 @@ const router = express.Router();
 router.get("/", verifyJWT, getTasksValidator, authorize("Task", "read"), getTasks);
 router.get("/:taskId", verifyJWT, taskIdValidator, authorize("Task", "read"), getTask);
 router.post("/", verifyJWT, createTaskValidator, authorize("Task", "create"), createTask);
-router.put("/:taskId", verifyJWT, taskIdValidator, updateTaskValidator, authorize("Task", "update"), updateTask);
+router.patch("/:taskId", verifyJWT, taskIdValidator, updateTaskValidator, authorize("Task", "update"), updateTask);
 router.delete("/:taskId", verifyJWT, taskIdValidator, authorize("Task", "delete"), deleteTask);
 router.patch("/:taskId/restore", verifyJWT, taskIdValidator, authorize("Task", "update"), restoreTask);
 

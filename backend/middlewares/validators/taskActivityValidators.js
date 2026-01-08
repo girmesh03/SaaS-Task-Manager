@@ -8,7 +8,7 @@ export const createTaskActivityValidator = [
     .isLength({ max: LIMITS.ACTIVITY_MAX }).withMessage(`Activity cannot exceed ${LIMITS.ACTIVITY_MAX} characters`)
     .escape(),
 
-  body("parent").trim().notEmpty().withMessage("Parent task is required")
+  body("taskId").trim().notEmpty().withMessage("Parent task is required")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid parent ID"); })())
     .custom(async (value) => {
       const ProjectTask = mongoose.model("ProjectTask");
@@ -33,20 +33,20 @@ export const createTaskActivityValidator = [
   body("materials").optional().isArray().withMessage("Materials must be an array")
     .custom((value) => value.length <= LIMITS.MAX_MATERIALS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MATERIALS} materials`); })())
     .custom((value) => {
-      // Validate structure: [{ material: ID, quantity: Number }]
+      // Validate structure: [{ materialId: ID, quantity: Number }]
       const isValidStructure = value.every(item =>
-        item.material && mongoose.Types.ObjectId.isValid(item.material) &&
+        item.materialId && mongoose.Types.ObjectId.isValid(item.materialId) &&
         item.quantity !== undefined && typeof item.quantity === 'number' && item.quantity >= 0
       );
       if (!isValidStructure) {
-        throw new Error("Invalid materials format. Must be array of { material: ID, quantity: Number }");
+        throw new Error("Invalid materials format. Must be array of { materialId: ID, quantity: Number }");
       }
       return true;
     })
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       const { default: Material } = await import("../../models/Material.js");
-      const materialIds = value.map(item => item.material);
+      const materialIds = value.map(item => item.materialId);
 
       const materials = await Material.find({ _id: { $in: materialIds } }).lean();
 
@@ -77,13 +77,13 @@ export const updateTaskActivityValidator = [
   body("materials").optional().isArray().withMessage("Materials must be an array")
     .custom((value) => value.length <= LIMITS.MAX_MATERIALS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MATERIALS} materials`); })())
     .custom((value) => {
-      // Validate structure: [{ material: ID, quantity: Number }]
+      // Validate structure: [{ materialId: ID, quantity: Number }]
       const isValidStructure = value.every(item =>
-        item.material && mongoose.Types.ObjectId.isValid(item.material) &&
+        item.materialId && mongoose.Types.ObjectId.isValid(item.materialId) &&
         item.quantity !== undefined && typeof item.quantity === 'number' && item.quantity >= 0
       );
       if (!isValidStructure) {
-        throw new Error("Invalid materials format. Must be array of { material: ID, quantity: Number }");
+        throw new Error("Invalid materials format. Must be array of { materialId: ID, quantity: Number }");
       }
       return true;
     })
@@ -91,7 +91,7 @@ export const updateTaskActivityValidator = [
       if (!value || value.length === 0) return true;
       const { default: Material } = await import("../../models/Material.js");
       const organizationId = req.user.organization._id;
-      const materialIds = value.map(item => item.material);
+      const materialIds = value.map(item => item.materialId);
       const materials = await Material.find({
         _id: { $in: materialIds },
         organization: organizationId
@@ -134,7 +134,7 @@ export const taskActivityIdValidator = [
 export const getTaskActivitiesValidator = [
   query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
   query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
-  query("parent").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
+  query("taskId").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

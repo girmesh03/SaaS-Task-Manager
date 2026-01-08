@@ -3,11 +3,11 @@
  *
  * RTK Query endpoints for material operations:
  * - Get Materials: GET /api/materials
- * - Get Material: GET /api/materials/:id
+ * - Get Material: GET /api/materials/:materialId
  * - Create Material: POST /api/materials
- * - Update Material: PATCH /api/materials/:id
- * - Delete Material: DELETE /api/materials/:id
- * - Restore Material: PATCH /api/materials/:id/restore
+ * - Update Material: PATCH /api/materials/:materialId
+ * - Delete Material: DELETE /api/materials/:materialId
+ * - Restore Material: PATCH /api/materials/:materialId/restore
  *
  * Requirements: 12.1 - 12.10
  */
@@ -35,7 +35,8 @@ export const materialApi = api.injectEndpoints({
      * @param {string} params.search - Search term
      * @param {string} params.category - Filter by category
      * @param {string} params.status - Filter by status
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {string} params.departmentId - Filter by department
+     * @param {boolean} params.deleted - Filter by deleted status
      *
      * @returns {Object} Response with materials array and pagination meta
      */
@@ -64,13 +65,13 @@ export const materialApi = api.injectEndpoints({
      *
      * Retrieves a single material by ID.
      *
-     * @param {string} id - Material ID
+     * @param {string} materialId - Material ID
      *
      * @returns {Object} Response with material object
      */
     getMaterial: builder.query({
-      query: (id) => `/materials/${id}`,
-      providesTags: (result, error, id) => [{ type: "Material", id }],
+      query: (materialId) => `/materials/${materialId}`,
+      providesTags: (result, error, materialId) => [{ type: "Material", id: materialId }],
     }),
 
     /**
@@ -96,24 +97,24 @@ export const materialApi = api.injectEndpoints({
     /**
      * Update material mutation
      *
-     * PATCH /api/materials/:id
+     * PATCH /api/materials/:materialId
      *
      * Updates an existing material.
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - Material ID
+     * @param {string} args.materialId - Material ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated material
      */
     updateMaterial: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/materials/${id}`,
+      query: ({ materialId, data }) => ({
+        url: `/materials/${materialId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Material", id },
+      invalidatesTags: (result, error, { materialId }) => [
+        { type: "Material", id: materialId },
         { type: "Material", id: "LIST" },
       ],
     }),
@@ -121,21 +122,21 @@ export const materialApi = api.injectEndpoints({
     /**
      * Delete material mutation
      *
-     * DELETE /api/materials/:id
+     * DELETE /api/materials/:materialId
      *
      * Soft deletes a material.
      *
-     * @param {string} id - Material ID
+     * @param {string} materialId - Material ID
      *
      * @returns {Object} Response with success message
      */
     deleteMaterial: builder.mutation({
-      query: (id) => ({
-        url: `/materials/${id}`,
+      query: (materialId) => ({
+        url: `/materials/${materialId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Material", id },
+      invalidatesTags: (result, error, materialId) => [
+        { type: "Material", id: materialId },
         { type: "Material", id: "LIST" },
       ],
     }),
@@ -143,21 +144,21 @@ export const materialApi = api.injectEndpoints({
     /**
      * Restore material mutation
      *
-     * PATCH /api/materials/:id/restore
+     * PATCH /api/materials/:materialId/restore
      *
      * Restores a soft-deleted material.
      *
-     * @param {string} id - Material ID
+     * @param {string} materialId - Material ID
      *
      * @returns {Object} Response with restored material
      */
     restoreMaterial: builder.mutation({
-      query: (id) => ({
-        url: `/materials/${id}/restore`,
+      query: (materialId) => ({
+        url: `/materials/${materialId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Material", id },
+      invalidatesTags: (result, error, materialId) => [
+        { type: "Material", id: materialId },
         { type: "Material", id: "LIST" },
       ],
     }),

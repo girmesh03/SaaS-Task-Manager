@@ -39,7 +39,7 @@ export const authApi = api.injectEndpoints({
      * @param {string} credentials.password - User password
      *
      * @returns {Object} Response with user object
-     * @returns {Object} response.user - Authenticated user with populated organization and department
+     * @returns {Object} response.data.user - Authenticated user with populated organization and department
      *
      * @throws {401} Invalid email or password
      * @throws {401} User account has been deactivated
@@ -91,7 +91,7 @@ export const authApi = api.injectEndpoints({
      * @param {string} registrationData.user.joinedAt - Joined date (ISO format, not future, required)
      *
      * @returns {Object} Response with created user object
-     * @returns {Object} response.user - Created user with populated organization and department
+     * @returns {Object} response.data - Created user with populated organization and department
      *
      * @throws {400} Validation errors (name exists, email exists, phone exists, invalid format)
      * @throws {500} Transaction failure
@@ -176,10 +176,10 @@ export const authApi = api.injectEndpoints({
      * Requirements: 1.4, 1.5, 1.10
      */
     resetPassword: builder.mutation({
-      query: (data) => ({
-        url: "/auth/reset-password",
+      query: ({ token, password }) => ({
+        url: `/auth/reset-password/${token}`,
         method: "POST",
-        body: data,
+        body: { password },
       }),
     }),
   }),

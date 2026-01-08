@@ -27,10 +27,10 @@ import {
 
 // Helper to resolve Task ID for socket room
 // Replicated logic from TaskComment controller to ensure self-contained module
-const resolveTaskId = async (parent, parentModel, session) => {
-  if (parentModel === "BaseTask") return parent;
+const resolveTaskId = async (parentId, parentModel, session) => {
+  if (parentModel === "BaseTask") return parentId;
   if (parentModel === "TaskActivity") {
-    const activity = await TaskActivity.findById(parent)
+    const activity = await TaskActivity.findById(parentId)
       .session(session)
       .select("parent");
     return activity ? activity.parent : null;
@@ -49,13 +49,13 @@ export const getAttachments = asyncHandler(async (req, res) => {
   const {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    parent,
+    parentId,
     parentModel,
     deleted = "false",
   } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
-  if (parent) filter.parent = parent;
+  if (parentId) filter.parent = parentId;
   if (parentModel) filter.parentModel = parentModel;
 
   let query = Attachment.find(filter);
@@ -122,23 +122,23 @@ export const createAttachment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { filename, fileUrl, fileType, fileSize, parent, parentModel } =
+    const { filename, fileUrl, fileType, fileSize, parentId, parentModel } =
       req.validated.body;
 
     // Resolve Department from Parent for scoping
     let departmentId = null;
 
     if (parentModel === "BaseTask") {
-      const p = await BaseTask.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("BaseTask", parent);
+      const p = await BaseTask.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("BaseTask", parentId);
       departmentId = p.department;
     } else if (parentModel === "TaskActivity") {
-      const p = await TaskActivity.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("TaskActivity", parent);
+      const p = await TaskActivity.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("TaskActivity", parentId);
       departmentId = p.department;
     } else if (parentModel === "TaskComment") {
-      const p = await TaskComment.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("TaskComment", parent);
+      const p = await TaskComment.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("TaskComment", parentId);
       departmentId = p.department;
     }
 
@@ -147,7 +147,7 @@ export const createAttachment = asyncHandler(async (req, res) => {
       fileUrl,
       fileType: fileType.toUpperCase(), // Store normalized
       fileSize,
-      parent,
+      parent: parentId,
       parentModel,
       department: departmentId,
       organization: req.user.organization._id,
@@ -158,7 +158,7 @@ export const createAttachment = asyncHandler(async (req, res) => {
       session,
     });
 
-    const taskId = await resolveTaskId(parent, parentModel, session);
+    const taskId = await resolveTaskId(parentId, parentModel, session);
 
     await session.commitTransaction();
 

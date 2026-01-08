@@ -17,8 +17,7 @@
  * Requirements: 21.1, 21.2, 21.3, 21.4, 21.5
  */
 
-import { useSelector } from "react-redux";
-import { selectCurrentUser } from "../redux/features/authSlice";
+import useAuth from "./useAuth";
 import {
   canPerformAction,
   canAccessResource,
@@ -67,8 +66,8 @@ import {
  * console.log("Allowed scopes:", allowedScopes);
  */
 const useAuthorization = (resource, resourceDoc = null) => {
-  // Get current authenticated user from Redux store
-  const user = useSelector(selectCurrentUser);
+  // Get current authenticated user from useAuth hook
+  const { user } = useAuth();
 
   /**
    * Check if user can view resource

@@ -27,7 +27,7 @@ const MuiDialogConfirm = ({
 
   const actions = (
     <>
-      <Button onClick={onClose} color="inherit" disabled={isLoading}>
+      <Button onClick={onClose} color="inherit" disabled={isLoading} size="small">
         {cancelText}
       </Button>
       <Button
@@ -36,6 +36,7 @@ const MuiDialogConfirm = ({
         variant="contained"
         disabled={isLoading}
         autoFocus
+        size="small"
       >
         {isLoading ? "Processing..." : confirmText}
       </Button>

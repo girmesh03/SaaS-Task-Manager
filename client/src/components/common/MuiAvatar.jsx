@@ -51,7 +51,7 @@ const stringAvatar = (name) => {
 };
 
 const MuiAvatar = forwardRef(
-  ({ src, alt, name, size = 40, sx, ...muiProps }, ref) => {
+  ({ src, alt, name, size = 40, icon, sx, ...muiProps }, ref) => {
     // If src is provided, use standard Avatar
     if (src) {
       return (
@@ -62,6 +62,24 @@ const MuiAvatar = forwardRef(
           sx={{ width: size, height: size, ...sx }}
           {...muiProps}
         />
+      );
+    }
+
+    // If icon is passed, display it
+    if (icon) {
+      return (
+        <Avatar
+          ref={ref}
+          alt={alt || name}
+          sx={{
+            width: size,
+            height: size,
+            ...sx,
+          }}
+          {...muiProps}
+        >
+          {icon}
+        </Avatar>
       );
     }
 

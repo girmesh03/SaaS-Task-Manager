@@ -55,27 +55,19 @@ const FilterTextField = ({
       onChange={(e) => setLocalValue(e.target.value)}
       placeholder={placeholder}
       size="small"
-      slotProps={{
-        input: {
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon color="action" fontSize="small" />
-            </InputAdornment>
-          ),
-          endAdornment: localValue ? (
-            <InputAdornment position="end">
-              <IconButton
-                aria-label="clear search"
-                onClick={handleClear}
-                edge="end"
-                size="small"
-              >
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </InputAdornment>
-          ) : null,
-        },
-      }}
+      startAdornment={<SearchIcon color="action" fontSize="small" />}
+      endAdornment={
+        localValue ? (
+          <IconButton
+            aria-label="clear search"
+            onClick={handleClear}
+            edge="end"
+            size="small"
+          >
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        ) : null
+      }
       {...muiProps}
     />
   );

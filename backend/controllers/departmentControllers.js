@@ -117,15 +117,15 @@ export const createDepartment = asyncHandler(async (req, res) => {
 
   try {
     const user = req.user;
-    const { name, description, hod } = req.validated.body;
+    const { name, description, hodId } = req.validated.body;
 
     const [department] = await Department.create(
-      [{ name, description, hod: hod || null, organization: user.organization._id, createdBy: user._id }],
+      [{ name, description, hod: hodId || null, organization: user.organization._id, createdBy: user._id }],
       { session }
     );
 
-    if (hod) {
-      await User.findByIdAndUpdate(hod, { isHod: true }).session(session);
+    if (hodId) {
+      await User.findByIdAndUpdate(hodId, { isHod: true }).session(session);
     }
 
     await session.commitTransaction();
@@ -169,7 +169,7 @@ export const updateDepartment = asyncHandler(async (req, res) => {
   try {
     const user = req.user;
     const { departmentId } = req.validated.params;
-    const updateData = req.validated.body;
+    const { hodId, ...otherUpdates } = req.validated.body;
 
     const department = await Department.findById(departmentId).session(session);
     if (!department) throw CustomError.notFound("Department", departmentId);
@@ -182,12 +182,13 @@ export const updateDepartment = asyncHandler(async (req, res) => {
       throw CustomError.authorization("You do not have permission to update this department");
     }
 
-    if (updateData.hod !== undefined && updateData.hod !== (department.hod ? department.hod.toString() : null)) {
+    if (hodId !== undefined && hodId !== (department.hod ? department.hod.toString() : null)) {
       if (department.hod) await User.findByIdAndUpdate(department.hod, { isHod: false }).session(session);
-      if (updateData.hod) await User.findByIdAndUpdate(updateData.hod, { isHod: true }).session(session);
+      if (hodId) await User.findByIdAndUpdate(hodId, { isHod: true }).session(session);
+      department.hod = hodId;
     }
 
-    Object.keys(updateData).forEach((key) => { department[key] = updateData[key]; });
+    Object.keys(otherUpdates).forEach((key) => { department[key] = otherUpdates[key]; });
     await department.save({ session });
 
     await session.commitTransaction();

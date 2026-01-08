@@ -205,7 +205,10 @@ const softDeletePlugin = (schema, options = {}) => {
 
   // Static method: count deleted
   schema.statics.countDeleted = async function (filter = {}) {
-    return await this.countDocuments({ ...filter, isDeleted: true }).withDeleted();
+    return await this.countDocuments({
+      ...filter,
+      isDeleted: true,
+    }).withDeleted();
   };
 
   // Static method: ensure TTL index
@@ -216,9 +219,17 @@ const softDeletePlugin = (schema, options = {}) => {
     }
 
     try {
+      // Drop existing deletedAt_1 index if it exists (may conflict with TTL index)
+      try {
+        await this.collection.dropIndex("deletedAt_1");
+      } catch (dropError) {
+        // Index doesn't exist, ignore
+      }
+
       await this.collection.createIndex(
         { deletedAt: 1 },
         {
+          name: "deletedAt_1",
           expireAfterSeconds,
           partialFilterExpression: { isDeleted: true },
         }

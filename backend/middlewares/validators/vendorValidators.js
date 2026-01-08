@@ -48,7 +48,7 @@ export const createVendorValidator = [
     .withMessage("Invalid email format")
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`)
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false }),
 
   body("phone")
     .optional()
@@ -105,7 +105,7 @@ export const updateVendorValidator = [
     .withMessage("Invalid email format")
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`)
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false }),
 
   body("phone")
     .optional()

@@ -80,7 +80,7 @@ router.post(
  * @access  Public (rate limited 5/15min)
  */
 router.post(
-  "/reset-password",
+  "/reset-password/:token",
   authRateLimiter,
   resetPasswordValidator,
   resetPassword

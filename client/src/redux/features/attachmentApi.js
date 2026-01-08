@@ -3,10 +3,10 @@
  *
  * RTK Query endpoints for attachment operations:
  * - Get Attachments: GET /api/attachments
- * - Get Attachment: GET /api/attachments/:id
+ * - Get Attachment: GET /api/attachments/:attachmentId
  * - Upload Attachment: POST /api/attachments/upload
- * - Delete Attachment: DELETE /api/attachments/:id
- * - Restore Attachment: PATCH /api/attachments/:id/restore
+ * - Delete Attachment: DELETE /api/attachments/:attachmentId
+ * - Restore Attachment: PATCH /api/attachments/:attachmentId/restore
  *
  * Requirements: 12.1 - 12.10 (from tasks.md, actual requirements section in page-spec may differ)
  */
@@ -29,22 +29,25 @@ export const attachmentApi = api.injectEndpoints({
      * Retrieves a list of attachments filtered by parent.
      *
      * @param {Object} params - Query parameters
-     * @param {string} params.parent - Parent ID (User, Task, Comment, etc)
+     * @param {string} params.parentId - Parent ID (User, Task, Comment, etc)
      * @param {string} params.parentModel - Parent Model Name
      * @param {number} params.page - Page number (1-based)
      * @param {number} params.limit - Items per page
      * @param {string} params.sort - Sort field
      * @param {string} params.order - Sort order
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {boolean} params.deleted - Filter by deleted status
      *
      * @returns {Object} Response with attachments array and pagination meta
      */
     getAttachments: builder.query({
-      query: (params) => ({
-        url: "/attachments",
-        method: "GET",
-        params,
-      }),
+      query: (params) => {
+        const { parent, ...rest } = params;
+        return {
+          url: "/attachments",
+          method: "GET",
+          params: { ...rest, parentId: parent },
+        };
+      },
       providesTags: (result) =>
         result
           ? [
@@ -60,17 +63,17 @@ export const attachmentApi = api.injectEndpoints({
     /**
      * Get attachment query
      *
-     * GET /api/attachments/:id
+     * GET /api/attachments/:attachmentId
      *
      * Retrieves a single attachment by ID.
      *
-     * @param {string} id - Attachment ID
+     * @param {string} attachmentId - Attachment ID
      *
      * @returns {Object} Response with attachment object
      */
     getAttachment: builder.query({
-      query: (id) => `/attachments/${id}`,
-      providesTags: (result, error, id) => [{ type: "Attachment", id }],
+      query: (attachmentId) => `/attachments/${attachmentId}`,
+      providesTags: (result, error, attachmentId) => [{ type: "Attachment", id: attachmentId }],
     }),
 
     /**
@@ -100,21 +103,21 @@ export const attachmentApi = api.injectEndpoints({
     /**
      * Delete attachment mutation
      *
-     * DELETE /api/attachments/:id
+     * DELETE /api/attachments/:attachmentId
      *
      * Soft deletes an attachment.
      *
-     * @param {string} id - Attachment ID
+     * @param {string} attachmentId - Attachment ID
      *
      * @returns {Object} Response with success message
      */
     deleteAttachment: builder.mutation({
-      query: (id) => ({
-        url: `/attachments/${id}`,
+      query: (attachmentId) => ({
+        url: `/attachments/${attachmentId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Attachment", id },
+      invalidatesTags: (result, error, attachmentId) => [
+        { type: "Attachment", id: attachmentId },
         { type: "Attachment", id: "LIST" },
       ],
     }),
@@ -122,21 +125,21 @@ export const attachmentApi = api.injectEndpoints({
     /**
      * Restore attachment mutation
      *
-     * PATCH /api/attachments/:id/restore
+     * PATCH /api/attachments/:attachmentId/restore
      *
      * Restores a soft-deleted attachment.
      *
-     * @param {string} id - Attachment ID
+     * @param {string} attachmentId - Attachment ID
      *
      * @returns {Object} Response with restored attachment
      */
     restoreAttachment: builder.mutation({
-      query: (id) => ({
-        url: `/attachments/${id}/restore`,
+      query: (attachmentId) => ({
+        url: `/attachments/${attachmentId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Attachment", id },
+      invalidatesTags: (result, error, attachmentId) => [
+        { type: "Attachment", id: attachmentId },
         { type: "Attachment", id: "LIST" },
       ],
     }),

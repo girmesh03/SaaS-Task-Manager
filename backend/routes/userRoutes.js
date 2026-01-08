@@ -68,7 +68,7 @@ router.post(
  * @desc    Update user
  * @access  Protected (authorize User update)
  */
-router.put(
+router.patch(
   "/:userId",
   verifyJWT,
   userIdValidator,
@@ -82,7 +82,7 @@ router.put(
  * @desc    Update own profile (users can update own profile with restrictions)
  * @access  Protected (authorize User update own)
  */
-router.put(
+router.patch(
   "/:userId/profile",
   verifyJWT,
   userIdValidator,

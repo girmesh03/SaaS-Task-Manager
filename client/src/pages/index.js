@@ -8,20 +8,17 @@
 // Public Pages
 export { default as HomePage } from "./HomePage";
 export { default as NotFoundPage } from "./NotFoundPage";
-
-// Auth Pages
-export { default as LoginPage } from "./auth/LoginPage";
-export { default as RegisterPage } from "./auth/RegisterPage";
-export { default as ForgotPasswordPage } from "./auth/ForgotPasswordPage";
-export { default as ResetPasswordPage } from "./auth/ResetPasswordPage";
+export { default as ForgotPasswordPage } from "./ForgotPasswordPage";
+export { default as ResetPasswordPage } from "./ResetPasswordPage";
 
 // Protected Pages
 export { default as DashboardPage } from "./DashboardPage";
 export { default as OrganizationsPage } from "./OrganizationsPage";
 export { default as DepartmentsPage } from "./DepartmentsPage";
+export { default as DepartmentDetailPage } from "./DepartmentDetailPage";
 export { default as UsersPage } from "./UsersPage";
+export { default as UserDetailPage } from "./UserDetailPage";
 export { default as TasksPage } from "./TasksPage";
+export { default as TaskDetailPage } from "./TaskDetailPage";
 export { default as MaterialsPage } from "./MaterialsPage";
 export { default as VendorsPage } from "./VendorsPage";
-export { default as ProfilePage } from "./ProfilePage";
-export { default as SettingsPage } from "./SettingsPage";

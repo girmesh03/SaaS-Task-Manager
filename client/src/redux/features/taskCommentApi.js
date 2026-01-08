@@ -3,11 +3,11 @@
  *
  * RTK Query endpoints for task comment operations:
  * - Get Comments: GET /api/comments
- * - Get Comment: GET /api/comments/:id
+ * - Get Comment: GET /api/comments/:commentId
  * - Create Comment: POST /api/comments
- * - Update Comment: PATCH /api/comments/:id
- * - Delete Comment: DELETE /api/comments/:id
- * - Restore Comment: PATCH /api/comments/:id/restore
+ * - Update Comment: PATCH /api/comments/:commentId
+ * - Delete Comment: DELETE /api/comments/:commentId
+ * - Restore Comment: PATCH /api/comments/:commentId/restore
  *
  * Requirements: 9.1 - 9.10
  */
@@ -30,22 +30,25 @@ export const taskCommentApi = api.injectEndpoints({
      * Retrieves a list of comments filtered by parent (Task or TaskActivity).
      *
      * @param {Object} params - Query parameters
-     * @param {string} params.task - Parent Task ID (optional)
-     * @param {string} params.activity - Parent Activity ID (optional)
+     * @param {string} params.taskId - Parent Task ID (optional)
+     * @param {string} params.activityId - Parent Activity ID (optional)
      * @param {number} params.page - Page number (1-based)
      * @param {number} params.limit - Items per page
      * @param {string} params.sort - Sort field
      * @param {string} params.order - Sort order
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {boolean} params.deleted - Filter by deleted status
      *
      * @returns {Object} Response with comments array and pagination meta
      */
     getTaskComments: builder.query({
-      query: (params) => ({
-        url: "/comments",
-        method: "GET",
-        params,
-      }),
+      query: (params) => {
+        const { task, activity, ...rest } = params;
+        return {
+          url: "/comments",
+          method: "GET",
+          params: { ...rest, parentId: task || activity },
+        };
+      },
       providesTags: (result) =>
         result
           ? [
@@ -61,17 +64,17 @@ export const taskCommentApi = api.injectEndpoints({
     /**
      * Get task comment query
      *
-     * GET /api/comments/:id
+     * GET /api/comments/:commentId
      *
      * Retrieves a single task comment by ID.
      *
-     * @param {string} id - Comment ID
+     * @param {string} commentId - Comment ID
      *
      * @returns {Object} Response with comment object
      */
     getTaskComment: builder.query({
-      query: (id) => `/comments/${id}`,
-      providesTags: (result, error, id) => [{ type: "TaskComment", id }],
+      query: (commentId) => `/comments/${commentId}`,
+      providesTags: (result, error, commentId) => [{ type: "TaskComment", id: commentId }],
     }),
 
     /**
@@ -101,24 +104,24 @@ export const taskCommentApi = api.injectEndpoints({
     /**
      * Update task comment mutation
      *
-     * PATCH /api/comments/:id
+     * PATCH /api/comments/:commentId
      *
      * Updates an existing task comment (own comments only).
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - Comment ID
+     * @param {string} args.commentId - Comment ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated comment
      */
     updateTaskComment: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/comments/${id}`,
+      query: ({ commentId, data }) => ({
+        url: `/comments/${commentId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "TaskComment", id },
+      invalidatesTags: (result, error, { commentId }) => [
+        { type: "TaskComment", id: commentId },
         { type: "TaskComment", id: "LIST" },
       ],
     }),
@@ -126,21 +129,21 @@ export const taskCommentApi = api.injectEndpoints({
     /**
      * Delete task comment mutation
      *
-     * DELETE /api/comments/:id
+     * DELETE /api/comments/:commentId
      *
      * Soft deletes a task comment.
      *
-     * @param {string} id - Comment ID
+     * @param {string} commentId - Comment ID
      *
      * @returns {Object} Response with success message
      */
     deleteTaskComment: builder.mutation({
-      query: (id) => ({
-        url: `/comments/${id}`,
+      query: (commentId) => ({
+        url: `/comments/${commentId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "TaskComment", id },
+      invalidatesTags: (result, error, commentId) => [
+        { type: "TaskComment", id: commentId },
         { type: "TaskComment", id: "LIST" },
       ],
     }),
@@ -148,21 +151,21 @@ export const taskCommentApi = api.injectEndpoints({
     /**
      * Restore task comment mutation
      *
-     * PATCH /api/comments/:id/restore
+     * PATCH /api/comments/:commentId/restore
      *
      * Restores a soft-deleted task comment.
      *
-     * @param {string} id - Comment ID
+     * @param {string} commentId - Comment ID
      *
      * @returns {Object} Response with restored comment
      */
     restoreTaskComment: builder.mutation({
-      query: (id) => ({
-        url: `/comments/${id}/restore`,
+      query: (commentId) => ({
+        url: `/comments/${commentId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "TaskComment", id },
+      invalidatesTags: (result, error, commentId) => [
+        { type: "TaskComment", id: commentId },
         { type: "TaskComment", id: "LIST" },
       ],
     }),

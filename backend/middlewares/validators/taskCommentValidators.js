@@ -8,13 +8,13 @@ export const createTaskCommentValidator = [
     .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
     .escape(),
 
-  body("parent").trim().notEmpty().withMessage("Parent ID is required")
+  body("parentId").trim().notEmpty().withMessage("Parent ID is required")
     .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid parent ID"); })()),
 
   body("parentModel").trim().notEmpty().withMessage("Parent model is required")
     .isIn(["BaseTask", "TaskActivity", "TaskComment"]).withMessage("Parent model must be BaseTask, TaskActivity, or TaskComment")
     .custom(async (value, { req }) => {
-      const parentId = req.body.parent;
+      const parentId = req.body.parentId;
       if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) return true; // Handled by parent check
 
       let ParentModel;
@@ -33,7 +33,7 @@ export const createTaskCommentValidator = [
       return true;
     }),
 
-  body("mentions").optional().isArray().withMessage("Mentions must be an array")
+  body("mentionIds").optional().isArray().withMessage("Mentions must be an array")
     .custom((value) => value.length <= LIMITS.MAX_MENTIONS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`); })())
     .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid user ID in mentions"); })())
     .custom(async (value, { req }) => {
@@ -57,7 +57,7 @@ export const updateTaskCommentValidator = [
     .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
     .escape(),
 
-  body("mentions").optional().isArray().withMessage("Mentions must be an array")
+  body("mentionIds").optional().isArray().withMessage("Mentions must be an array")
     .custom((value) => value.length <= LIMITS.MAX_MENTIONS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`); })())
     .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid user ID in mentions"); })())
     .custom(async (value, { req }) => {
@@ -109,7 +109,7 @@ export const taskCommentIdValidator = [
 export const getTaskCommentsValidator = [
   query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
   query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
-  query("parent").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
+  query("parentId").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

@@ -91,8 +91,8 @@ const MuiTextArea = forwardRef(
               currentLength > maxLength
                 ? "error.main"
                 : currentLength > maxLength * 0.9
-                ? "warning.main"
-                : "text.secondary",
+                  ? "warning.main"
+                  : "text.secondary",
           }}
         >
           {currentLength} / {maxLength}
@@ -158,10 +158,10 @@ const MuiTextArea = forwardRef(
     ]);
 
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+      <>
         {memoizedTextField}
         {characterCounter}
-      </Box>
+      </>
     );
   }
 );

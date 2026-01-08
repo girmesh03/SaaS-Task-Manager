@@ -16,6 +16,7 @@ import { initializeSocket } from "./utils/socketInstance.js";
 import setupSocketHandlers from "./utils/socket.js";
 import logger from "./utils/logger.js";
 import dayjs from "dayjs";
+import cleanSeedSetup from "./mock/cleanSeedSetup.js";
 
 const PORT = process.env.PORT || 4000;
 
@@ -30,7 +31,6 @@ server.on("connection", (socket) => {
   connections.add(socket);
   socket.on("close", () => connections.delete(socket));
 });
-
 
 // ============================================================================
 // Optimized Server Initialization Flow
@@ -70,6 +70,17 @@ const startServer = async () => {
     logger.info("✓ TTL INDEXES: Initialization complete");
 
     // ========================================================================
+    // PHASE 2.5: Seed Data (Conditional)
+    // ========================================================================
+    if (process.env.INITIALIZE_SEED_DATA === "true") {
+      logger.info("");
+      logger.info("2.5. SEED DATA: Initializing...");
+      logger.warn("⚠️  INITIALIZE_SEED_DATA=true - This will WIPE all data!");
+      await cleanSeedSetup();
+      logger.info("✓ SEED DATA: Database seeded successfully");
+    }
+
+    // ========================================================================
     // PHASE 3: Communications (Socket.io)
     // ========================================================================
     logger.info("");
@@ -83,7 +94,6 @@ const startServer = async () => {
     // ========================================================================
     logger.info("");
     logger.info("4. HTTP SERVER: Starting Listener...");
-
 
     let bindAttempts = 0;
     const MAX_BIND_ATTEMPTS = 3;
@@ -138,8 +148,6 @@ const startServer = async () => {
 
     await startListening();
 
-
-
     logger.info("=".repeat(70));
     logger.info("🚀 SERVER STARTUP: SUCCESSFUL");
     logger.info("=".repeat(70));
@@ -148,7 +156,6 @@ const startServer = async () => {
     logger.info(`   Health: http://localhost:${PORT}/health`);
     logger.info("=".repeat(70));
     logger.info("");
-
   } catch (error) {
     logger.error("=".repeat(70));
     logger.error("❌ FATAL ERROR: Server initialization failed!");
@@ -210,8 +217,6 @@ const gracefulShutdown = async (signal, exitCode = 0) => {
     });
   }
 
-
-
   // 2. Disconnect from Database
   try {
     await disconnectDB();
@@ -238,7 +243,6 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT", 0));
 
 // Nodemon signal
 process.once("SIGUSR2", () => gracefulShutdown("SIGUSR2", 0));
-
 
 // Internal Errors - Fatal terminations
 process.on("uncaughtException", (error) => {

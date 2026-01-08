@@ -6,7 +6,13 @@
 
 import { Box, CircularProgress, Typography } from "@mui/material";
 
-const MuiLoading = ({ message, size = 40, color = "primary", fullScreen = false, ...muiProps }) => {
+const MuiLoading = ({
+  message,
+  size = 40,
+  color = "primary",
+  fullScreen = false,
+  ...muiProps
+}) => {
   if (fullScreen) {
     return (
       <Box
@@ -25,7 +31,12 @@ const MuiLoading = ({ message, size = 40, color = "primary", fullScreen = false,
           opacity: 0.8,
         }}
       >
-        <CircularProgress size={size} color={color} {...muiProps} />
+        <CircularProgress
+          size={size}
+          color={color}
+          {...muiProps}
+          disableShrink
+        />
         {message && (
           <Typography variant="h6" sx={{ mt: 2, color: "text.secondary" }}>
             {message}

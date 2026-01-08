@@ -21,7 +21,7 @@ const router = express.Router();
 router.get("/", verifyJWT, getTaskCommentsValidator, authorize("TaskComment", "read"), getTaskComments);
 router.get("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "read"), getTaskComment);
 router.post("/", verifyJWT, createTaskCommentValidator, authorize("TaskComment", "create"), createTaskComment);
-router.put("/:taskCommentId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);
+router.patch("/:taskCommentId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);
 router.delete("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "delete"), deleteTaskComment);
 router.patch("/:taskCommentId/restore", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "update"), restoreTaskComment);
 

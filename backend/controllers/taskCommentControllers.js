@@ -52,12 +52,12 @@ export const getTaskComments = asyncHandler(async (req, res) => {
   const {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
-    parent,
+    parentId,
     deleted = "false",
   } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
-  if (parent) filter.parent = parent;
+  if (parentId) filter.parent = parentId;
 
   let query = TaskComment.find(filter);
 
@@ -124,7 +124,7 @@ export const createTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { comment, parent, parentModel, mentions } = req.validated.body;
+    const { comment, parentId, parentModel, mentionIds } = req.validated.body;
 
     // We need Department ID. Where to get it?
     // Inherit from Parent.
@@ -132,24 +132,24 @@ export const createTaskComment = asyncHandler(async (req, res) => {
 
     // Resolve Department and Validation
     if (parentModel === "BaseTask") {
-      const p = await BaseTask.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("BaseTask", parent);
+      const p = await BaseTask.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("BaseTask", parentId);
       departmentId = p.department;
     } else if (parentModel === "TaskActivity") {
-      const p = await TaskActivity.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("TaskActivity", parent);
+      const p = await TaskActivity.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("TaskActivity", parentId);
       departmentId = p.department;
     } else if (parentModel === "TaskComment") {
-      const p = await TaskComment.findById(parent).session(session);
-      if (!p) throw CustomError.notFound("TaskComment", parent);
+      const p = await TaskComment.findById(parentId).session(session);
+      if (!p) throw CustomError.notFound("TaskComment", parentId);
       departmentId = p.department;
     }
 
     const commentData = {
       comment,
-      parent,
+      parent: parentId,
       parentModel,
-      mentions: mentions || [],
+      mentions: mentionIds || [],
       department: departmentId,
       organization: req.user.organization._id,
       createdBy: req.user._id,
@@ -158,7 +158,7 @@ export const createTaskComment = asyncHandler(async (req, res) => {
     const [newComment] = await TaskComment.create([commentData], { session });
 
     // Resolve Context for Socket
-    const taskId = await resolveTaskId(parent, parentModel, session);
+    const taskId = await resolveTaskId(parentId, parentModel, session);
 
     await session.commitTransaction();
 
@@ -194,9 +194,9 @@ export const createTaskComment = asyncHandler(async (req, res) => {
     // Notifications (Async, non-blocking)
     (async () => {
       try {
-        if (mentions && mentions.length > 0) {
+        if (mentionIds && mentionIds.length > 0) {
           // Filter out the creator if they mentioned themselves
-          const notifyIds = mentions.filter(id => id.toString() !== req.user._id.toString());
+          const notifyIds = mentionIds.filter(id => id.toString() !== req.user._id.toString());
 
           if (notifyIds.length > 0) {
             await notificationService.notifyMention(newComment, notifyIds, taskId);
@@ -251,7 +251,7 @@ export const updateTaskComment = asyncHandler(async (req, res) => {
     // if (comment.createdBy.toString() !== req.user._id.toString()) ...
 
     if (updates.comment) comment.comment = updates.comment;
-    if (updates.mentions) comment.mentions = updates.mentions;
+    if (updates.mentionIds) comment.mentions = updates.mentionIds;
 
     await comment.save({ session });
 

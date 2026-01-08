@@ -83,40 +83,38 @@ const MuiDatePicker = forwardRef(
     const localMaxDate = maxDate ? convertUTCToLocal(maxDate) : undefined;
 
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-        <DatePicker
-          value={displayValue}
-          onChange={(newValue) => {
-            // Convert local to UTC for form state
-            const utcValue = newValue ? convertLocalToUTC(newValue) : null;
-            onChange(utcValue);
-          }}
-          minDate={localMinDate}
-          maxDate={localMaxDate}
-          disablePast={disablePast}
-          disableFuture={disableFuture}
-          disabled={disabled}
-          format={format}
-          views={views}
-          openTo={openTo}
-          inputRef={ref}
-          slotProps={{
-            textField: {
-              name,
-              onBlur,
-              label,
-              placeholder,
-              required,
-              error: !!error,
-              helperText: error?.message || helperText || " ", // Reserve space for error message
-              fullWidth,
-              size,
-              variant,
-            },
-          }}
-          {...otherProps}
-        />
-      </Box>
+      <DatePicker
+        value={displayValue}
+        onChange={(newValue) => {
+          // Convert local to UTC for form state
+          const utcValue = newValue ? convertLocalToUTC(newValue) : null;
+          onChange(utcValue);
+        }}
+        minDate={localMinDate}
+        maxDate={localMaxDate}
+        disablePast={disablePast}
+        disableFuture={disableFuture}
+        disabled={disabled}
+        format={format}
+        views={views}
+        openTo={openTo}
+        inputRef={ref}
+        slotProps={{
+          textField: {
+            name,
+            onBlur,
+            label,
+            placeholder,
+            required,
+            error: !!error,
+            helperText: error?.message || helperText || " ", // Reserve space for error message
+            fullWidth,
+            size,
+            variant,
+          },
+        }}
+        {...otherProps}
+      />
     );
   }
 );

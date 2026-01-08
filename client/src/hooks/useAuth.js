@@ -27,6 +27,8 @@ import {
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } from "../redux/features/authApi";
 
 /**
@@ -39,6 +41,8 @@ import {
  * @returns {Function} return.login - Login function
  * @returns {Function} return.logout - Logout function
  * @returns {Function} return.register - Register function
+ * @returns {Function} return.forgotPassword - Forgot password function
+ * @returns {Function} return.resetPassword - Reset password function
  *
  * @example
  * const { user, isAuthenticated, login, logout } = useAuth();
@@ -62,7 +66,7 @@ import {
  *   console.log("User is logged in:", user.fullName);
  * }
  */
-const useAuth = () => {
+export const useAuth = () => {
   const dispatch = useDispatch();
 
   // Select auth state from Redux store
@@ -75,6 +79,10 @@ const useAuth = () => {
   const [logoutMutation, { isLoading: isLogoutLoading }] = useLogoutMutation();
   const [registerMutation, { isLoading: isRegisterLoading }] =
     useRegisterMutation();
+  const [forgotPasswordMutation, { isLoading: isForgotPasswordLoading }] =
+    useForgotPasswordMutation();
+  const [resetPasswordMutation, { isLoading: isResetPasswordLoading }] =
+    useResetPasswordMutation();
 
   /**
    * Login user
@@ -90,8 +98,8 @@ const useAuth = () => {
   const login = async (credentials) => {
     const response = await loginMutation(credentials).unwrap();
 
-    // Update Redux auth state with user data
-    dispatch(setCredentials({ user: response.user }));
+    // Backend response format: { success, message, data: { user } }
+    dispatch(setCredentials({ user: response.data.user }));
 
     return response;
   };
@@ -139,20 +147,54 @@ const useAuth = () => {
   const register = async (registrationData) => {
     const response = await registerMutation(registrationData).unwrap();
 
-    // Update Redux auth state with user data
-    dispatch(setCredentials({ user: response.user }));
+    // Backend response format: { success, message, data: user }
+    // createdResponse passes user directly as data (not wrapped in { user })
+    dispatch(setCredentials({ user: response.data }));
 
     return response;
+  };
+
+  /**
+   * Forgot password request
+   *
+   * @param {Object} data - Forgot password data
+   * @param {string} data.email - User email
+   *
+   * @returns {Promise<Object>} Forgot password response
+   */
+  const forgotPassword = async (data) => {
+    return await forgotPasswordMutation(data).unwrap();
+  };
+
+  /**
+   * Reset password request
+   *
+   * @param {Object} data - Reset password data
+   * @param {string} data.token - Reset token
+   * @param {string} data.newPassword - New password
+   * @param {string} data.confirmPassword - Confirm password
+   *
+   * @returns {Promise<Object>} Reset password response
+   */
+  const resetPassword = async (data) => {
+    return await resetPasswordMutation(data).unwrap();
   };
 
   return {
     user,
     isAuthenticated,
     isLoading:
-      isLoading || isLoginLoading || isLogoutLoading || isRegisterLoading,
+      isLoading ||
+      isLoginLoading ||
+      isLogoutLoading ||
+      isRegisterLoading ||
+      isForgotPasswordLoading ||
+      isResetPasswordLoading,
     login,
     logout,
     register,
+    forgotPassword,
+    resetPassword,
   };
 };
 

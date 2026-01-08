@@ -37,7 +37,7 @@ export const createMaterialValidator = [
     .isFloat({ min: LIMITS.PRICE_MIN })
     .withMessage(`Price must be at least ${LIMITS.PRICE_MIN}`),
 
-  body("department")
+  body("departmentId")
     .trim()
     .notEmpty()
     .withMessage("Department is required")
@@ -96,7 +96,7 @@ export const updateMaterialValidator = [
     .isFloat({ min: LIMITS.PRICE_MIN })
     .withMessage(`Price must be at least ${LIMITS.PRICE_MIN}`),
 
-  body("department")
+  body("departmentId")
     .optional()
     .trim()
     .custom((value) => {
@@ -159,7 +159,7 @@ export const getMaterialsValidator = [
   query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
   query("search").optional().isString().trim(),
   query("category").optional().isIn(Object.values(MATERIAL_CATEGORIES)),
-  query("department").optional().isMongoId(),
+  query("departmentId").optional().isMongoId(),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

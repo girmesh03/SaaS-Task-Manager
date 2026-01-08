@@ -59,7 +59,7 @@ export const updateOrganizationValidator = [
     .withMessage("Organization email cannot be empty")
     .isEmail()
     .withMessage("Invalid organization email format")
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(
       `Organization email cannot exceed ${LIMITS.EMAIL_MAX} characters`

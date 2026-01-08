@@ -16,7 +16,7 @@
  */
 
 import { forwardRef, useMemo } from "react";
-import { TextField, InputAdornment, Box } from "@mui/material";
+import { TextField, InputAdornment } from "@mui/material";
 
 /**
  * MuiTextField Component
@@ -99,37 +99,35 @@ const MuiTextField = forwardRef(
     );
 
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
-        <TextField
-          name={name}
-          onChange={onChange}
-          onBlur={onBlur}
-          inputRef={ref}
-          label={label}
-          placeholder={placeholder}
-          disabled={disabled}
-          required={required}
-          type={type}
-          error={!!error}
-          helperText={error?.message || helperText || " "}
-          slotProps={{
-            input: {
-              startAdornment: computedStartAdornment,
-              endAdornment: computedEndAdornment,
-            },
-          }}
-          fullWidth={fullWidth}
-          size={size}
-          variant={variant}
-          autoFocus={autoFocus}
-          autoComplete={autoComplete}
-          margin={margin}
-          maxRows={maxRows}
-          minRows={minRows}
-          multiline={multiline}
-          {...muiProps}
-        />
-      </Box>
+      <TextField
+        name={name}
+        onChange={onChange}
+        onBlur={onBlur}
+        inputRef={ref}
+        label={label}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        type={type}
+        error={!!error}
+        helperText={error?.message || helperText || " "}
+        slotProps={{
+          input: {
+            startAdornment: computedStartAdornment,
+            endAdornment: computedEndAdornment,
+          },
+        }}
+        fullWidth={fullWidth}
+        size={size}
+        variant={variant}
+        autoFocus={autoFocus}
+        autoComplete={autoComplete}
+        margin={margin}
+        maxRows={maxRows}
+        minRows={minRows}
+        multiline={multiline}
+        {...muiProps}
+      />
     );
   }
 );

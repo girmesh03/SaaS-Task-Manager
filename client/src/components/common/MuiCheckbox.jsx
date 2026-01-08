@@ -39,7 +39,7 @@ const MuiCheckbox = forwardRef(
       helperText,
       label,
       disabled = false,
-     fullWidth = true,
+      fullWidth = true,
       size = "small",
       color = "primary",
       labelPlacement = "end",
@@ -48,7 +48,7 @@ const MuiCheckbox = forwardRef(
     ref
   ) => {
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+      <>
         <FormControlLabel
           control={
             <Checkbox
@@ -70,7 +70,7 @@ const MuiCheckbox = forwardRef(
             {error?.message || helperText}
           </FormHelperText>
         )}
-      </Box>
+      </>
     );
   }
 );

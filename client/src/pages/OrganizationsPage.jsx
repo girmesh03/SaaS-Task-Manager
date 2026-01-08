@@ -11,7 +11,7 @@ import { Box, Typography, Paper } from "@mui/material";
 
 const OrganizationsPage = () => {
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 1 }}>
       <Typography variant="h4" component="h1" gutterBottom>
         Organizations
       </Typography>
@@ -19,7 +19,7 @@ const OrganizationsPage = () => {
         Manage all customer organizations
       </Typography>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 1 }}>
         <Typography variant="body2" color="text.disabled">
           Organizations DataGrid - To be implemented
         </Typography>

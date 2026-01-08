@@ -64,7 +64,7 @@ router.post(
  * @desc    Update vendor
  * @access  Protected (authorize Vendor update)
  */
-router.put(
+router.patch(
   "/:vendorId",
   verifyJWT,
   vendorIdValidator,

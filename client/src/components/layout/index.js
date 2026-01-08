@@ -11,5 +11,5 @@ export { default as GlobalSearch } from "./GlobalSearch";
 
 // Layout Wrappers
 export { default as RootLayout } from "./RootLayout";
-export { default as DashboardLayout } from "./DashboardLayout";
+export { default as ProtectedLayout } from "./ProtectedLayout";
 export { default as PublicLayout } from "./PublicLayout";

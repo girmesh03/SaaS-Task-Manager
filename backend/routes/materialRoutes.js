@@ -41,7 +41,7 @@ router.post(
   authorize("Material", "create"),
   createMaterial
 );
-router.put(
+router.patch(
   "/:materialId",
   verifyJWT,
   materialIdValidator,

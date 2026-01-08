@@ -88,7 +88,7 @@ const MuiMultiSelect = forwardRef(
       placeholder,
       disabled = false,
       required = false,
-     fullWidth = true,
+      fullWidth = true,
       size = "small",
       variant = "outlined",
       limitTags = 2,
@@ -142,7 +142,7 @@ const MuiMultiSelect = forwardRef(
         : label;
 
     return (
-      <Box sx={{ width: fullWidth ? "100%" : "auto" }}>
+      <>
         <Autocomplete
           value={value || []}
           onChange={handleSelectAll}
@@ -240,7 +240,7 @@ const MuiMultiSelect = forwardRef(
             Maximum {maxItems} items reached
           </FormHelperText>
         )}
-      </Box>
+      </>
     );
   }
 );

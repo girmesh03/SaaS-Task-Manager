@@ -3,8 +3,8 @@
  *
  * RTK Query endpoints for notification operations:
  * - Get Notifications: GET /api/notifications
- * - Mark as Read: PATCH /api/notifications/:id/read
- * - Delete Notification: DELETE /api/notifications/:id
+ * - Mark as Read: PATCH /api/notifications/:notificationId/read
+ * - Delete Notification: DELETE /api/notifications/:notificationId
  *
  * Requirements: 13.1 - 13.10 (from tasks.md, requirements section may vary)
  */
@@ -54,21 +54,21 @@ export const notificationApi = api.injectEndpoints({
     /**
      * Mark notification as read mutation
      *
-     * PATCH /api/notifications/:id/read
+     * PATCH /api/notifications/:notificationId/read
      *
      * Marks a notification as read.
      *
-     * @param {string} id - Notification ID
+     * @param {string} notificationId - Notification ID
      *
      * @returns {Object} Response with updated notification
      */
     markNotificationAsRead: builder.mutation({
-      query: (id) => ({
-        url: `/notifications/${id}/read`,
+      query: (notificationId) => ({
+        url: `/notifications/${notificationId}/read`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Notification", id },
+      invalidatesTags: (result, error, notificationId) => [
+        { type: "Notification", id: notificationId },
         { type: "Notification", id: "LIST" },
       ],
     }),
@@ -89,21 +89,21 @@ export const notificationApi = api.injectEndpoints({
     /**
      * Delete notification mutation
      *
-     * DELETE /api/notifications/:id
+     * DELETE /api/notifications/:notificationId
      *
      * Permanently deletes a notification (soft delete not required usually for notifications).
      *
-     * @param {string} id - Notification ID
+     * @param {string} notificationId - Notification ID
      *
      * @returns {Object} Response with success message
      */
     deleteNotification: builder.mutation({
-      query: (id) => ({
-        url: `/notifications/${id}`,
+      query: (notificationId) => ({
+        url: `/notifications/${notificationId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Notification", id },
+      invalidatesTags: (result, error, notificationId) => [
+        { type: "Notification", id: notificationId },
         { type: "Notification", id: "LIST" },
       ],
     }),

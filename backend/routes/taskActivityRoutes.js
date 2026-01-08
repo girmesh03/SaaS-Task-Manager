@@ -21,7 +21,7 @@ const router = express.Router();
 router.get("/", verifyJWT, getTaskActivitiesValidator, authorize("TaskActivity", "read"), getTaskActivities);
 router.get("/:taskActivityId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "read"), getTaskActivity);
 router.post("/", verifyJWT, createTaskActivityValidator, authorize("TaskActivity", "create"), createTaskActivity);
-router.put("/:taskActivityId", verifyJWT, taskActivityIdValidator, updateTaskActivityValidator, authorize("TaskActivity", "update"), updateTaskActivity);
+router.patch("/:taskActivityId", verifyJWT, taskActivityIdValidator, updateTaskActivityValidator, authorize("TaskActivity", "update"), updateTaskActivity);
 router.delete("/:taskActivityId", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "delete"), deleteTaskActivity);
 router.patch("/:taskActivityId/restore", verifyJWT, taskActivityIdValidator, authorize("TaskActivity", "update"), restoreTaskActivity);
 

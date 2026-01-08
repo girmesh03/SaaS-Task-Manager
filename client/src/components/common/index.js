@@ -58,3 +58,5 @@ export { default as MuiSpeedDial } from "./MuiSpeedDial";
 export { default as MuiToggleButton } from "./MuiToggleButton";
 export { default as MuiTimeline } from "./MuiTimeline";
 export { default as MuiBottomNavigation } from "./MuiBottomNavigation";
+export { default as MuiThemeDropDown } from "./MuiThemeDropDown";
+export * from "./CustomIcons";

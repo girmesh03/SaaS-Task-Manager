@@ -18,7 +18,7 @@ const MuiPagination = forwardRef(
       variant = "outlined",
       showFirstButton = true,
       showLastButton = true,
-      size = "medium",
+      size = "small",
       renderItem,
       sx,
       ...muiProps

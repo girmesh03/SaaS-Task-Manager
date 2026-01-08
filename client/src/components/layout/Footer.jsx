@@ -17,10 +17,7 @@ const Footer = () => {
         px: 2,
         mt: "auto",
         textAlign: "center",
-        backgroundColor: (theme) =>
-          theme.palette.mode === "light"
-            ? theme.palette.grey[100]
-            : theme.palette.grey[800],
+        backgroundColor: "background.paper",
       }}
     >
       <Typography variant="body2" color="text.secondary">

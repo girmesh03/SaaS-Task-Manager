@@ -53,7 +53,7 @@ export const createDepartmentValidator = [
     )
     .escape(),
 
-  body("hod")
+  body("hodId")
     .optional()
     .trim()
     .custom((value) => {
@@ -137,7 +137,7 @@ export const updateDepartmentValidator = [
     )
     .escape(),
 
-  body("hod")
+  body("hodId")
     .optional()
     .trim()
     .custom((value) => {

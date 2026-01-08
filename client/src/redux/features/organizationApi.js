@@ -3,11 +3,11 @@
  *
  * RTK Query endpoints for organization operations:
  * - Get Organizations: GET /api/organizations
- * - Get Organization: GET /api/organizations/:id
+ * - Get Organization: GET /api/organizations/:organizationId
  * - Create Organization: POST /api/organizations
- * - Update Organization: PATCH /api/organizations/:id
- * - Delete Organization: DELETE /api/organizations/:id
- * - Restore Organization: PATCH /api/organizations/:id/restore
+ * - Update Organization: PATCH /api/organizations/:organizationId
+ * - Delete Organization: DELETE /api/organizations/:organizationId
+ * - Restore Organization: PATCH /api/organizations/:organizationId/restore
  *
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.9, 2.10
  */
@@ -36,7 +36,7 @@ export const organizationApi = api.injectEndpoints({
      * @param {string} params.search - Search term (name, email)
      * @param {string} params.sort - Sort field (default 'createdAt')
      * @param {string} params.order - Sort order ('asc' or 'desc')
-     * @param {boolean} params.isDeleted - Filter by deleted status
+     * @param {boolean} params.deleted - Filter by deleted status
      * @param {boolean} params.isPlatformOrg - Filter by platform org status
      *
      * @returns {Object} Response with organizations array and pagination meta
@@ -62,17 +62,17 @@ export const organizationApi = api.injectEndpoints({
     /**
      * Get organization query
      *
-     * GET /api/organizations/:id
+     * GET /api/organizations/:organizationId
      *
      * Retrieves a single organization by ID.
      *
-     * @param {string} id - Organization ID
+     * @param {string} organizationId - Organization ID
      *
      * @returns {Object} Response with organization object
      */
     getOrganization: builder.query({
-      query: (id) => `/organizations/${id}`,
-      providesTags: (result, error, id) => [{ type: "Organization", id }],
+      query: (organizationId) => `/organizations/${organizationId}`,
+      providesTags: (result, error, organizationId) => [{ type: "Organization", id: organizationId }],
     }),
 
     /**
@@ -100,24 +100,24 @@ export const organizationApi = api.injectEndpoints({
     /**
      * Update organization mutation
      *
-     * PATCH /api/organizations/:id
+     * PATCH /api/organizations/:organizationId
      *
      * Updates an existing organization.
      *
      * @param {Object} args - Arguments
-     * @param {string} args.id - Organization ID
+     * @param {string} args.organizationId - Organization ID
      * @param {Object} args.data - Data to update
      *
      * @returns {Object} Response with updated organization
      */
     updateOrganization: builder.mutation({
-      query: ({ id, data }) => ({
-        url: `/organizations/${id}`,
+      query: ({ organizationId, data }) => ({
+        url: `/organizations/${organizationId}`,
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Organization", id },
+      invalidatesTags: (result, error, { organizationId }) => [
+        { type: "Organization", id: organizationId },
         { type: "Organization", id: "LIST" },
       ],
     }),
@@ -125,21 +125,21 @@ export const organizationApi = api.injectEndpoints({
     /**
      * Delete organization mutation
      *
-     * DELETE /api/organizations/:id
+     * DELETE /api/organizations/:organizationId
      *
      * Soft deletes an organization.
      *
-     * @param {string} id - Organization ID
+     * @param {string} organizationId - Organization ID
      *
      * @returns {Object} Response with success message
      */
     deleteOrganization: builder.mutation({
-      query: (id) => ({
-        url: `/organizations/${id}`,
+      query: (organizationId) => ({
+        url: `/organizations/${organizationId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Organization", id },
+      invalidatesTags: (result, error, organizationId) => [
+        { type: "Organization", id: organizationId },
         { type: "Organization", id: "LIST" },
       ],
     }),
@@ -147,21 +147,21 @@ export const organizationApi = api.injectEndpoints({
     /**
      * Restore organization mutation
      *
-     * PATCH /api/organizations/:id/restore
+     * PATCH /api/organizations/:organizationId/restore
      *
      * Restores a soft-deleted organization.
      *
-     * @param {string} id - Organization ID
+     * @param {string} organizationId - Organization ID
      *
      * @returns {Object} Response with restored organization
      */
     restoreOrganization: builder.mutation({
-      query: (id) => ({
-        url: `/organizations/${id}/restore`,
+      query: (organizationId) => ({
+        url: `/organizations/${organizationId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Organization", id },
+      invalidatesTags: (result, error, organizationId) => [
+        { type: "Organization", id: organizationId },
         { type: "Organization", id: "LIST" },
       ],
     }),

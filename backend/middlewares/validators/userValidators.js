@@ -57,7 +57,7 @@ export const createUserValidator = [
     .withMessage("Invalid email format")
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`)
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const organizationId = req.user.organization._id;
@@ -86,10 +86,10 @@ export const createUserValidator = [
     .isStrongPassword()
     .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
-  body("department")
+  body("departmentId")
     .trim()
     .notEmpty()
-    .withMessage("Department is required")
+    .withMessage("Department ID is required")
     .custom((value) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {
         throw new Error("Invalid department ID");
@@ -317,7 +317,7 @@ export const updateUserValidator = [
     .withMessage("Invalid email format")
     .isLength({ max: LIMITS.EMAIL_MAX })
     .withMessage(`Email cannot exceed ${LIMITS.EMAIL_MAX} characters`)
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .custom(async (value, { req }) => {
       const { default: User } = await import("../../models/User.js");
       const userId = req.params.userId;
@@ -349,7 +349,7 @@ export const updateUserValidator = [
     .isStrongPassword()
     .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
 
-  body("department")
+  body("departmentId")
     .optional()
     .trim()
     .custom((value) => {
@@ -580,7 +580,7 @@ export const getUsersValidator = [
     .isIn(Object.values(USER_ROLES))
     .withMessage("Invalid user role"),
 
-  query("department")
+  query("departmentId")
     .optional()
     .custom((value) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {

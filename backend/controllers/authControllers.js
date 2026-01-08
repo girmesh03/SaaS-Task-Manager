@@ -114,7 +114,10 @@ export const register = asyncHandler(async (req, res) => {
     );
     await user.populate("department", "_id name hod isDeleted");
 
-    sendWelcomeEmail(user);
+    const welcomeResult = await sendWelcomeEmail(user);
+    if (!welcomeResult.success) {
+      logger.error({ message: "Failed to send welcome email", userId: user._id, error: welcomeResult.error });
+    }
 
     emitToRooms("organization:created", organization, [
       `organization:${organization._id}`,
@@ -286,10 +289,20 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    sendPasswordResetEmail(user, resetToken);
-    logger.info({ message: "Password reset email sent", userId: user._id });
+    const emailResult = await sendPasswordResetEmail(user, resetToken);
 
-    successResponse(res, 200, "If an account with that email exists, a password reset link has been sent");
+    if (emailResult.success) {
+      logger.info({ message: "Password reset email sent", userId: user._id });
+      return successResponse(res, 200, "If an account with that email exists, a password reset link has been sent");
+    } else {
+      logger.error({ message: "Failed to send password reset email", userId: user._id, error: emailResult.error });
+      // Still return success message to prevent enumeration, but include debug info if env is development
+      return successResponse(res, 200,
+        process.env.NODE_ENV === 'development'
+          ? `Debug: Email failed - ${emailResult.error}`
+          : "If an account with that email exists, a password reset link has been sent"
+      );
+    }
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -302,14 +315,15 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
 /**
  * Reset password with token
- * POST /api/auth/reset-password
+ * POST /api/auth/reset-password/:token
  */
 export const resetPassword = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { token, password } = req.validated.body;
+    const { token } = req.params;
+    const { password } = req.validated.body;
 
     const user = await User.findByResetToken(token, { session });
     if (!user) {
@@ -327,7 +341,10 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    sendPasswordResetConfirmation(user);
+    const confirmationResult = await sendPasswordResetConfirmation(user);
+    if (!confirmationResult.success) {
+      logger.error({ message: "Failed to send password reset confirmation email", userId: user._id, error: confirmationResult.error });
+    }
     logger.info({ message: "Password reset successful", userId: user._id });
 
     successResponse(res, 200, "Password reset successful. You can now login with your new password");

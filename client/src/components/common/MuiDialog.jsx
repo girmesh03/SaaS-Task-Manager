@@ -52,10 +52,14 @@ const MuiDialog = forwardRef(
         maxWidth={maxWidth}
         fullScreen={fullScreen}
         slots={{ transition: TransitionComponent }}
+        disableEnforceFocus
+        disableRestoreFocus
+        aria-labelledby="dialog-title"
+        aria-describedby="dialog-description"
         {...muiProps}
       >
         {title && (
-          <DialogTitle sx={{ m: 0, p: 2, pr: 6 }}>
+          <DialogTitle id="dialog-title" sx={{ m: 0, p: 2, pr: 6 }}>
             {title}
             {showCloseButton && onClose && (
               <IconButton
@@ -73,7 +77,9 @@ const MuiDialog = forwardRef(
             )}
           </DialogTitle>
         )}
-        <DialogContent dividers>{children}</DialogContent>
+        <DialogContent id="dialog-description" dividers>
+          {children}
+        </DialogContent>
         {actions && <DialogActions>{actions}</DialogActions>}
       </Dialog>
     );
