@@ -19,13 +19,18 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import HomeIcon from "@mui/icons-material/Home";
 import { Link } from "react-router";
-import { TaskTypeSelector } from "../components/tasks";
+import { TaskTypeSelector, ProjectTaskForm } from "../components/tasks";
 import useAuthorization from "../hooks/useAuthorization";
+import useAuth from "../hooks/useAuth";
+import { TASK_TYPES } from "../utils/constants";
 
 const TasksPage = () => {
+  const { user } = useAuth();
+
   // State for dialogs
   const [typeSelectorOpen, setTypeSelectorOpen] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState(null);
+  const [projectFormOpen, setProjectFormOpen] = useState(false);
 
   // Authorization
   const { canCreate } = useAuthorization("Task");
@@ -50,9 +55,29 @@ const TasksPage = () => {
    */
   const handleSelectTaskType = useCallback((type) => {
     setSelectedTaskType(type);
-    // Form dialogs will be implemented in subsequent tasks
-    // For now, just log the selection
-    console.log("Selected task type:", type);
+    setTypeSelectorOpen(false);
+
+    // Open the corresponding form dialog
+    if (type === TASK_TYPES.PROJECT_TASK) {
+      setProjectFormOpen(true);
+    }
+    // RoutineTaskForm and AssignedTaskForm will be implemented in subsequent tasks
+  }, []);
+
+  /**
+   * Handle closing ProjectTaskForm
+   */
+  const handleCloseProjectForm = useCallback(() => {
+    setProjectFormOpen(false);
+    setSelectedTaskType(null);
+  }, []);
+
+  /**
+   * Handle successful task creation
+   */
+  const handleTaskSuccess = useCallback(() => {
+    // Refresh task list - will be implemented when TasksList is created
+    console.log("Task created/updated successfully");
   }, []);
 
   return (
@@ -124,6 +149,15 @@ const TasksPage = () => {
         open={typeSelectorOpen}
         onClose={handleCloseTypeSelector}
         onSelectType={handleSelectTaskType}
+      />
+
+      {/* ProjectTaskForm Dialog */}
+      <ProjectTaskForm
+        open={projectFormOpen}
+        onClose={handleCloseProjectForm}
+        task={null}
+        departmentId={user?.department?._id}
+        onSuccess={handleTaskSuccess}
       />
     </Box>
   );

@@ -57,7 +57,7 @@ const MuiDialog = forwardRef(
         aria-describedby="dialog-description"
         sx={{
           "& .MuiDialog-paper": {
-            bgcolor: "background.paper",
+            bgcolor: "background.default",
             backgroundImage: "none",
             borderRadius: isMobile ? 0 : 2,
           },
@@ -86,7 +86,9 @@ const MuiDialog = forwardRef(
         <DialogContent id="dialog-description" dividers>
           {children}
         </DialogContent>
-        {actions && <DialogActions>{actions}</DialogActions>}
+        {actions && (
+          <DialogActions sx={{ py: 2, mr: 2 }}>{actions}</DialogActions>
+        )}
       </Dialog>
     );
   }
