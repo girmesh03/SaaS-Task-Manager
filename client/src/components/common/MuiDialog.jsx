@@ -11,11 +11,10 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  useMediaQuery,
-  useTheme,
   Slide,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import useResponsive from "../../hooks/useResponsive";
 
 // Transition component for dialogs
 const Transition = forwardRef(function Transition(props, ref) {
@@ -39,9 +38,9 @@ const MuiDialog = forwardRef(
     },
     ref
   ) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const fullScreen = forceFullScreen !== undefined ? forceFullScreen : isMobile;
+    const { isMobile } = useResponsive();
+    const fullScreen =
+      forceFullScreen !== undefined ? forceFullScreen : isMobile;
 
     return (
       <Dialog
@@ -56,6 +55,13 @@ const MuiDialog = forwardRef(
         disableRestoreFocus
         aria-labelledby="dialog-title"
         aria-describedby="dialog-description"
+        sx={{
+          "& .MuiDialog-paper": {
+            bgcolor: "background.paper",
+            backgroundImage: "none",
+            borderRadius: isMobile ? 0 : 2,
+          },
+        }}
         {...muiProps}
       >
         {title && (

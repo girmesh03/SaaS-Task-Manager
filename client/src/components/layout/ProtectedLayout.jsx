@@ -15,15 +15,15 @@
 
 import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
-import { Box, Toolbar, useMediaQuery, useTheme } from "@mui/material";
-import Breadcrumbs from "./Breadcrumbs";
+import { Box, Toolbar, useTheme } from "@mui/material";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import useSocket from "../../hooks/useSocket";
+import useResponsive from "../../hooks/useResponsive";
 
 const ProtectedLayout = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { isMobile } = useResponsive();
   const location = useLocation();
 
   // Initialize sidebar state based on screen size
@@ -42,7 +42,6 @@ const ProtectedLayout = () => {
   const handleSidebarToggle = () => {
     setSidebarOpen((prev) => !prev);
   };
-
 
   return (
     <Box
@@ -82,12 +81,8 @@ const ProtectedLayout = () => {
               overflowY: "auto",
               display: "flex",
               flexDirection: "column",
-              gap: { xs: 1, sm: 2 },
-              px: { xs: 1, sm: 2, md: 3 },
-              py: { xs: 2, sm: 3 },
             }}
           >
-            <Breadcrumbs />
             <Box sx={{ flex: 1, width: "100%" }}>
               <Outlet />
             </Box>
