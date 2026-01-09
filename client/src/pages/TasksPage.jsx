@@ -19,7 +19,11 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import HomeIcon from "@mui/icons-material/Home";
 import { Link } from "react-router";
-import { TaskTypeSelector, ProjectTaskForm } from "../components/tasks";
+import {
+  TaskTypeSelector,
+  ProjectTaskForm,
+  RoutineTaskForm,
+} from "../components/tasks";
 import useAuthorization from "../hooks/useAuthorization";
 import useAuth from "../hooks/useAuth";
 import { TASK_TYPES } from "../utils/constants";
@@ -31,6 +35,7 @@ const TasksPage = () => {
   const [typeSelectorOpen, setTypeSelectorOpen] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
+  const [routineFormOpen, setRoutineFormOpen] = useState(false);
 
   // Authorization
   const { canCreate } = useAuthorization("Task");
@@ -60,8 +65,10 @@ const TasksPage = () => {
     // Open the corresponding form dialog
     if (type === TASK_TYPES.PROJECT_TASK) {
       setProjectFormOpen(true);
+    } else if (type === TASK_TYPES.ROUTINE_TASK) {
+      setRoutineFormOpen(true);
     }
-    // RoutineTaskForm and AssignedTaskForm will be implemented in subsequent tasks
+    // AssignedTaskForm will be implemented in subsequent tasks
   }, []);
 
   /**
@@ -69,6 +76,14 @@ const TasksPage = () => {
    */
   const handleCloseProjectForm = useCallback(() => {
     setProjectFormOpen(false);
+    setSelectedTaskType(null);
+  }, []);
+
+  /**
+   * Handle closing RoutineTaskForm
+   */
+  const handleCloseRoutineForm = useCallback(() => {
+    setRoutineFormOpen(false);
     setSelectedTaskType(null);
   }, []);
 
@@ -155,6 +170,15 @@ const TasksPage = () => {
       <ProjectTaskForm
         open={projectFormOpen}
         onClose={handleCloseProjectForm}
+        task={null}
+        departmentId={user?.department?._id}
+        onSuccess={handleTaskSuccess}
+      />
+
+      {/* RoutineTaskForm Dialog */}
+      <RoutineTaskForm
+        open={routineFormOpen}
+        onClose={handleCloseRoutineForm}
         task={null}
         departmentId={user?.department?._id}
         onSuccess={handleTaskSuccess}

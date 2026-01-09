@@ -15,12 +15,9 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Chip,
   IconButton,
-  TextField,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "react-toastify";
 import {
@@ -31,6 +28,7 @@ import {
   MuiMultiSelect,
   MuiDatePicker,
   MuiAvatar,
+  MuiChip,
 } from "../common";
 import useResponsive from "../../hooks/useResponsive";
 import useAuth from "../../hooks/useAuth";
@@ -95,6 +93,7 @@ const DEFAULT_VALUES = {
   watcherIds: [],
   tags: [],
   attachmentIds: [],
+  tagInput: "",
 };
 
 /**
@@ -118,8 +117,8 @@ const ProjectTaskForm = ({
   const { user } = useAuth();
   const isEditMode = Boolean(task);
 
-  // Tag input state
-  const [tagInput, setTagInput] = useState("");
+  // Local state for tags display (synced with form)
+  const [tagsDisplay, setTagsDisplay] = useState(task?.tags || []);
 
   // API mutations
   const [createTask, { isLoading: isCreating }] = useCreateTaskMutation();
@@ -175,32 +174,44 @@ const ProjectTaskForm = ({
     mode: "onBlur",
   });
 
+  // Memoize tags from task to avoid unnecessary re-renders
+  const syncedTags = useMemo(() => task?.tags || [], [task?.tags]);
+
   // Reset form when dialog opens/closes or task changes
   useEffect(() => {
-    if (open) {
-      if (task) {
-        // Edit mode - populate form with task data
-        reset({
-          title: task.title || "",
-          description: task.description || "",
-          vendorId: task.vendor?._id || task.vendorId || null,
-          estimatedCost: task.estimatedCost ?? "",
-          actualCost: task.actualCost ?? "",
-          currency: task.currency || CURRENCY.DEFAULT,
-          startDate: task.startDate || null,
-          dueDate: task.dueDate || null,
-          status: task.status || TASK_STATUS.TO_DO,
-          priority: task.priority || TASK_PRIORITY.MEDIUM,
-          watcherIds: task.watchers?.map((w) => w._id || w) || [],
-          tags: task.tags || [],
-          attachmentIds: task.attachments?.map((a) => a._id || a) || [],
-        });
-      } else {
-        // Create mode - reset to defaults
-        reset(DEFAULT_VALUES);
-      }
+    if (!open) return;
+
+    if (task) {
+      // Edit mode - populate form with task data
+      reset({
+        title: task.title || "",
+        description: task.description || "",
+        vendorId: task.vendor?._id || task.vendorId || null,
+        estimatedCost: task.estimatedCost ?? "",
+        actualCost: task.actualCost ?? "",
+        currency: task.currency || CURRENCY.DEFAULT,
+        startDate: task.startDate || null,
+        dueDate: task.dueDate || null,
+        status: task.status || TASK_STATUS.TO_DO,
+        priority: task.priority || TASK_PRIORITY.MEDIUM,
+        watcherIds: task.watchers?.map((w) => w._id || w) || [],
+        tags: syncedTags,
+        attachmentIds: task.attachments?.map((a) => a._id || a) || [],
+        tagInput: "",
+      });
+    } else {
+      // Create mode - reset to defaults
+      reset(DEFAULT_VALUES);
     }
-  }, [open, task, reset]);
+  }, [open, task, reset, syncedTags]);
+
+  // Sync tagsDisplay with form when dialog opens - use setTimeout to avoid lint warning
+  useEffect(() => {
+    if (open) {
+      const timeoutId = setTimeout(() => setTagsDisplay(syncedTags), 0);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [open, syncedTags]);
 
   /**
    * Handle form submission
@@ -280,7 +291,6 @@ const ProjectTaskForm = ({
    */
   const handleClose = useCallback(() => {
     if (!isSubmitting) {
-      setTagInput("");
       onClose();
     }
   }, [isSubmitting, onClose]);
@@ -289,7 +299,8 @@ const ProjectTaskForm = ({
    * Handle adding a tag
    */
   const handleAddTag = useCallback(() => {
-    const trimmedTag = tagInput.trim().toLowerCase();
+    const tagInputValue = getValues("tagInput") || "";
+    const trimmedTag = tagInputValue.trim().toLowerCase();
     if (!trimmedTag) return;
 
     const currentTags = getValues("tags") || [];
@@ -308,9 +319,11 @@ const ProjectTaskForm = ({
       return;
     }
 
-    setValue("tags", [...currentTags, trimmedTag], { shouldDirty: true });
-    setTagInput("");
-  }, [tagInput, getValues, setValue]);
+    const newTags = [...currentTags, trimmedTag];
+    setValue("tags", newTags, { shouldDirty: true });
+    setValue("tagInput", "");
+    setTagsDisplay(newTags);
+  }, [getValues, setValue]);
 
   /**
    * Handle removing a tag
@@ -318,11 +331,9 @@ const ProjectTaskForm = ({
   const handleRemoveTag = useCallback(
     (tagToRemove) => {
       const currentTags = getValues("tags") || [];
-      setValue(
-        "tags",
-        currentTags.filter((tag) => tag !== tagToRemove),
-        { shouldDirty: true }
-      );
+      const newTags = currentTags.filter((tag) => tag !== tagToRemove);
+      setValue("tags", newTags, { shouldDirty: true });
+      setTagsDisplay(newTags);
     },
     [getValues, setValue]
   );
@@ -736,70 +747,45 @@ const ProjectTaskForm = ({
             />
           </Grid>
 
-          {/* Tags - Full width with inline input */}
+          {/* Tags - Full width with chip input */}
           <Grid size={12}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Tags (max {LIMITS.MAX_TAGS})
-            </Typography>
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 1,
-                p: 1.5,
-                border: 1,
-                borderColor: "divider",
-                borderRadius: 1,
-                minHeight: 48,
-                alignItems: "center",
-              }}
-            >
-              <Controller
-                name="tags"
-                control={control}
-                render={({ field: { value } }) => (
-                  <>
-                    {value?.map((tag) => (
-                      <Chip
-                        key={tag}
-                        label={tag}
-                        size="small"
-                        onDelete={() => handleRemoveTag(tag)}
-                        deleteIcon={<CloseIcon fontSize="small" />}
-                      />
-                    ))}
-                  </>
-                )}
-              />
-              <TextField
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKeyDown}
-                placeholder={
-                  getValues("tags")?.length >= LIMITS.MAX_TAGS
-                    ? ""
-                    : "Add tag..."
-                }
-                disabled={getValues("tags")?.length >= LIMITS.MAX_TAGS}
-                size="small"
-                variant="standard"
-                slotProps={{
-                  input: {
-                    disableUnderline: true,
-                    sx: { fontSize: "0.875rem" },
-                  },
-                  htmlInput: {
-                    maxLength: LIMITS.TAG_MAX,
-                  },
-                }}
-                sx={{ flex: 1, minWidth: 80 }}
-              />
-              {tagInput.trim() && (
-                <IconButton onClick={handleAddTag} color="primary" size="small">
-                  <AddIcon fontSize="small" />
+            <MuiTextField
+              {...register("tagInput")}
+              label={`Tags (max ${LIMITS.MAX_TAGS})`}
+              placeholder="Enter tag and press Enter or click +"
+              disabled={tagsDisplay.length >= LIMITS.MAX_TAGS}
+              onKeyDown={handleTagKeyDown}
+              endAdornment={
+                <IconButton
+                  onClick={handleAddTag}
+                  edge="end"
+                  color="primary"
+                  disabled={tagsDisplay.length >= LIMITS.MAX_TAGS}
+                  size="small"
+                >
+                  <AddIcon />
                 </IconButton>
-              )}
-            </Box>
+              }
+            />
+            {tagsDisplay.length > 0 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 1,
+                  mt: 1,
+                }}
+              >
+                {tagsDisplay.map((tag) => (
+                  <MuiChip
+                    key={tag}
+                    label={tag}
+                    size="small"
+                    onDelete={() => handleRemoveTag(tag)}
+                  />
+                ))}
+              </Box>
+            )}
           </Grid>
 
           {/* Attachments placeholder */}
