@@ -47,15 +47,21 @@ export const taskApi = api.injectEndpoints({
      * @returns {Object} Response with tasks array and pagination meta
      */
     getTasks: builder.query({
-      query: (params) => ({
-        url: "/tasks",
-        method: "GET",
-        params,
-      }),
+      query: (params) => {
+        // Filter out empty strings or null/undefined values to avoid backend validation errors
+        const filteredParams = Object.fromEntries(
+          Object.entries(params).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
+        );
+        return {
+          url: "/tasks",
+          method: "GET",
+          params: filteredParams,
+        };
+      },
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.tasks.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "Task",
                 id: _id,
               })),

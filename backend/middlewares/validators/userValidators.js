@@ -594,5 +594,10 @@ export const getUsersValidator = [
     .isIn(["true", "false", "only"])
     .withMessage("Deleted must be 'true', 'false', or 'only'"),
 
+  query("isHod")
+    .optional()
+    .isIn(["true", "false"])
+    .withMessage("isHod must be 'true' or 'false'"),
+
   handleValidationErrors,
 ];

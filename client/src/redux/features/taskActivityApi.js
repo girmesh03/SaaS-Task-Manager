@@ -49,9 +49,9 @@ export const taskActivityApi = api.injectEndpoints({
         };
       },
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.activities.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "TaskActivity",
                 id: _id,
               })),

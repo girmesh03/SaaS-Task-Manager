@@ -50,9 +50,9 @@ export const taskCommentApi = api.injectEndpoints({
         };
       },
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.comments.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "TaskComment",
                 id: _id,
               })),

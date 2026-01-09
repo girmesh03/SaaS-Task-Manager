@@ -49,9 +49,9 @@ export const attachmentApi = api.injectEndpoints({
         };
       },
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.attachments.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "Attachment",
                 id: _id,
               })),

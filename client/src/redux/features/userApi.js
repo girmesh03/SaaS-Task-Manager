@@ -40,6 +40,7 @@ export const userApi = api.injectEndpoints({
      * @param {string} params.role - Filter by user role
      * @param {string} params.departmentId - Filter by department ID
      * @param {string} params.organizationId - Filter by organization (for Platform Admins)
+     * @param {boolean} params.isHod - Filter by HOD status
      *
      * @returns {Object} Response with users array and pagination meta
      */
@@ -50,9 +51,9 @@ export const userApi = api.injectEndpoints({
         params,
       }),
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.users.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "User",
                 id: _id,
               })),

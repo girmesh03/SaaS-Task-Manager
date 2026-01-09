@@ -47,9 +47,9 @@ export const materialApi = api.injectEndpoints({
         params,
       }),
       providesTags: (result) =>
-        result
+        result?.data
           ? [
-              ...result.data.materials.map(({ _id }) => ({
+              ...result.data.map(({ _id }) => ({
                 type: "Material",
                 id: _id,
               })),

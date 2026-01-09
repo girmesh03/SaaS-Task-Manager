@@ -35,6 +35,7 @@ export const getUsers = asyncHandler(async (req, res) => {
     search,
     role,
     departmentId,
+    isHod,
     deleted = "false", // Show only active users by default
   } = req.validated.query;
 
@@ -42,6 +43,11 @@ export const getUsers = asyncHandler(async (req, res) => {
   const filter = {
     organization: req.user.organization._id,
   };
+
+  // Filter by isHod
+  if (isHod !== undefined) {
+    filter.isHod = isHod === "true";
+  }
 
   // Search by name or email
   if (search) {

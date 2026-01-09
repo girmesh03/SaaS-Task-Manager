@@ -13,6 +13,11 @@ const MuiLoading = ({
   fullScreen = false,
   ...muiProps
 }) => {
+  // Destructure custom props to avoid passing them to CircularProgress DOM element
+  const { 
+    showLabel, // Removing if erroneously passed
+    ...standardMuiProps 
+  } = muiProps;
   if (fullScreen) {
     return (
       <Box
@@ -34,8 +39,8 @@ const MuiLoading = ({
         <CircularProgress
           size={size}
           color={color}
-          {...muiProps}
           disableShrink
+          {...standardMuiProps}
         />
         {message && (
           <Typography variant="h6" sx={{ mt: 2, color: "text.secondary" }}>
@@ -59,7 +64,7 @@ const MuiLoading = ({
         minHeight: 100,
       }}
     >
-      <CircularProgress size={size} color={color} {...muiProps} />
+      <CircularProgress size={size} color={color} {...standardMuiProps} />
       {message && (
         <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
           {message}
