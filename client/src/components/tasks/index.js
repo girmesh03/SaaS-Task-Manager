@@ -6,7 +6,7 @@
  * - ProjectTaskForm: Form for ProjectTask
  * - RoutineTaskForm: Form for RoutineTask
  * - AssignedTaskForm: Form for AssignedTask
- * - TaskCard: Card component for task display (to be implemented)
+ * - TaskCard: Card component for task display
  * - TasksList: List component for tasks (to be implemented)
  *
  * Requirements: 5.1-5.10, 6.1-6.10, 7.1-7.10
@@ -16,3 +16,4 @@ export { default as TaskTypeSelector } from "./TaskTypeSelector";
 export { default as ProjectTaskForm } from "./ProjectTaskForm";
 export { default as RoutineTaskForm } from "./RoutineTaskForm";
 export { default as AssignedTaskForm } from "./AssignedTaskForm";
+export { default as TaskCard } from "./TaskCard";
