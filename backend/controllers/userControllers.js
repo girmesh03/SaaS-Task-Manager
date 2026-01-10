@@ -67,6 +67,8 @@ export const getUsers = asyncHandler(async (req, res) => {
   // Filter by department
   if (departmentId) {
     filter.department = departmentId;
+  } else {
+    filter.department = req.user.department._id;
   }
 
   // Build query
@@ -87,8 +89,7 @@ export const getUsers = asyncHandler(async (req, res) => {
     populate: [
       {
         path: "organization",
-        select:
-          "_id name email industry logo isPlatformOrg isDeleted",
+        select: "_id name email industry logo isPlatformOrg isDeleted",
       },
       {
         path: "department",
@@ -257,9 +258,7 @@ export const updateUser = asyncHandler(async (req, res) => {
     }
 
     // Organization scoping
-    if (
-      user.organization.toString() !== req.user.organization._id.toString()
-    ) {
+    if (user.organization.toString() !== req.user.organization._id.toString()) {
       throw CustomError.authorization(
         "You are not authorized to update this user"
       );
@@ -372,11 +371,15 @@ export const updateProfile = asyncHandler(async (req, res) => {
     await session.commitTransaction();
 
     // Emit Socket.IO event AFTER commit
-    emitToRooms("user:updated", {
-      userId: user._id,
-      organizationId: user.organization,
-      departmentId: user.department,
-    }, [`user:${user._id}`]);
+    emitToRooms(
+      "user:updated",
+      {
+        userId: user._id,
+        organizationId: user.organization,
+        departmentId: user.department,
+      },
+      [`user:${user._id}`]
+    );
 
     // Fetch populated user
     const populatedUser = await User.findById(user._id)
@@ -492,19 +495,17 @@ export const deleteUser = asyncHandler(async (req, res) => {
   try {
     const { userId } = req.validated.params;
 
-    const user = await User.findById(userId)
-      .withDeleted()
-      .session(session);
+    const user = await User.findById(userId).withDeleted().session(session);
 
     if (!user) {
       throw CustomError.notFound("User", userId);
     }
 
     // Organization scoping
-    if (
-      user.organization.toString() !== req.user.organization._id.toString()
-    ) {
-      throw CustomError.authorization("You are not authorized to delete this user");
+    if (user.organization.toString() !== req.user.organization._id.toString()) {
+      throw CustomError.authorization(
+        "You are not authorized to delete this user"
+      );
     }
 
     // Idempotent: Skip if already deleted
@@ -567,10 +568,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
         organizationId: user.organization,
         departmentId: user.department,
       },
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-      ]
+      [`organization:${user.organization}`, `department:${user.department}`]
     );
 
     const deletedUser = await User.findById(userId)
@@ -604,18 +602,14 @@ export const restoreUser = asyncHandler(async (req, res) => {
   try {
     const { userId } = req.validated.params;
 
-    const user = await User.findById(userId)
-      .withDeleted()
-      .session(session);
+    const user = await User.findById(userId).withDeleted().session(session);
 
     if (!user) {
       throw CustomError.notFound("User", userId);
     }
 
     // Organization scoping
-    if (
-      user.organization.toString() !== req.user.organization._id.toString()
-    ) {
+    if (user.organization.toString() !== req.user.organization._id.toString()) {
       throw CustomError.authorization(
         "You are not authorized to restore this user"
       );
@@ -641,10 +635,7 @@ export const restoreUser = asyncHandler(async (req, res) => {
         organizationId: user.organization,
         departmentId: user.department,
       },
-      [
-        `organization:${user.organization}`,
-        `department:${user.department}`,
-      ]
+      [`organization:${user.organization}`, `department:${user.department}`]
     );
 
     // Fetch populated user

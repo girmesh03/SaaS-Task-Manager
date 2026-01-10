@@ -5,7 +5,12 @@
  */
 
 import { useLocation, Link as RouterLink } from "react-router";
-import { Breadcrumbs as MuiBreadcrumbs, Link, Typography, Box } from "@mui/material";
+import {
+  Breadcrumbs as MuiBreadcrumbs,
+  Link,
+  Typography,
+  Box,
+} from "@mui/material";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 const Breadcrumbs = () => {
@@ -24,7 +29,7 @@ const Breadcrumbs = () => {
   }
 
   return (
-    <Box >
+    <Box sx={{ pb: 1 }}>
       <MuiBreadcrumbs
         separator={<NavigateNextIcon fontSize="small" />}
         aria-label="breadcrumb"

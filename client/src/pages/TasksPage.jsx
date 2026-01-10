@@ -8,21 +8,14 @@
  */
 
 import { useState, useCallback } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Breadcrumbs,
-  Link as MuiLink,
-} from "@mui/material";
+import { Box, Typography, Paper, Button } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import HomeIcon from "@mui/icons-material/Home";
-import { Link } from "react-router";
+import { MuiBreadcrumbs } from "../components/layout";
 import {
   TaskTypeSelector,
   ProjectTaskForm,
   RoutineTaskForm,
+  AssignedTaskForm,
 } from "../components/tasks";
 import useAuthorization from "../hooks/useAuthorization";
 import useAuth from "../hooks/useAuth";
@@ -36,6 +29,7 @@ const TasksPage = () => {
   const [selectedTaskType, setSelectedTaskType] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
   const [routineFormOpen, setRoutineFormOpen] = useState(false);
+  const [assignedFormOpen, setAssignedFormOpen] = useState(false);
 
   // Authorization
   const { canCreate } = useAuthorization("Task");
@@ -67,8 +61,9 @@ const TasksPage = () => {
       setProjectFormOpen(true);
     } else if (type === TASK_TYPES.ROUTINE_TASK) {
       setRoutineFormOpen(true);
+    } else if (type === TASK_TYPES.ASSIGNED_TASK) {
+      setAssignedFormOpen(true);
     }
-    // AssignedTaskForm will be implemented in subsequent tasks
   }, []);
 
   /**
@@ -88,6 +83,14 @@ const TasksPage = () => {
   }, []);
 
   /**
+   * Handle closing AssignedTaskForm
+   */
+  const handleCloseAssignedForm = useCallback(() => {
+    setAssignedFormOpen(false);
+    setSelectedTaskType(null);
+  }, []);
+
+  /**
    * Handle successful task creation
    */
   const handleTaskSuccess = useCallback(() => {
@@ -98,7 +101,7 @@ const TasksPage = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+      {/* <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
         <MuiLink
           component={Link}
           to="/dashboard"
@@ -110,7 +113,9 @@ const TasksPage = () => {
           Dashboard
         </MuiLink>
         <Typography color="text.primary">Tasks</Typography>
-      </Breadcrumbs>
+      </Breadcrumbs> */}
+
+      <MuiBreadcrumbs />
 
       {/* Page Header */}
       <Box
@@ -179,6 +184,15 @@ const TasksPage = () => {
       <RoutineTaskForm
         open={routineFormOpen}
         onClose={handleCloseRoutineForm}
+        task={null}
+        departmentId={user?.department?._id}
+        onSuccess={handleTaskSuccess}
+      />
+
+      {/* AssignedTaskForm Dialog */}
+      <AssignedTaskForm
+        open={assignedFormOpen}
+        onClose={handleCloseAssignedForm}
         task={null}
         departmentId={user?.department?._id}
         onSuccess={handleTaskSuccess}

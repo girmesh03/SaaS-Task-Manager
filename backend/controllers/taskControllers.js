@@ -48,7 +48,11 @@ export const getTasks = asyncHandler(async (req, res) => {
   if (taskType) filter.taskType = taskType;
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
-  if (departmentId) filter.department = departmentId;
+  if (departmentId) {
+    filter.department = departmentId;
+  }else{
+    filter.department= req.user.department._id
+  }
   if (assigneeId) filter.assignees = assigneeId;
   if (vendorId) filter.vendor = vendorId;
 
