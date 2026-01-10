@@ -101,20 +101,6 @@ const TasksPage = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
       {/* Breadcrumbs */}
-      {/* <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-        <MuiLink
-          component={Link}
-          to="/dashboard"
-          underline="hover"
-          color="inherit"
-          sx={{ display: "flex", alignItems: "center" }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Dashboard
-        </MuiLink>
-        <Typography color="text.primary">Tasks</Typography>
-      </Breadcrumbs> */}
-
       <MuiBreadcrumbs />
 
       {/* Page Header */}
