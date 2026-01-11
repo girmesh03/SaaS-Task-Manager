@@ -43,10 +43,13 @@ dayjs.extend(timezone);
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
-      <PersistGate loading={<MuiLoading fullScreen message="Loading State..." />} persistor={persistor}>
+      <PersistGate
+        loading={<MuiLoading fullScreen message="Loading State..." />}
+        persistor={persistor}
+      >
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <AppTheme>
-            <CssBaseline />
+            <CssBaseline enableColorScheme />
             <App />
           </AppTheme>
         </LocalizationProvider>

@@ -50,8 +50,8 @@ export const getTasks = asyncHandler(async (req, res) => {
   if (priority) filter.priority = priority;
   if (departmentId) {
     filter.department = departmentId;
-  }else{
-    filter.department= req.user.department._id
+  } else {
+    filter.department = req.user.department._id;
   }
   if (assigneeId) filter.assignees = assigneeId;
   if (vendorId) filter.vendor = vendorId;
@@ -71,8 +71,7 @@ export const getTasks = asyncHandler(async (req, res) => {
       },
       {
         path: "organization",
-        select:
-          "_id name email industry logo isPlatformOrg isDeleted",
+        select: "_id name email industry logo isPlatformOrg isDeleted",
       },
       {
         path: "createdBy",
@@ -81,8 +80,7 @@ export const getTasks = asyncHandler(async (req, res) => {
       },
       {
         path: "vendor",
-        select:
-          "_id name contactPerson email phone isDeleted",
+        select: "_id name contactPerson email phone isDeleted",
       },
       {
         path: "assignees",
@@ -112,7 +110,9 @@ export const getTasks = asyncHandler(async (req, res) => {
 export const getTask = asyncHandler(async (req, res) => {
   const { taskId } = req.validated.params;
 
+  // Use withDeleted() to allow viewing deleted tasks (for restore functionality)
   const task = await BaseTask.findById(taskId)
+    .withDeleted()
     .populate("department", "_id name hod isDeleted")
     .populate(
       "organization",
@@ -123,9 +123,10 @@ export const getTask = asyncHandler(async (req, res) => {
       "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
     )
     .populate(
-      "vendor",
-      "_id name contactPerson email phone isDeleted"
+      "deletedBy",
+      "_id fullName firstName lastName position role email profilePicture"
     )
+    .populate("vendor", "_id name contactPerson email phone isDeleted")
     .populate(
       "assignees",
       "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -252,10 +253,7 @@ export const createTask = asyncHandler(async (req, res) => {
         "createdBy",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
       )
-      .populate(
-        "vendor",
-        "_id name contactPerson email phone isDeleted"
-      )
+      .populate("vendor", "_id name contactPerson email phone isDeleted")
       .populate(
         "assignees",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -277,16 +275,20 @@ export const createTask = asyncHandler(async (req, res) => {
         ]);
 
         if (recipients.size > 0) {
-          const recipientIds = Array.from(recipients).map(id => id.toString());
+          const recipientIds = Array.from(recipients).map((id) =>
+            id.toString()
+          );
 
           // Filter out the creator
-          const notifyIds = recipientIds.filter(id => id !== req.user._id.toString());
+          const notifyIds = recipientIds.filter(
+            (id) => id !== req.user._id.toString()
+          );
 
           if (notifyIds.length > 0) {
             await notificationService.notifyTaskCreated(task, notifyIds);
 
             // Email notifications (only for assignees by default)
-            const assignees = (task.assignees || []).map(id => id.toString());
+            const assignees = (task.assignees || []).map((id) => id.toString());
             for (const id of notifyIds) {
               if (assignees.includes(id)) {
                 const user = await User.findById(id);
@@ -330,9 +332,7 @@ export const updateTask = asyncHandler(async (req, res) => {
       throw CustomError.notFound("Task", taskId);
     }
 
-    if (
-      task.organization.toString() !== req.user.organization._id.toString()
-    ) {
+    if (task.organization.toString() !== req.user.organization._id.toString()) {
       throw CustomError.authorization(
         "You are not authorized to update this task"
       );
@@ -375,10 +375,7 @@ export const updateTask = asyncHandler(async (req, res) => {
         "createdBy",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
       )
-      .populate(
-        "vendor",
-        "_id name contactPerson email phone isDeleted"
-      )
+      .populate("vendor", "_id name contactPerson email phone isDeleted")
       .populate(
         "assignees",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -400,8 +397,12 @@ export const updateTask = asyncHandler(async (req, res) => {
         ]);
 
         if (recipients.size > 0) {
-          const recipientIds = Array.from(recipients).map(id => id.toString());
-          const notifyIds = recipientIds.filter(id => id !== req.user._id.toString());
+          const recipientIds = Array.from(recipients).map((id) =>
+            id.toString()
+          );
+          const notifyIds = recipientIds.filter(
+            (id) => id !== req.user._id.toString()
+          );
 
           if (notifyIds.length > 0) {
             await notificationService.notifyTaskUpdated(task, notifyIds);
@@ -411,7 +412,11 @@ export const updateTask = asyncHandler(async (req, res) => {
             for (const id of notifyIds) {
               const user = await User.findById(id);
               if (user) {
-                await emailService.sendTaskNotificationEmail(user, task, "updated");
+                await emailService.sendTaskNotificationEmail(
+                  user,
+                  task,
+                  "updated"
+                );
               }
             }
           }
@@ -436,16 +441,12 @@ export const deleteTask = asyncHandler(async (req, res) => {
   try {
     const { taskId } = req.validated.params;
 
-    const task = await BaseTask.findById(taskId)
-      .withDeleted()
-      .session(session);
+    const task = await BaseTask.findById(taskId).withDeleted().session(session);
     if (!task) {
       throw CustomError.notFound("Task", taskId);
     }
 
-    if (
-      task.organization.toString() !== req.user.organization._id.toString()
-    ) {
+    if (task.organization.toString() !== req.user.organization._id.toString()) {
       throw CustomError.authorization(
         "You are not authorized to delete this task"
       );
@@ -480,10 +481,7 @@ export const deleteTask = asyncHandler(async (req, res) => {
         "createdBy",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
       )
-      .populate(
-        "vendor",
-        "_id name contactPerson email phone isDeleted"
-      )
+      .populate("vendor", "_id name contactPerson email phone isDeleted")
       .populate(
         "assignees",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -512,16 +510,12 @@ export const restoreTask = asyncHandler(async (req, res) => {
   try {
     const { taskId } = req.validated.params;
 
-    const task = await BaseTask.findById(taskId)
-      .withDeleted()
-      .session(session);
+    const task = await BaseTask.findById(taskId).withDeleted().session(session);
     if (!task) {
       throw CustomError.notFound("Task", taskId);
     }
 
-    if (
-      task.organization.toString() !== req.user.organization._id.toString()
-    ) {
+    if (task.organization.toString() !== req.user.organization._id.toString()) {
       throw CustomError.authorization(
         "You are not authorized to restore this task"
       );
@@ -557,10 +551,7 @@ export const restoreTask = asyncHandler(async (req, res) => {
         "createdBy",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
       )
-      .populate(
-        "vendor",
-        "_id name contactPerson email phone isDeleted"
-      )
+      .populate("vendor", "_id name contactPerson email phone isDeleted")
       .populate(
         "assignees",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"

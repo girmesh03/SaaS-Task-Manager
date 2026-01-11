@@ -18,7 +18,9 @@ const FilterChipGroup = ({
   const renderValue = (key, value) => {
     // Check for Date Range
     if (value && typeof value === "object" && (value.start || value.end)) {
-      const start = value.start ? formatDateForDisplay(value.start, "MMM DD") : "?";
+      const start = value.start
+        ? formatDateForDisplay(value.start, "MMM DD")
+        : "?";
       const end = value.end ? formatDateForDisplay(value.end, "MMM DD") : "?";
       return `${start} - ${end}`;
     }
@@ -59,7 +61,12 @@ const FilterChipGroup = ({
   if (activeFilters.length === 0) return null;
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" sx={{ mt: 1, gap: 1 }}>
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      sx={{ flexWrap: "wrap", gap: 0.75 }}
+    >
       {activeFilters.map(([key, value]) => (
         <Chip
           key={key}
@@ -73,7 +80,7 @@ const FilterChipGroup = ({
         size="small"
         onClick={onClearAll}
         color="primary"
-        sx={{ minWidth: "auto" }}
+        sx={{ minWidth: "auto", py: 0.25 }}
       >
         Clear All
       </Button>

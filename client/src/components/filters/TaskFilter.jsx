@@ -85,8 +85,8 @@ const TaskFilter = ({
 
   return (
     <Box>
-      <Grid container spacing={1.5} alignItems="center">
-        {/* Status */}
+      <Grid container spacing={2} alignItems="flex-start">
+        {/* Row 1: Status, Priority, Type, Assignee, Vendor, Deleted */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FilterSelect
             label="Status"
@@ -96,7 +96,6 @@ const TaskFilter = ({
           />
         </Grid>
 
-        {/* Priority */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FilterSelect
             label="Priority"
@@ -106,7 +105,6 @@ const TaskFilter = ({
           />
         </Grid>
 
-        {/* Type */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FilterSelect
             label="Type"
@@ -116,7 +114,6 @@ const TaskFilter = ({
           />
         </Grid>
 
-        {/* Assignee */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FilterSelect
             label="Assignee"
@@ -126,7 +123,6 @@ const TaskFilter = ({
           />
         </Grid>
 
-        {/* Vendor */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FilterSelect
             label="Vendor"
@@ -136,32 +132,50 @@ const TaskFilter = ({
           />
         </Grid>
 
-        {/* Show Deleted Toggle */}
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={!!filters.isDeleted}
-                onChange={(e) =>
-                  handleFilterChange("isDeleted", e.target.checked)
-                }
-                size="small"
-              />
-            }
-            label="Deleted"
-            sx={{ ml: 0, height: 40, display: "flex", alignItems: "center" }}
-          />
+          <Box
+            sx={{
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 1,
+              px: 1.5,
+              bgcolor: "background.paper",
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!filters.isDeleted}
+                  onChange={(e) =>
+                    handleFilterChange("isDeleted", e.target.checked)
+                  }
+                  size="small"
+                />
+              }
+              label="Deleted"
+              sx={{
+                m: 0,
+                "& .MuiFormControlLabel-label": {
+                  fontSize: "0.875rem",
+                  color: "text.secondary",
+                },
+              }}
+            />
+          </Box>
         </Grid>
 
-        {/* Date Range */}
-        <Grid size={{ xs: 12, sm: 8, md: 4 }}>
+        {/* Row 2: Date Range */}
+        <Grid size={12}>
           <FilterDateRange
             value={dateRangeValue}
             onChange={handleDateRangeChange}
           />
         </Grid>
 
-        {/* Active Chips - Full width */}
+        {/* Row 3: Active Chips */}
         <Grid size={12}>
           <FilterChipGroup
             filters={filters}
