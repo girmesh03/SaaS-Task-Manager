@@ -80,18 +80,24 @@ export const updateTaskCommentValidator = [
 ];
 
 export const taskCommentIdValidator = [
-  param("taskCommentId")
+  param("commentId")
     .trim()
     .notEmpty()
     .withMessage("TaskComment ID is required")
-    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid comment ID"); })())
+    .custom(
+      (value) =>
+        mongoose.Types.ObjectId.isValid(value) ||
+        (() => {
+          throw new Error("Invalid comment ID");
+        })()
+    )
     .custom(async (value, { req }) => {
-      const { default: TaskComment } = await import("../../models/TaskComment.js");
+      const { default: TaskComment } = await import(
+        "../../models/TaskComment.js"
+      );
       const organizationId = req.user.organization._id;
 
-      const comment = await TaskComment.findById(value)
-        .withDeleted()
-        .lean();
+      const comment = await TaskComment.findById(value).withDeleted().lean();
 
       if (!comment) {
         throw new Error("Task comment not found");

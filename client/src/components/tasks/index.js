@@ -8,8 +8,9 @@
  * - AssignedTaskForm: Form for AssignedTask
  * - TaskCard: Card component for task display
  * - TasksList: List component for tasks
+ * - TaskActivityForm: Form for TaskActivity
  *
- * Requirements: 5.1-5.10, 6.1-6.10, 7.1-7.10
+ * Requirements: 5.1-5.10, 6.1-6.10, 7.1-7.10, 8.2-8.5, 8.9
  */
 
 export { default as TaskTypeSelector } from "./TaskTypeSelector";
@@ -18,3 +19,4 @@ export { default as RoutineTaskForm } from "./RoutineTaskForm";
 export { default as AssignedTaskForm } from "./AssignedTaskForm";
 export { default as TaskCard } from "./TaskCard";
 export { default as TasksList } from "./TasksList";
+export { default as TaskActivityForm } from "./TaskActivityForm";

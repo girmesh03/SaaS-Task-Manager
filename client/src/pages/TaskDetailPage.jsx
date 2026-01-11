@@ -49,6 +49,7 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import InfoIcon from "@mui/icons-material/Info";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import CommentIcon from "@mui/icons-material/Comment";
+import AddIcon from "@mui/icons-material/Add";
 import { toast } from "react-toastify";
 import {
   MuiTabs,
@@ -64,6 +65,7 @@ import {
   ProjectTaskForm,
   RoutineTaskForm,
   AssignedTaskForm,
+  TaskActivityForm,
 } from "../components/tasks";
 import useAuth from "../hooks/useAuth";
 import useAuthorization from "../hooks/useAuthorization";
@@ -172,6 +174,7 @@ const TaskDetailPage = () => {
   const [routineFormOpen, setRoutineFormOpen] = useState(false);
   const [assignedFormOpen, setAssignedFormOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activityFormOpen, setActivityFormOpen] = useState(false);
 
   // RTK Query - Fetch task
   const {
@@ -284,6 +287,21 @@ const TaskDetailPage = () => {
 
   const handleCloseAssignedForm = useCallback(() => {
     setAssignedFormOpen(false);
+  }, []);
+
+  /** Handle open activity form */
+  const handleOpenActivityForm = useCallback(() => {
+    setActivityFormOpen(true);
+  }, []);
+
+  /** Handle close activity form */
+  const handleCloseActivityForm = useCallback(() => {
+    setActivityFormOpen(false);
+  }, []);
+
+  /** Handle activity success */
+  const handleActivitySuccess = useCallback(() => {
+    // Activity created/updated successfully - cache will be invalidated by RTK Query
   }, []);
 
   /** Handle task success */
@@ -759,9 +777,24 @@ const TaskDetailPage = () => {
     return (
       <Box>
         <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Task Activities
-          </Typography>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mb: 2 }}
+          >
+            <Typography variant="h6">Task Activities</Typography>
+            {!task.isDeleted && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleOpenActivityForm}
+              >
+                Add Activity
+              </Button>
+            )}
+          </Stack>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="body2" color="text.secondary">
             Activities will be displayed here. TaskActivityTimeline component
@@ -770,7 +803,7 @@ const TaskDetailPage = () => {
         </Paper>
       </Box>
     );
-  }, [task]);
+  }, [task, handleOpenActivityForm]);
 
   /** Render Comments Tab Content */
   const renderCommentsContent = useMemo(() => {
@@ -1022,6 +1055,17 @@ const TaskDetailPage = () => {
           onClose={handleCloseAssignedForm}
           task={task}
           onSuccess={handleTaskSuccess}
+        />
+      )}
+
+      {/* Task Activity Form Dialog - for ProjectTask and AssignedTask only */}
+      {(task.taskType === TASK_TYPES.PROJECT_TASK ||
+        task.taskType === TASK_TYPES.ASSIGNED_TASK) && (
+        <TaskActivityForm
+          open={activityFormOpen}
+          onClose={handleCloseActivityForm}
+          task={task}
+          onSuccess={handleActivitySuccess}
         />
       )}
 

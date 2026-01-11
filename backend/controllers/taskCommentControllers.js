@@ -95,9 +95,9 @@ export const getTaskComments = asyncHandler(async (req, res) => {
 });
 
 export const getTaskComment = asyncHandler(async (req, res) => {
-  const { taskCommentId } = req.validated.params;
+  const { commentId } = req.validated.params;
 
-  const comment = await TaskComment.findById(taskCommentId)
+  const comment = await TaskComment.findById(commentId)
     .populate(
       "createdBy",
       "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -108,7 +108,7 @@ export const getTaskComment = asyncHandler(async (req, res) => {
     )
     .lean();
 
-  if (!comment) throw CustomError.notFound("Comment", taskCommentId);
+  if (!comment) throw CustomError.notFound("Comment", commentId);
 
   if (
     comment.organization.toString() !== req.user.organization._id.toString()
@@ -231,12 +231,12 @@ export const updateTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskCommentId } = req.validated.params;
+    const { commentId } = req.validated.params;
     const updates = req.validated.body;
 
-    const comment = await TaskComment.findById(taskCommentId).session(session);
+    const comment = await TaskComment.findById(commentId).session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment", taskCommentId);
+      throw CustomError.notFound("Comment", commentId);
     }
 
     if (
@@ -304,13 +304,13 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskCommentId } = req.validated.params;
+    const { commentId } = req.validated.params;
 
-    const comment = await TaskComment.findById(taskCommentId)
+    const comment = await TaskComment.findById(commentId)
       .withDeleted()
       .session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment", taskCommentId);
+      throw CustomError.notFound("Comment", commentId);
     }
 
     if (
@@ -354,7 +354,7 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
       rooms
     );
 
-    const deletedComment = await TaskComment.findById(taskCommentId).withDeleted().lean();
+    const deletedComment = await TaskComment.findById(commentId).withDeleted().lean();
 
     successResponse(res, 200, "Comment deleted successfully", deletedComment);
   } catch (error) {
@@ -371,13 +371,13 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskCommentId } = req.validated.params;
+    const { commentId } = req.validated.params;
 
-    const comment = await TaskComment.findById(taskCommentId)
+    const comment = await TaskComment.findById(commentId)
       .withDeleted()
       .session(session);
     if (!comment) {
-      throw CustomError.notFound("Comment", taskCommentId);
+      throw CustomError.notFound("Comment", commentId);
     }
 
     if (

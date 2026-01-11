@@ -72,8 +72,7 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
       },
       {
         path: "materials.material",
-        select:
-          "_id name unitType price description category",
+        select: "_id name unitType price description category",
       },
     ],
   };
@@ -103,9 +102,9 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
 });
 
 export const getTaskActivity = asyncHandler(async (req, res) => {
-  const { taskActivityId } = req.validated.params;
+  const { activityId } = req.validated.params;
 
-  const activity = await TaskActivity.findById(taskActivityId)
+  const activity = await TaskActivity.findById(activityId)
     .populate(
       "createdBy",
       "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
@@ -117,7 +116,7 @@ export const getTaskActivity = asyncHandler(async (req, res) => {
     .lean();
 
   if (!activity) {
-    throw CustomError.notFound("TaskActivity", taskActivityId);
+    throw CustomError.notFound("TaskActivity", activityId);
   }
 
   // Organization scoping
@@ -161,7 +160,12 @@ export const createTaskActivity = asyncHandler(async (req, res) => {
       activity,
       parent: taskId,
       parentModel: parentTask.taskType,
-      materials: materials ? materials.map(m => ({ material: m.materialId, quantity: m.quantity })) : [],
+      materials: materials
+        ? materials.map((m) => ({
+            material: m.materialId,
+            quantity: m.quantity,
+          }))
+        : [],
       organization: req.user.organization._id,
       department: parentTask.department, // Inherit department from parent task
       createdBy: req.user._id,
@@ -222,13 +226,13 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskActivityId } = req.validated.params;
+    const { activityId } = req.validated.params;
     const updates = req.validated.body;
 
-    const activity = await TaskActivity.findById(taskActivityId).session(session);
+    const activity = await TaskActivity.findById(activityId).session(session);
 
     if (!activity) {
-      throw CustomError.notFound("TaskActivity", taskActivityId);
+      throw CustomError.notFound("TaskActivity", activityId);
     }
 
     if (
@@ -242,7 +246,10 @@ export const updateTaskActivity = asyncHandler(async (req, res) => {
     // Apply updates
     if (updates.activity) activity.activity = updates.activity;
     if (updates.materials) {
-      activity.materials = updates.materials.map(m => ({ material: m.materialId, quantity: m.quantity }));
+      activity.materials = updates.materials.map((m) => ({
+        material: m.materialId,
+        quantity: m.quantity,
+      }));
     }
 
     await activity.save({ session });
@@ -290,14 +297,14 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskActivityId } = req.validated.params;
+    const { activityId } = req.validated.params;
 
-    const activity = await TaskActivity.findById(taskActivityId)
+    const activity = await TaskActivity.findById(activityId)
       .withDeleted()
       .session(session);
 
     if (!activity) {
-      throw CustomError.notFound("TaskActivity", taskActivityId);
+      throw CustomError.notFound("TaskActivity", activityId);
     }
 
     if (
@@ -330,9 +337,16 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
       ]
     );
 
-    const deletedActivity = await TaskActivity.findById(taskActivityId).withDeleted().lean();
+    const deletedActivity = await TaskActivity.findById(activityId)
+      .withDeleted()
+      .lean();
 
-    successResponse(res, 200, "Task activity deleted successfully", deletedActivity);
+    successResponse(
+      res,
+      200,
+      "Task activity deleted successfully",
+      deletedActivity
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Task Activity Error:", error);
@@ -347,14 +361,14 @@ export const restoreTaskActivity = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { taskActivityId } = req.validated.params;
+    const { activityId } = req.validated.params;
 
-    const activity = await TaskActivity.findById(taskActivityId)
+    const activity = await TaskActivity.findById(activityId)
       .withDeleted()
       .session(session);
 
     if (!activity) {
-      throw CustomError.notFound("TaskActivity", taskActivityId);
+      throw CustomError.notFound("TaskActivity", activityId);
     }
 
     if (

@@ -18,11 +18,48 @@ import { authorize } from "../middlewares/authorization.js";
 
 const router = express.Router();
 
-router.get("/", verifyJWT, getTaskCommentsValidator, authorize("TaskComment", "read"), getTaskComments);
-router.get("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "read"), getTaskComment);
-router.post("/", verifyJWT, createTaskCommentValidator, authorize("TaskComment", "create"), createTaskComment);
-router.patch("/:taskCommentId", verifyJWT, taskCommentIdValidator, updateTaskCommentValidator, authorize("TaskComment", "update"), updateTaskComment);
-router.delete("/:taskCommentId", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "delete"), deleteTaskComment);
-router.patch("/:taskCommentId/restore", verifyJWT, taskCommentIdValidator, authorize("TaskComment", "update"), restoreTaskComment);
+router.get(
+  "/",
+  verifyJWT,
+  getTaskCommentsValidator,
+  authorize("TaskComment", "read"),
+  getTaskComments
+);
+router.get(
+  "/:commentId",
+  verifyJWT,
+  taskCommentIdValidator,
+  authorize("TaskComment", "read"),
+  getTaskComment
+);
+router.post(
+  "/",
+  verifyJWT,
+  createTaskCommentValidator,
+  authorize("TaskComment", "create"),
+  createTaskComment
+);
+router.patch(
+  "/:commentId",
+  verifyJWT,
+  taskCommentIdValidator,
+  updateTaskCommentValidator,
+  authorize("TaskComment", "update"),
+  updateTaskComment
+);
+router.delete(
+  "/:commentId",
+  verifyJWT,
+  taskCommentIdValidator,
+  authorize("TaskComment", "delete"),
+  deleteTaskComment
+);
+router.patch(
+  "/:commentId/restore",
+  verifyJWT,
+  taskCommentIdValidator,
+  authorize("TaskComment", "update"),
+  restoreTaskComment
+);
 
 export default router;
