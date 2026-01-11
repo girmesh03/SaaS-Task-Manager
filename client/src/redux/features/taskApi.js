@@ -50,7 +50,9 @@ export const taskApi = api.injectEndpoints({
       query: (params) => {
         // Filter out empty strings or null/undefined values to avoid backend validation errors
         const filteredParams = Object.fromEntries(
-          Object.entries(params).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
+          Object.entries(params).filter(
+            ([, v]) => v !== "" && v !== null && v !== undefined
+          )
         );
         return {
           url: "/tasks",
@@ -126,7 +128,7 @@ export const taskApi = api.injectEndpoints({
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: (result, error, { taskId }) => [
+      invalidatesTags: (_result, _error, { taskId }) => [
         { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],
@@ -148,7 +150,7 @@ export const taskApi = api.injectEndpoints({
         url: `/tasks/${taskId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, taskId) => [
+      invalidatesTags: (_result, _error, taskId) => [
         { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],
@@ -170,7 +172,7 @@ export const taskApi = api.injectEndpoints({
         url: `/tasks/${taskId}/restore`,
         method: "PATCH",
       }),
-      invalidatesTags: (result, error, taskId) => [
+      invalidatesTags: (_result, _error, taskId) => [
         { type: "Task", id: taskId },
         { type: "Task", id: "LIST" },
       ],

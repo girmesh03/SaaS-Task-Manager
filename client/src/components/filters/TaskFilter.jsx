@@ -4,8 +4,7 @@
  * Requirements: 16.6
  */
 
-import { Box, Stack, FormControlLabel, Switch } from "@mui/material";
-import FilterTextField from "./FilterTextField";
+import { Box, Grid, FormControlLabel, Switch } from "@mui/material";
 import FilterSelect from "./FilterSelect";
 import FilterDateRange from "./FilterDateRange";
 import FilterChipGroup from "./FilterChipGroup";
@@ -74,7 +73,6 @@ const TaskFilter = ({
   }));
 
   const LABEL_MAP = {
-    search: "Search",
     status: "Status",
     priority: "Priority",
     taskType: "Type",
@@ -87,87 +85,59 @@ const TaskFilter = ({
 
   return (
     <Box>
-      <Stack spacing={2}>
-        {/* Search */}
-        <FilterTextField
-          value={filters.search}
-          onChange={(val) => handleFilterChange("search", val)}
-          fullWidth
-        />
-
-        {/* Filters Row 1 */}
-        <Stack
-          direction="row"
-          spacing={2}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ alignItems: "center" }}
-        >
-          <Box sx={{ minWidth: 150 }}>
-            <FilterSelect
-              label="Status"
-              value={filters.status}
-              onChange={(val) => handleFilterChange("status", val)}
-              options={statusOptions}
-            />
-          </Box>
-          <Box sx={{ minWidth: 150 }}>
-            <FilterSelect
-              label="Priority"
-              value={filters.priority}
-              onChange={(val) => handleFilterChange("priority", val)}
-              options={priorityOptions}
-            />
-          </Box>
-          <Box sx={{ minWidth: 150 }}>
-            <FilterSelect
-              label="Type"
-              value={filters.taskType}
-              onChange={(val) => handleFilterChange("taskType", val)}
-              options={typeOptions}
-            />
-          </Box>
-        </Stack>
-
-        {/* Filters Row 2 */}
-        <Stack
-          direction="row"
-          spacing={2}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ alignItems: "center" }}
-        >
-          <Box sx={{ minWidth: 200 }}>
-            <FilterSelect
-              label="Assignee"
-              value={filters.assignee}
-              onChange={(val) => handleFilterChange("assignee", val?.value)}
-              options={assigneeOptions}
-            />
-          </Box>
-          <Box sx={{ minWidth: 200 }}>
-            <FilterSelect
-              label="Vendor"
-              value={filters.vendor}
-              onChange={(val) => handleFilterChange("vendor", val?.value)}
-              options={vendorOptions}
-            />
-          </Box>
-        </Stack>
-
-        {/* Filters Row 3: Date & Toggles */}
-        <Stack
-          direction="row"
-          spacing={2}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ alignItems: "center" }}
-        >
-          <FilterDateRange
-            value={dateRangeValue}
-            onChange={handleDateRangeChange}
+      <Grid container spacing={1.5} alignItems="center">
+        {/* Status */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <FilterSelect
+            label="Status"
+            value={filters.status}
+            onChange={(val) => handleFilterChange("status", val)}
+            options={statusOptions}
           />
+        </Grid>
 
+        {/* Priority */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <FilterSelect
+            label="Priority"
+            value={filters.priority}
+            onChange={(val) => handleFilterChange("priority", val)}
+            options={priorityOptions}
+          />
+        </Grid>
+
+        {/* Type */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <FilterSelect
+            label="Type"
+            value={filters.taskType}
+            onChange={(val) => handleFilterChange("taskType", val)}
+            options={typeOptions}
+          />
+        </Grid>
+
+        {/* Assignee */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <FilterSelect
+            label="Assignee"
+            value={filters.assignee}
+            onChange={(val) => handleFilterChange("assignee", val?.value)}
+            options={assigneeOptions}
+          />
+        </Grid>
+
+        {/* Vendor */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <FilterSelect
+            label="Vendor"
+            value={filters.vendor}
+            onChange={(val) => handleFilterChange("vendor", val?.value)}
+            options={vendorOptions}
+          />
+        </Grid>
+
+        {/* Show Deleted Toggle */}
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <FormControlLabel
             control={
               <Switch
@@ -175,20 +145,32 @@ const TaskFilter = ({
                 onChange={(e) =>
                   handleFilterChange("isDeleted", e.target.checked)
                 }
+                size="small"
               />
             }
-            label="Show Deleted"
+            label="Deleted"
+            sx={{ ml: 0, height: 40, display: "flex", alignItems: "center" }}
           />
-        </Stack>
+        </Grid>
 
-        {/* Active Chips */}
-        <FilterChipGroup
-          filters={filters}
-          labelMap={LABEL_MAP}
-          onDelete={handleDeleteChip}
-          onClearAll={handleClearAll}
-        />
-      </Stack>
+        {/* Date Range */}
+        <Grid size={{ xs: 12, sm: 8, md: 4 }}>
+          <FilterDateRange
+            value={dateRangeValue}
+            onChange={handleDateRangeChange}
+          />
+        </Grid>
+
+        {/* Active Chips - Full width */}
+        <Grid size={12}>
+          <FilterChipGroup
+            filters={filters}
+            labelMap={LABEL_MAP}
+            onDelete={handleDeleteChip}
+            onClearAll={handleClearAll}
+          />
+        </Grid>
+      </Grid>
     </Box>
   );
 };

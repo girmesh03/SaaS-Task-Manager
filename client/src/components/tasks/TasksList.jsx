@@ -152,7 +152,7 @@ const TasksList = ({
   const skeletonCards = useMemo(
     () =>
       Array.from({ length: skeletonCount }).map((_, index) => (
-        <Grid key={`skeleton-${index}`} size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid key={`skeleton-${index}`} size={{ xs: 12, sm: 6, lg: 4 }}>
           <TaskCardSkeleton />
         </Grid>
       )),
@@ -165,7 +165,7 @@ const TasksList = ({
   const taskCards = useMemo(
     () =>
       tasks.map((task) => (
-        <Grid key={task._id} size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid key={task._id} size={{ xs: 12, sm: 6, lg: 4 }}>
           <TaskCard
             task={task}
             onView={onView}
@@ -189,11 +189,9 @@ const TasksList = ({
   // Loading state
   if (isLoading) {
     return (
-      <Box>
-        <Grid container spacing={2}>
-          {skeletonCards}
-        </Grid>
-      </Box>
+      <Grid container spacing={2}>
+        {skeletonCards}
+      </Grid>
     );
   }
 
@@ -204,7 +202,7 @@ const TasksList = ({
 
   // Tasks list with pagination
   return (
-    <Box>
+    <>
       <Grid container spacing={2}>
         {taskCards}
       </Grid>
@@ -233,7 +231,7 @@ const TasksList = ({
           />
         </Box>
       )}
-    </Box>
+    </>
   );
 };
 

@@ -33,6 +33,7 @@ import RestoreIcon from "@mui/icons-material/Restore";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import StoreIcon from "@mui/icons-material/Store";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import PersonIcon from "@mui/icons-material/Person";
 import {
   MuiCard,
   MuiChip,
@@ -93,6 +94,12 @@ const formatCurrency = (value, currency = CURRENCY.DEFAULT) => {
   })}`;
 };
 
+/** Capitalize first letter of string */
+const capitalizeFirst = (str) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 /**
  * TaskCard Component
  */
@@ -100,7 +107,7 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { canUpdate, canDelete, canRestore } = useAuthorization("Task");
+  const { canEdit, canDelete, canRestore } = useAuthorization("Task");
 
   // Menu state
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -170,7 +177,7 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
         onClick: handleView,
       },
     ];
-    if (!task.isDeleted && canUpdate(task)) {
+    if (!task.isDeleted && canEdit(task)) {
       items.push({
         id: "edit",
         label: "Edit",
@@ -197,7 +204,7 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
     return items;
   }, [
     task,
-    canUpdate,
+    canEdit,
     canDelete,
     canRestore,
     handleView,
@@ -255,15 +262,18 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
     [menuAnchorEl, menuOpen, handleMenuOpen, handleMenuClose, menuItems]
   );
 
-  /** Get card title based on task type */
+  /** Get card title based on task type - capitalize first letter */
   const cardTitle = useMemo(() => {
+    let title;
     if (
       task.taskType === TASK_TYPES.PROJECT_TASK ||
       task.taskType === TASK_TYPES.ASSIGNED_TASK
     ) {
-      return task.title;
+      title = task.title;
+    } else {
+      title = task.description?.substring(0, 50) || "Routine Task";
     }
-    return task.description?.substring(0, 50) || "Routine Task";
+    return capitalizeFirst(title);
   }, [task]);
 
   /** Get card subheader with task type badge */
@@ -323,7 +333,7 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
             >
               Watchers:
             </Typography>
-            <MuiAvatarGroup max={3} spacing="small">
+            <MuiAvatarGroup max={4} spacing="small">
               {task.watchers.map((watcher) => (
                 <MuiTooltip
                   key={watcher._id || watcher}
@@ -339,7 +349,12 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
                       name={
                         watcher.firstName
                           ? `${watcher.firstName} ${watcher.lastName}`
-                          : "W"
+                          : undefined
+                      }
+                      icon={
+                        !watcher.profilePicture && !watcher.firstName ? (
+                          <PersonIcon fontSize="small" />
+                        ) : undefined
                       }
                       size={24}
                     />
@@ -408,7 +423,7 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
               Assignees:
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <MuiAvatarGroup max={3} spacing="small">
+              <MuiAvatarGroup max={4} spacing="small">
                 {task.assignees.map((assignee) => (
                   <MuiTooltip
                     key={assignee._id || assignee}
@@ -424,7 +439,12 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
                         name={
                           assignee.firstName
                             ? `${assignee.firstName} ${assignee.lastName}`
-                            : "A"
+                            : undefined
+                        }
+                        icon={
+                          !assignee.profilePicture && !assignee.firstName ? (
+                            <PersonIcon fontSize="small" />
+                          ) : undefined
                         }
                         size={24}
                       />
@@ -471,8 +491,8 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
   /** Render card content (CardContent children) */
   const cardContent = useMemo(
     () => (
-      <Box onClick={handleCardClick} sx={{ cursor: "pointer" }}>
-        {/* Description (truncated) */}
+      <Box onClick={handleCardClick} sx={{ cursor: "pointer", flex: 1 }}>
+        {/* Description (truncated to 3-4 lines) */}
         {task.description && (
           <Typography
             variant="body2"
@@ -480,10 +500,11 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
             sx={{
               mb: 1.5,
               display: "-webkit-box",
-              WebkitLineClamp: 2,
+              WebkitLineClamp: 3,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              minHeight: "3.6em", // Ensure consistent height for 3 lines
             }}
           >
             {task.description}
@@ -633,8 +654,14 @@ const TaskCard = memo(({ task, onView, onEdit, onDelete, onRestore }) => {
           whiteSpace: "nowrap",
         },
       }}
-      contentSx={{ pt: 1.5, pb: 1 }}
-      actionsSx={{ pt: 0, px: 2, pb: 1.5 }}
+      contentSx={{
+        pt: 1.5,
+        pb: 1,
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+      }}
+      actionsSx={{ pt: 0, px: 2, pb: 1.5, mt: "auto" }}
       actions={cardActions}
       sx={{
         height: "100%",

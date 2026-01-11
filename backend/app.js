@@ -53,7 +53,6 @@ import timezone from "dayjs/plugin/timezone.js";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-
 // Verify timezone setup
 const currentTime = dayjs().format("YYYY-MM-DD HH:mm:ss");
 const currentUTC = dayjs().utc().format("YYYY-MM-DD HH:mm:ss");
@@ -70,6 +69,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
 import compression from "compression";
+import morgan from "morgan";
 import corsOptions from "./config/corsOptions.js";
 import errorHandler from "./errorHandler/ErrorController.js";
 import { generalRateLimiter } from "./middlewares/rateLimiter.js";
@@ -78,6 +78,14 @@ import routes from "./routes/index.js";
 const app = express();
 
 logger.info("4. Express App: INITIALIZED ✓");
+
+// ============================================================================
+// HTTP Request Logging (Development Only)
+// ============================================================================
+if (process.env.NODE_ENV !== "production") {
+  app.use(morgan("dev"));
+  logger.info("4.1. Morgan HTTP Logger: ENABLED (Development Mode) ✓");
+}
 
 // ============================================================================
 // Security Middleware Stack (MUST be in this specific order)

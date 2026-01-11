@@ -13,7 +13,7 @@
  * Requirements: 17.2, 9.4, Task 9
  */
 
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Outlet, useLocation } from "react-router";
 import { Box, Toolbar, useTheme } from "@mui/material";
 import Header from "./Header";
@@ -21,27 +21,44 @@ import Sidebar from "./Sidebar";
 import useSocket from "../../hooks/useSocket";
 import useResponsive from "../../hooks/useResponsive";
 
+/**
+ * Custom hook to manage sidebar state with route-aware behavior
+ * Closes sidebar on mobile when route changes
+ */
+const useSidebarState = (isMobile) => {
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile);
+  const [lastPathname, setLastPathname] = useState(location.pathname);
+
+  // Check if route changed and close sidebar on mobile
+  // This pattern is recommended by React docs for derived state
+  if (location.pathname !== lastPathname) {
+    setLastPathname(location.pathname);
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }
+
+  return [sidebarOpen, setSidebarOpen];
+};
+
 const ProtectedLayout = () => {
   const theme = useTheme();
   const { isMobile } = useResponsive();
-  const location = useLocation();
 
-  // Initialize sidebar state based on screen size
-  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile);
+  // Sidebar state with route-aware behavior
+  const [sidebarOpen, setSidebarOpen] = useSidebarState(isMobile);
 
   // Initialize Socket.IO connection via hook
   useSocket();
 
-  // Close sidebar on route change for mobile
-  useEffect(() => {
-    if (isMobile && sidebarOpen) {
-      setSidebarOpen(false);
-    }
-  }, [location.pathname, isMobile]);
-
-  const handleSidebarToggle = () => {
+  const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);
-  };
+  }, [setSidebarOpen]);
+
+  const handleSidebarClose = useCallback(() => {
+    setSidebarOpen(false);
+  }, [setSidebarOpen]);
 
   return (
     <Box
@@ -57,7 +74,7 @@ const ProtectedLayout = () => {
       <Header onMenuClick={handleSidebarToggle} />
 
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden", width: "100%" }}>
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
 
         <Box
           component="main"
