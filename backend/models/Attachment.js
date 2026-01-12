@@ -116,7 +116,108 @@ attachmentSchema.pre("save", function (next) {
 });
 
 // Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * Attachment must check entire parent chain:
+ * - Organization
+ * - Department
+ * - Entire parent chain (attachment → parent → ... → task)
+ */
 attachmentSchema.statics.strictParentCheck = async function (
+  doc,
+  { session } = {}
+) {
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore attachment because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore attachment because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Traverse entire parent chain to root task
+  const visitedIds = new Set();
+  let currentParentId = doc.parent;
+  let currentParentModel = doc.parentModel;
+  let depth = 0;
+  const MAX_DEPTH = 10; // Safety limit
+
+  while (depth < MAX_DEPTH) {
+    // Check for cycles
+    const parentKey = `${currentParentModel}:${currentParentId}`;
+    if (visitedIds.has(parentKey)) {
+      throw CustomError.validation(
+        "Cannot restore attachment: Cycle detected in parent chain.",
+        "ATTACHMENT_PARENT_CHAIN_INVALID"
+      );
+    }
+    visitedIds.add(parentKey);
+
+    const ParentModel = mongoose.model(currentParentModel);
+    const parent = await ParentModel.findById(currentParentId)
+      .withDeleted()
+      .session(session);
+
+    if (!parent) {
+      throw CustomError.validation(
+        `Cannot restore attachment because its parent ${currentParentModel} no longer exists.`,
+        "RESTORE_BLOCKED_PARENT_DELETED"
+      );
+    }
+
+    if (parent.isDeleted) {
+      throw CustomError.validation(
+        `Cannot restore attachment because its parent ${currentParentModel} is deleted. Restore the parent first.`,
+        "RESTORE_BLOCKED_PARENT_DELETED"
+      );
+    }
+
+    // Continue traversing based on parent type
+    if (currentParentModel === "TaskComment") {
+      currentParentId = parent.parent;
+      currentParentModel = parent.parentModel;
+      depth++;
+    } else if (currentParentModel === "TaskActivity") {
+      currentParentId = parent.parent;
+      currentParentModel = parent.parentModel;
+      depth++;
+    } else {
+      // Reached root (BaseTask)
+      break;
+    }
+  }
+
+  if (depth >= MAX_DEPTH) {
+    throw CustomError.validation(
+      "Cannot restore attachment: Parent chain exceeds maximum depth.",
+      "ATTACHMENT_PARENT_CHAIN_INVALID"
+    );
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * If organization/department mismatches parent, align to parent's scope
+ */
+attachmentSchema.statics.repairOnRestore = async function (
   doc,
   { session } = {}
 ) {
@@ -125,11 +226,20 @@ attachmentSchema.statics.strictParentCheck = async function (
     .withDeleted()
     .session(session);
 
-  if (!parent || parent.isDeleted) {
-    throw CustomError.validation(
-      `Cannot restore attachment because its parent ${doc.parentModel} is deleted. Restore the parent first.`,
-      "RESTORE_BLOCKED_PARENT_DELETED"
-    );
+  if (parent) {
+    // Align organization and department with parent
+    if (
+      parent.organization &&
+      doc.organization.toString() !== parent.organization.toString()
+    ) {
+      doc.organization = parent.organization;
+    }
+    if (
+      parent.department &&
+      doc.department.toString() !== parent.department.toString()
+    ) {
+      doc.department = parent.department;
+    }
   }
 };
 

@@ -171,4 +171,14 @@ ProjectTask.validateCriticalDependencies = async function (
   // No other critical dependencies for ProjectTask beyond parents
 };
 
+// Strict Restore Mode: Non-blocking Repairs
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * Prune deleted users from watchers array
+ */
+ProjectTask.repairOnRestore = async function (doc, { session } = {}) {
+  // Call BaseTask repairOnRestore for watchers
+  await BaseTask.repairOnRestore(doc, { session });
+};
+
 export default ProjectTask;

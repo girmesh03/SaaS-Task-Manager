@@ -1,12 +1,6 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
-import {
-  TaskComment,
-  BaseTask,
-  TaskActivity,
-  Organization,
-  Department,
-} from "../models/index.js";
+import { TaskComment, BaseTask, TaskActivity, User } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
@@ -84,14 +78,20 @@ export const getTaskComments = asyncHandler(async (req, res) => {
 
   const comments = await TaskComment.paginate(query, options);
 
-  paginatedResponse(res, 200, "Comments retrieved successfully", comments.docs, {
-    total: comments.totalDocs,
-    page: comments.page,
-    limit: comments.limit,
-    totalPages: comments.totalPages,
-    hasNextPage: comments.hasNextPage,
-    hasPrevPage: comments.hasPrevPage,
-  });
+  paginatedResponse(
+    res,
+    200,
+    "Comments retrieved successfully",
+    comments.docs,
+    {
+      total: comments.totalDocs,
+      page: comments.page,
+      limit: comments.limit,
+      totalPages: comments.totalPages,
+      hasNextPage: comments.hasNextPage,
+      hasPrevPage: comments.hasPrevPage,
+    }
+  );
 });
 
 export const getTaskComment = asyncHandler(async (req, res) => {
@@ -113,7 +113,9 @@ export const getTaskComment = asyncHandler(async (req, res) => {
   if (
     comment.organization.toString() !== req.user.organization._id.toString()
   ) {
-    throw CustomError.authorization("You are not authorized to view this comment");
+    throw CustomError.authorization(
+      "You are not authorized to view this comment"
+    );
   }
 
   okResponse(res, "Comment retrieved successfully", comment);
@@ -196,19 +198,35 @@ export const createTaskComment = asyncHandler(async (req, res) => {
       try {
         if (mentionIds && mentionIds.length > 0) {
           // Filter out the creator if they mentioned themselves
-          const notifyIds = mentionIds.filter(id => id.toString() !== req.user._id.toString());
+          const notifyIds = mentionIds.filter(
+            (id) => id.toString() !== req.user._id.toString()
+          );
 
           if (notifyIds.length > 0) {
-            await notificationService.notifyMention(newComment, notifyIds, taskId);
+            await notificationService.notifyMention(
+              newComment,
+              notifyIds,
+              taskId
+            );
 
             // Email notifications (if preferred)
-            const actor = { firstName: req.user.firstName, lastName: req.user.lastName };
-            const task = await BaseTask.findById(taskId || parent).select("title description");
+            const actor = {
+              firstName: req.user.firstName,
+              lastName: req.user.lastName,
+            };
+            const task = await BaseTask.findById(taskId || parent).select(
+              "title description"
+            );
 
             for (const id of notifyIds) {
               const mentionedUser = await User.findById(id);
               if (mentionedUser && task) {
-                await emailService.sendMentionEmail(mentionedUser, actor, newComment, task);
+                await emailService.sendMentionEmail(
+                  mentionedUser,
+                  actor,
+                  newComment,
+                  task
+                );
               }
             }
           }
@@ -354,7 +372,9 @@ export const deleteTaskComment = asyncHandler(async (req, res) => {
       rooms
     );
 
-    const deletedComment = await TaskComment.findById(commentId).withDeleted().lean();
+    const deletedComment = await TaskComment.findById(commentId)
+      .withDeleted()
+      .lean();
 
     successResponse(res, 200, "Comment deleted successfully", deletedComment);
   } catch (error) {
@@ -432,7 +452,12 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
       )
       .lean();
 
-    successResponse(res, 200, "Comment restored successfully", populatedComment);
+    successResponse(
+      res,
+      200,
+      "Comment restored successfully",
+      populatedComment
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Task Comment Error:", error);

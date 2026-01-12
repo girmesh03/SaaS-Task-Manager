@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
-import { Material, Department, Organization } from "../models/index.js";
+import { Material } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
@@ -57,8 +57,7 @@ export const getMaterials = asyncHandler(async (req, res) => {
       },
       {
         path: "organization",
-        select:
-          "_id name email industry logo isPlatformOrg isDeleted",
+        select: "_id name email industry logo isPlatformOrg isDeleted",
       },
       {
         path: "addedBy",
@@ -70,14 +69,20 @@ export const getMaterials = asyncHandler(async (req, res) => {
 
   const materials = await Material.paginate(query, options);
 
-  paginatedResponse(res, 200, "Materials retrieved successfully", materials.docs, {
-    total: materials.totalDocs,
-    page: materials.page,
-    limit: materials.limit,
-    totalPages: materials.totalPages,
-    hasNextPage: materials.hasNextPage,
-    hasPrevPage: materials.hasPrevPage,
-  });
+  paginatedResponse(
+    res,
+    200,
+    "Materials retrieved successfully",
+    materials.docs,
+    {
+      total: materials.totalDocs,
+      page: materials.page,
+      limit: materials.limit,
+      totalPages: materials.totalPages,
+      hasNextPage: materials.hasNextPage,
+      hasPrevPage: materials.hasPrevPage,
+    }
+  );
 });
 
 export const getMaterial = asyncHandler(async (req, res) => {
@@ -95,12 +100,15 @@ export const getMaterial = asyncHandler(async (req, res) => {
     )
     .lean();
 
-  if (!material)      throw CustomError.notFound("Material", materialId);
+  if (!material) throw CustomError.notFound("Material", materialId);
 
   if (
-    material.organization._id.toString() !== req.user.organization._id.toString()
+    material.organization._id.toString() !==
+    req.user.organization._id.toString()
   ) {
-    throw CustomError.authorization("You are not authorized to view this material");
+    throw CustomError.authorization(
+      "You are not authorized to view this material"
+    );
   }
 
   okResponse(res, "Material retrieved successfully", material);
@@ -111,7 +119,8 @@ export const createMaterial = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, description, category, unitType, price, departmentId } = req.validated.body;
+    const { name, description, category, unitType, price, departmentId } =
+      req.validated.body;
 
     const materialData = {
       name,
@@ -172,7 +181,7 @@ export const updateMaterial = asyncHandler(async (req, res) => {
 
     const material = await Material.findById(materialId).session(session);
     if (!material) {
-           throw CustomError.notFound("Material", materialId);
+      throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -188,7 +197,11 @@ export const updateMaterial = asyncHandler(async (req, res) => {
     }
 
     Object.keys(updates).forEach((key) => {
-      if (key !== "organization" && key !== "addedBy" && key !== "departmentId") {
+      if (
+        key !== "organization" &&
+        key !== "addedBy" &&
+        key !== "departmentId"
+      ) {
         material[key] = updates[key];
       }
     });
@@ -242,7 +255,7 @@ export const deleteMaterial = asyncHandler(async (req, res) => {
       .withDeleted()
       .session(session);
     if (!material) {
-           throw CustomError.notFound("Material", materialId);
+      throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -276,7 +289,9 @@ export const deleteMaterial = asyncHandler(async (req, res) => {
       ]
     );
 
-    const deletedMaterial = await Material.findById(materialId).withDeleted().lean();
+    const deletedMaterial = await Material.findById(materialId)
+      .withDeleted()
+      .lean();
 
     successResponse(res, 200, "Material deleted successfully", deletedMaterial);
   } catch (error) {
@@ -299,7 +314,7 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
       .withDeleted()
       .session(session);
     if (!material) {
-           throw CustomError.notFound("Material", materialId);
+      throw CustomError.notFound("Material", materialId);
     }
 
     if (
@@ -346,7 +361,12 @@ export const restoreMaterial = asyncHandler(async (req, res) => {
       )
       .lean();
 
-    successResponse(res, 200, "Material restored successfully", populatedMaterial);
+    successResponse(
+      res,
+      200,
+      "Material restored successfully",
+      populatedMaterial
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Material Error:", error);

@@ -65,6 +65,24 @@ departmentSchema.pre("save", function (next) {
 });
 
 // Cascade delete static method
+/**
+ * Cascade soft delete to all department children
+ *
+ * CRITICAL: Follows deletion order from docs/softDelete-doc.md
+ * CRITICAL: Idempotent - traverses already-deleted children's subtrees
+ * CRITICAL: softDelete() method already calls cascadeDelete() internally,
+ *           so we only call cascadeDelete() for already-deleted nodes to traverse subtrees
+ *
+ * Cascade Order:
+ * 1. Users (which prune weak references only - NO cascade delete of owned resources)
+ * 2. Tasks (which cascade to Activities, Comments, Attachments)
+ * 3. Materials (leaf nodes)
+ *
+ * @param {ObjectId} departmentId - Department ID to cascade delete
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 departmentSchema.statics.cascadeDelete = async function (
   departmentId,
   deletedBy,
@@ -76,16 +94,16 @@ departmentSchema.statics.cascadeDelete = async function (
   const BaseTask = mongoose.model("BaseTask");
 
   // Soft delete all users in this department
+  // User.cascadeDelete only prunes weak references, does NOT cascade delete owned resources
   const users = await User.find({ department: departmentId })
     .withDeleted()
     .session(session);
   for (const user of users) {
     if (!user.isDeleted) {
+      // softDelete() will call User.cascadeDelete() internally
       await user.softDelete(deletedBy, { session });
-      // Cascade delete user children
-      await User.cascadeDelete(user._id, deletedBy, { session });
     } else {
-      // Idempotent traverse: still cascade to subtree
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await User.cascadeDelete(user._id, deletedBy, { session });
     }
   }
@@ -96,16 +114,15 @@ departmentSchema.statics.cascadeDelete = async function (
     .session(session);
   for (const task of tasks) {
     if (!task.isDeleted) {
+      // softDelete() will call BaseTask.cascadeDelete() internally
       await task.softDelete(deletedBy, { session });
-      // Cascade delete task children
-      await BaseTask.cascadeDelete(task._id, deletedBy, { session });
     } else {
-      // Idempotent traverse
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await BaseTask.cascadeDelete(task._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all materials in this department
+  // Soft delete all materials in this department (leaf nodes - no cascade needed)
   const materials = await Material.find({ department: departmentId })
     .withDeleted()
     .session(session);

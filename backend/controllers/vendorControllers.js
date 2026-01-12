@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
-import { Vendor, Organization } from "../models/index.js";
+import { Vendor } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
@@ -99,8 +99,7 @@ export const getVendors = asyncHandler(async (req, res) => {
     populate: [
       {
         path: "organization",
-        select:
-          "_id name email industry logo isPlatformOrg isDeleted",
+        select: "_id name email industry logo isPlatformOrg isDeleted",
       },
       {
         path: "createdBy",
@@ -149,7 +148,9 @@ export const getVendor = asyncHandler(async (req, res) => {
   if (
     vendor.organization._id.toString() !== req.user.organization._id.toString()
   ) {
-    throw CustomError.authorization("You are not authorized to view this vendor");
+    throw CustomError.authorization(
+      "You are not authorized to view this vendor"
+    );
   }
 
   // Get linked ProjectTasks count

@@ -185,7 +185,8 @@ const TaskDetailPage = () => {
   // Extract task from response - backend returns { success, message, data: task }
   const task = useMemo(() => taskResponse?.data || null, [taskResponse]);
 
-  console.log("task", task);
+  // console.log("task", task);
+
   // RTK Query - Delete and Restore mutations
   const [deleteTask, { isLoading: isDeleting }] = useDeleteTaskMutation();
   const [restoreTask, { isLoading: isRestoring }] = useRestoreTaskMutation();

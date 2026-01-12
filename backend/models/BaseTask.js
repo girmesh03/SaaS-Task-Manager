@@ -149,7 +149,25 @@ baseTaskSchema.pre("save", function (next) {
 });
 
 // Cascade delete static method
-// Cascade delete static method
+/**
+ * Cascade soft delete to all task children
+ *
+ * CRITICAL: Follows deletion order from docs/softDelete-doc.md
+ * CRITICAL: Idempotent - traverses already-deleted children's subtrees
+ * CRITICAL: softDelete() method already calls cascadeDelete() internally,
+ *           so we only call cascadeDelete() for already-deleted nodes to traverse subtrees
+ *
+ * Cascade Order:
+ * 1. TaskActivities (which cascade to Comments, Attachments)
+ * 2. TaskComments (which cascade recursively to replies, Attachments)
+ * 3. Attachments (leaf nodes)
+ * 4. Notifications (leaf nodes)
+ *
+ * @param {ObjectId} taskId - Task ID to cascade delete
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 baseTaskSchema.statics.cascadeDelete = async function (
   taskId,
   deletedBy,
@@ -167,16 +185,15 @@ baseTaskSchema.statics.cascadeDelete = async function (
     .session(session);
   for (const activity of activities) {
     if (!activity.isDeleted) {
+      // softDelete() will call TaskActivity.cascadeDelete() internally
       await activity.softDelete(deletedBy, { session });
-      // Cascade delete activity children
-      await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
     } else {
-      // Idempotent traverse
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all comments for this task
+  // Soft delete all comments for this task (direct comments, not via activities)
   const comments = await TaskComment.find({
     parent: taskId,
     parentModel: "BaseTask",
@@ -185,16 +202,15 @@ baseTaskSchema.statics.cascadeDelete = async function (
     .session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
+      // softDelete() will call TaskComment.cascadeDelete() internally
       await comment.softDelete(deletedBy, { session });
-      // Cascade delete comment children
-      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     } else {
-      // Idempotent traverse
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all attachments for this task
+  // Soft delete all attachments for this task (leaf nodes - no cascade needed)
   const attachments = await Attachment.find({
     parent: taskId,
     parentModel: "BaseTask",
@@ -207,7 +223,7 @@ baseTaskSchema.statics.cascadeDelete = async function (
     }
   }
 
-  // Soft delete all notifications for this task
+  // Soft delete all notifications for this task (leaf nodes - no cascade needed)
   const notifications = await Notification.find({
     entity: taskId,
     entityModel: "BaseTask",
@@ -228,6 +244,7 @@ baseTaskSchema.statics.strictParentCheck = async function (
 ) {
   const Organization = mongoose.model("Organization");
   const Department = mongoose.model("Department");
+  const User = mongoose.model("User");
 
   // Check Organization
   const org = await Organization.findById(doc.organization)
@@ -247,6 +264,17 @@ baseTaskSchema.statics.strictParentCheck = async function (
   if (!dept || dept.isDeleted) {
     throw CustomError.validation(
       "Cannot restore task because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check createdBy user
+  const creator = await User.findById(doc.createdBy)
+    .withDeleted()
+    .session(session);
+  if (!creator || creator.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task because its creator is deleted. Restore the user first.",
       "RESTORE_BLOCKED_PARENT_DELETED"
     );
   }
@@ -271,7 +299,6 @@ baseTaskSchema.statics.repairOnRestore = async function (
     doc.watchers = validWatchers.map((u) => u._id);
   }
 };
-
 
 // Apply plugins
 baseTaskSchema.plugin(mongoosePaginate);

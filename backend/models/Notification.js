@@ -5,7 +5,6 @@ import { NOTIFICATION_TYPES, TTL } from "../utils/constants.js";
 import { dateTransform, convertDatesToUTC } from "../utils/helpers.js";
 import CustomError from "../errorHandler/CustomError.js";
 
-
 const notificationSchema = new mongoose.Schema(
   {
     title: {
@@ -77,34 +76,20 @@ notificationSchema.pre("save", function (next) {
 });
 
 // Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * Notifications are NOT restorable (ephemeral policy)
+ * This method blocks all restoration attempts
+ */
 notificationSchema.statics.strictParentCheck = async function (
   doc,
   { session } = {}
 ) {
-  const Organization = mongoose.model("Organization");
-  const User = mongoose.model("User");
-
-  // Check Organization
-  const org = await Organization.findById(doc.organization)
-    .withDeleted()
-    .session(session);
-  if (!org || org.isDeleted) {
-    throw CustomError.validation(
-      "Cannot restore notification because its organization is deleted. Restore the organization first.",
-      "RESTORE_BLOCKED_PARENT_DELETED"
-    );
-  }
-
-  // Check Recipient
-  const recipient = await User.findById(doc.recipient)
-    .withDeleted()
-    .session(session);
-  if (!recipient || recipient.isDeleted) {
-    throw CustomError.validation(
-      "Cannot restore notification because its recipient is deleted. Restore the recipient first.",
-      "RESTORE_BLOCKED_PARENT_DELETED"
-    );
-  }
+  // Notifications are ephemeral and should NOT be restored
+  throw CustomError.validation(
+    "Notifications cannot be restored. They are ephemeral and expire automatically.",
+    "NOTIFICATION_NOT_RESTORABLE"
+  );
 };
 
 // Apply plugins

@@ -141,7 +141,7 @@ export const getOrganization = asyncHandler(async (req, res) => {
     .lean();
 
   if (!organization) {
-      throw CustomError.notFound("Organization", organizationId);
+    throw CustomError.notFound("Organization", organizationId);
   }
 
   // Check access based on scope
@@ -185,7 +185,7 @@ export const updateOrganization = asyncHandler(async (req, res) => {
     );
 
     if (!organization) {
-        throw CustomError.notFound("Organization", organizationId);
+      throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if organization is soft-deleted
@@ -222,14 +222,14 @@ export const updateOrganization = asyncHandler(async (req, res) => {
 
     // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
+    // Fetch populated organization AFTER commit (session ended)
     const populatedOrganization = await Organization.findById(organization._id)
       .populate(
         "createdBy",
         "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
       )
-      .session(session);
+      .lean();
 
     // Emit Socket.IO event
     emitToRooms("organization:updated", populatedOrganization, [
@@ -247,7 +247,6 @@ export const updateOrganization = asyncHandler(async (req, res) => {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     logger.error({
       message: "Update organization failed",
       userId: req.user?._id,
@@ -256,6 +255,8 @@ export const updateOrganization = asyncHandler(async (req, res) => {
       stack: error.stack,
     });
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
@@ -279,7 +280,7 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
     );
 
     if (!organization) {
-        throw CustomError.notFound("Organization", organizationId);
+      throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if already deleted (idempotent per docs/softDelete-doc.md)
@@ -312,7 +313,6 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
 
     // Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
     // Emit Socket.IO event AFTER transaction commit
     emitToRooms("organization:deleted", { _id: organization._id }, [
@@ -325,6 +325,7 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
       organizationId: organization._id,
     });
 
+    // Fetch populated organization AFTER commit
     const deletedOrganization = await Organization.findById(organizationId)
       .populate(
         "createdBy",
@@ -333,12 +334,16 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
       .withDeleted()
       .lean();
 
-    successResponse(res, 200, "Organization deleted successfully", deletedOrganization);
+    successResponse(
+      res,
+      200,
+      "Organization deleted successfully",
+      deletedOrganization
+    );
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     logger.error({
       message: "Delete organization failed",
       userId: req.user?._id,
@@ -347,6 +352,8 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
       stack: error.stack,
     });
     throw error;
+  } finally {
+    session.endSession();
   }
 });
 
@@ -374,7 +381,7 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
       .session(session);
 
     if (!organization) {
-        throw CustomError.notFound("Organization", organizationId);
+      throw CustomError.notFound("Organization", organizationId);
     }
 
     // Check if not deleted
@@ -396,10 +403,17 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
 
     // Commit transaction
     await session.commitTransaction();
-    session.endSession();
+
+    // Fetch populated organization AFTER commit
+    const restoredOrganization = await Organization.findById(organizationId)
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .lean();
 
     // Emit Socket.IO event AFTER transaction commit
-    emitToRooms("organization:restored", organization, [
+    emitToRooms("organization:restored", restoredOrganization, [
       `organization:${organization._id}`,
     ]);
 
@@ -414,13 +428,12 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
       res,
       200,
       "Organization restored successfully. Note: Child resources (departments, users, tasks) must be restored separately.",
-      organization
+      restoredOrganization
     );
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
-    session.endSession();
     logger.error({
       message: "Restore organization failed",
       userId: req.user?._id,
@@ -429,5 +442,7 @@ export const restoreOrganization = asyncHandler(async (req, res) => {
       stack: error.stack,
     });
     throw error;
+  } finally {
+    session.endSession();
   }
 });

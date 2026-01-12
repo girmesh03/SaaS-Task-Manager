@@ -126,6 +126,23 @@ taskCommentSchema.pre("save", async function (next) {
 });
 
 // Cascade delete static method (recursive for child comments)
+/**
+ * Cascade soft delete to all comment children
+ *
+ * CRITICAL: Follows deletion order from docs/softDelete-doc.md
+ * CRITICAL: Idempotent - traverses already-deleted children's subtrees
+ * CRITICAL: softDelete() method already calls cascadeDelete() internally,
+ *           so we only call cascadeDelete() for already-deleted nodes to traverse subtrees
+ *
+ * Cascade Order:
+ * 1. Child comments (recursive)
+ * 2. Attachments (leaf nodes)
+ *
+ * @param {ObjectId} commentId - Comment ID to cascade delete
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 taskCommentSchema.statics.cascadeDelete = async function (
   commentId,
   deletedBy,
@@ -145,16 +162,15 @@ taskCommentSchema.statics.cascadeDelete = async function (
 
   for (const childComment of childComments) {
     if (!childComment.isDeleted) {
+      // softDelete() will call TaskComment.cascadeDelete() internally
       await childComment.softDelete(deletedBy, { session });
-      // Recursively cascade delete child comment's children
-      await TaskComment.cascadeDelete(childComment._id, deletedBy, { session });
     } else {
-      // Idempotent traverse
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await TaskComment.cascadeDelete(childComment._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all attachments for this comment
+  // Soft delete all attachments for this comment (leaf nodes - no cascade needed)
   const attachments = await Attachment.find({
     parent: commentId,
     parentModel: "TaskComment",
@@ -170,20 +186,134 @@ taskCommentSchema.statics.cascadeDelete = async function (
 };
 
 // Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * TaskComment must check entire parent chain up to root task/activity:
+ * - Organization
+ * - Department
+ * - Entire parent chain (comment → parent comment → ... → task/activity)
+ * - createdBy user
+ * - No cycles in parent chain
+ */
 taskCommentSchema.statics.strictParentCheck = async function (
   doc,
   { session } = {}
 ) {
-  const ParentModel = mongoose.model(doc.parentModel);
-  const parent = await ParentModel.findById(doc.parent)
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+  const User = mongoose.model("User");
+  const TaskComment = mongoose.model("TaskComment");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
     .withDeleted()
     .session(session);
-
-  if (!parent || parent.isDeleted) {
+  if (!org || org.isDeleted) {
     throw CustomError.validation(
-      `Cannot restore comment because its parent ${doc.parentModel} is deleted. Restore the parent first.`,
+      "Cannot restore comment because its organization is deleted. Restore the organization first.",
       "RESTORE_BLOCKED_PARENT_DELETED"
     );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore comment because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check createdBy user
+  const creator = await User.findById(doc.createdBy)
+    .withDeleted()
+    .session(session);
+  if (!creator || creator.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore comment because its creator is deleted. Restore the user first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Traverse entire parent chain to root (task or activity)
+  // Also check for cycles
+  const visitedIds = new Set();
+  let currentParentId = doc.parent;
+  let currentParentModel = doc.parentModel;
+  let depth = 0;
+  const MAX_DEPTH = 10; // Safety limit to prevent infinite loops
+
+  while (depth < MAX_DEPTH) {
+    // Check for cycles
+    const parentKey = `${currentParentModel}:${currentParentId}`;
+    if (visitedIds.has(parentKey)) {
+      throw CustomError.validation(
+        "Cannot restore comment: Cycle detected in parent chain.",
+        "COMMENT_PARENT_CHAIN_INVALID"
+      );
+    }
+    visitedIds.add(parentKey);
+
+    const ParentModel = mongoose.model(currentParentModel);
+    const parent = await ParentModel.findById(currentParentId)
+      .withDeleted()
+      .session(session);
+
+    if (!parent) {
+      throw CustomError.validation(
+        `Cannot restore comment because its parent ${currentParentModel} no longer exists.`,
+        "RESTORE_BLOCKED_PARENT_DELETED"
+      );
+    }
+
+    if (parent.isDeleted) {
+      throw CustomError.validation(
+        `Cannot restore comment because its parent ${currentParentModel} is deleted. Restore the parent first.`,
+        "RESTORE_BLOCKED_PARENT_DELETED"
+      );
+    }
+
+    // If parent is a comment, continue traversing up
+    if (currentParentModel === "TaskComment") {
+      currentParentId = parent.parent;
+      currentParentModel = parent.parentModel;
+      depth++;
+    } else {
+      // Reached root (BaseTask or TaskActivity)
+      break;
+    }
+  }
+
+  if (depth >= MAX_DEPTH) {
+    throw CustomError.validation(
+      "Cannot restore comment: Parent chain exceeds maximum depth.",
+      "COMMENT_PARENT_CHAIN_INVALID"
+    );
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * Prune deleted users from mentions array
+ */
+taskCommentSchema.statics.repairOnRestore = async function (
+  doc,
+  { session } = {}
+) {
+  if (doc.mentions && doc.mentions.length > 0) {
+    const User = mongoose.model("User");
+    const validUsers = await User.find({
+      _id: { $in: doc.mentions },
+      isDeleted: false,
+    })
+      .session(session)
+      .select("_id")
+      .lean();
+
+    doc.mentions = validUsers.map((u) => u._id);
   }
 };
 

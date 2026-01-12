@@ -1,12 +1,6 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
-import {
-  TaskActivity,
-  BaseTask,
-  Material,
-  Organization,
-  Department,
-} from "../models/index.js";
+import { TaskActivity, BaseTask } from "../models/index.js";
 import CustomError from "../errorHandler/CustomError.js";
 import { emitToRooms } from "../utils/socketEmitter.js";
 import { PAGINATION } from "../utils/constants.js";
@@ -41,7 +35,7 @@ export const getTaskActivities = asyncHandler(async (req, res) => {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
     taskId,
-    deleted = "false",
+    deleted,
   } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };

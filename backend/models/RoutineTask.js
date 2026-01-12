@@ -114,6 +114,16 @@ const RoutineTask = BaseTask.discriminator(
   routineTaskSchema
 );
 
+// Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * RoutineTask must call BaseTask.strictParentCheck
+ */
+RoutineTask.strictParentCheck = async function (doc, { session } = {}) {
+  // Check BaseTask parents (Organization, Department)
+  await BaseTask.strictParentCheck(doc, { session });
+};
+
 // Strict Restore Mode: Validate Critical Dependencies
 RoutineTask.validateCriticalDependencies = async function (
   doc,

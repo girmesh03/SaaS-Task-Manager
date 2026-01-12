@@ -125,7 +125,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: false,
       trim: true,
-      match: [/^(?!0000)\d{4}$/, "Employee ID must be a 4-digit number between 0001-9999"],
+      match: [
+        /^(?!0000)\d{4}$/,
+        "Employee ID must be a 4-digit number between 0001-9999",
+      ],
     },
     dateOfBirth: {
       type: Date,
@@ -306,6 +309,29 @@ userSchema.statics.findByResetToken = async function (token, { session } = {}) {
 };
 
 // Cascade delete static method
+/**
+ * Handle user deletion - PRUNE WEAK REFERENCES ONLY
+ *
+ * CRITICAL: Per docs/softDelete-doc.md and validate-correct.md:
+ * "User deletion does NOT cascade delete any owned resources (tasks, activities, comments, attachments)"
+ *
+ * This method ONLY:
+ * 1. Removes user from task watchers arrays
+ * 2. Removes user from AssignedTask assignees arrays
+ * 3. Removes user from TaskComment mentions arrays
+ * 4. Soft deletes notifications for this user (ephemeral)
+ *
+ * It does NOT soft delete:
+ * - Tasks created by this user (owned by department)
+ * - Activities created by this user (owned by department)
+ * - Comments created by this user (owned by department)
+ * - Attachments uploaded by this user (owned by department)
+ *
+ * @param {ObjectId} userId - User ID being deleted
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 userSchema.statics.cascadeDelete = async function (
   userId,
   deletedBy,
@@ -313,67 +339,34 @@ userSchema.statics.cascadeDelete = async function (
 ) {
   // Get all models directly from mongoose
   const BaseTask = mongoose.model("BaseTask");
-  const TaskActivity = mongoose.model("TaskActivity");
+  const AssignedTask = mongoose.model("AssignedTask");
   const TaskComment = mongoose.model("TaskComment");
-  const Attachment = mongoose.model("Attachment");
   const Notification = mongoose.model("Notification");
 
-  // Soft delete all tasks created by this user
-  const tasks = await BaseTask.find({ createdBy: userId })
-    .withDeleted()
-    .session(session);
-  for (const task of tasks) {
-    if (!task.isDeleted) {
-      await task.softDelete(deletedBy, { session });
-      // Cascade delete task children
-      await BaseTask.cascadeDelete(task._id, deletedBy, { session });
-    } else {
-      // Idempotent traverse
-      await BaseTask.cascadeDelete(task._id, deletedBy, { session });
-    }
-  }
+  // PRUNE WEAK REFERENCES ONLY - Do NOT cascade delete owned resources
 
-  // Soft delete all activities created by this user
-  const activities = await TaskActivity.find({ createdBy: userId })
-    .withDeleted()
-    .session(session);
-  for (const activity of activities) {
-    if (!activity.isDeleted) {
-      await activity.softDelete(deletedBy, { session });
-      // Cascade delete activity children
-      await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
-    } else {
-      // Idempotent traverse
-      await TaskActivity.cascadeDelete(activity._id, deletedBy, { session });
-    }
-  }
+  // Remove user from task watchers
+  await BaseTask.updateMany(
+    { watchers: userId },
+    { $pull: { watchers: userId } },
+    { session }
+  );
 
-  // Soft delete all comments created by this user
-  const comments = await TaskComment.find({ createdBy: userId })
-    .withDeleted()
-    .session(session);
-  for (const comment of comments) {
-    if (!comment.isDeleted) {
-      await comment.softDelete(deletedBy, { session });
-      // Cascade delete comment children
-      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
-    } else {
-      // Idempotent traverse
-      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
-    }
-  }
+  // Remove user from AssignedTask assignees
+  await AssignedTask.updateMany(
+    { assignees: userId },
+    { $pull: { assignees: userId } },
+    { session }
+  );
 
-  // Soft delete all attachments uploaded by this user
-  const attachments = await Attachment.find({ uploadedBy: userId })
-    .withDeleted()
-    .session(session);
-  for (const attachment of attachments) {
-    if (!attachment.isDeleted) {
-      await attachment.softDelete(deletedBy, { session });
-    }
-  }
+  // Remove user from TaskComment mentions
+  await TaskComment.updateMany(
+    { mentions: userId },
+    { $pull: { mentions: userId } },
+    { session }
+  );
 
-  // Soft delete all notifications created by this user
+  // Soft delete notifications for this user (ephemeral - not restorable)
   const notifications = await Notification.find({
     recipient: userId,
   })
@@ -384,27 +377,6 @@ userSchema.statics.cascadeDelete = async function (
       await notification.softDelete(deletedBy, { session });
     }
   }
-
-  // Remove user from task watchers, assignees, and comment mentions
-  await BaseTask.updateMany(
-    { watchers: userId },
-    { $pull: { watchers: userId } },
-    { session }
-  );
-
-  // Handle AssignedTask assignees (can be single or array)
-  const AssignedTask = mongoose.model("AssignedTask");
-  await AssignedTask.updateMany(
-    { assignees: userId },
-    { $pull: { assignees: userId } },
-    { session }
-  );
-
-  await TaskComment.updateMany(
-    { mentions: userId },
-    { $pull: { mentions: userId } },
-    { session }
-  );
 };
 
 // Strict Restore Mode: Check parent integrity

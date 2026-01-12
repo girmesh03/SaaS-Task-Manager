@@ -92,6 +92,16 @@ const AssignedTask = BaseTask.discriminator(
   assignedTaskSchema
 );
 
+// Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * AssignedTask must call BaseTask.strictParentCheck
+ */
+AssignedTask.strictParentCheck = async function (doc, { session } = {}) {
+  // Check BaseTask parents (Organization, Department)
+  await BaseTask.strictParentCheck(doc, { session });
+};
+
 // Strict Restore Mode: Validate Critical Dependencies
 AssignedTask.validateCriticalDependencies = async function (
   doc,

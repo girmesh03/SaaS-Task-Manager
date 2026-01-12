@@ -134,6 +134,23 @@ taskActivitySchema.pre("save", async function (next) {
 });
 
 // Cascade delete static method
+/**
+ * Cascade soft delete to all activity children
+ *
+ * CRITICAL: Follows deletion order from docs/softDelete-doc.md
+ * CRITICAL: Idempotent - traverses already-deleted children's subtrees
+ * CRITICAL: softDelete() method already calls cascadeDelete() internally,
+ *           so we only call cascadeDelete() for already-deleted nodes to traverse subtrees
+ *
+ * Cascade Order:
+ * 1. TaskComments (which cascade recursively to replies, Attachments)
+ * 2. Attachments (leaf nodes)
+ *
+ * @param {ObjectId} activityId - Activity ID to cascade delete
+ * @param {ObjectId} deletedBy - User ID performing the deletion
+ * @param {Object} options - Options object
+ * @param {ClientSession} options.session - MongoDB transaction session
+ */
 taskActivitySchema.statics.cascadeDelete = async function (
   activityId,
   deletedBy,
@@ -152,16 +169,15 @@ taskActivitySchema.statics.cascadeDelete = async function (
     .session(session);
   for (const comment of comments) {
     if (!comment.isDeleted) {
+      // softDelete() will call TaskComment.cascadeDelete() internally
       await comment.softDelete(deletedBy, { session });
-      // Cascade delete comment children
-      await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     } else {
-      // Idempotent traverse
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await TaskComment.cascadeDelete(comment._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all attachments for this activity
+  // Soft delete all attachments for this activity (leaf nodes - no cascade needed)
   const attachments = await Attachment.find({
     parent: activityId,
     parentModel: "TaskActivity",
@@ -176,19 +192,126 @@ taskActivitySchema.statics.cascadeDelete = async function (
 };
 
 // Strict Restore Mode: Check parent integrity
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * TaskActivity must check entire parent chain:
+ * - Parent task (ProjectTask or AssignedTask)
+ * - Organization
+ * - Department
+ * - createdBy user
+ */
 taskActivitySchema.statics.strictParentCheck = async function (
   doc,
   { session } = {}
 ) {
+  const Organization = mongoose.model("Organization");
+  const Department = mongoose.model("Department");
+  const User = mongoose.model("User");
   const BaseTask = mongoose.model("BaseTask");
+
+  // Check Organization
+  const org = await Organization.findById(doc.organization)
+    .withDeleted()
+    .session(session);
+  if (!org || org.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task activity because its organization is deleted. Restore the organization first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Department
+  const dept = await Department.findById(doc.department)
+    .withDeleted()
+    .session(session);
+  if (!dept || dept.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task activity because its department is deleted. Restore the department first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check Parent Task
   const parent = await BaseTask.findById(doc.parent)
     .withDeleted()
     .session(session);
-
   if (!parent || parent.isDeleted) {
     throw CustomError.validation(
       "Cannot restore task activity because its parent task is deleted. Restore the task first.",
       "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+
+  // Check createdBy user
+  const creator = await User.findById(doc.createdBy)
+    .withDeleted()
+    .session(session);
+  if (!creator || creator.isDeleted) {
+    throw CustomError.validation(
+      "Cannot restore task activity because its creator is deleted. Restore the user first.",
+      "RESTORE_BLOCKED_PARENT_DELETED"
+    );
+  }
+};
+
+// Strict Restore Mode: Validate Critical Dependencies
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * All materials in the activity must exist and not be deleted
+ */
+taskActivitySchema.statics.validateCriticalDependencies = async function (
+  doc,
+  { session } = {}
+) {
+  if (doc.materials && doc.materials.length > 0) {
+    const Material = mongoose.model("Material");
+    const materialIds = doc.materials.map((m) => m.material);
+    const materials = await Material.find({ _id: { $in: materialIds } })
+      .withDeleted()
+      .session(session);
+
+    for (const material of materials) {
+      if (material.isDeleted) {
+        throw CustomError.validation(
+          `Cannot restore task activity: Material "${material.name}" is deleted. Restore the material first.`,
+          "RESTORE_BLOCKED_DEPENDENCY_DELETED"
+        );
+      }
+    }
+
+    // Check if any materials are missing
+    if (materials.length !== materialIds.length) {
+      throw CustomError.validation(
+        "Cannot restore task activity: One or more materials no longer exist.",
+        "RESTORE_BLOCKED_DEPENDENCY_DELETED"
+      );
+    }
+  }
+};
+
+// Strict Restore Mode: Non-blocking Repairs
+/**
+ * CRITICAL: Per docs/validate-correct.md
+ * Prune deleted materials from materials array
+ */
+taskActivitySchema.statics.repairOnRestore = async function (
+  doc,
+  { session } = {}
+) {
+  if (doc.materials && doc.materials.length > 0) {
+    const Material = mongoose.model("Material");
+    const materialIds = doc.materials.map((m) => m.material);
+    const validMaterials = await Material.find({
+      _id: { $in: materialIds },
+      isDeleted: false,
+    })
+      .session(session)
+      .select("_id")
+      .lean();
+
+    const validMaterialIds = validMaterials.map((m) => m._id.toString());
+    doc.materials = doc.materials.filter((m) =>
+      validMaterialIds.includes(m.material.toString())
     );
   }
 };

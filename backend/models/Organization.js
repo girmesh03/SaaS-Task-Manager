@@ -152,16 +152,19 @@ organizationSchema.pre("save", function (next) {
  * Cascade soft delete to all organization children
  *
  * CRITICAL: Follows deletion order from docs/softDelete-doc.md
- * CRITICAL: Idempotent - checks isDeleted before calling softDelete
+ * CRITICAL: Idempotent - traverses already-deleted children's subtrees
  * CRITICAL: Uses organization scoping for all queries
  * CRITICAL: Executes within transaction session
+ * CRITICAL: softDelete() method already calls cascadeDelete() internally,
+ *           so we only call cascadeDelete() for already-deleted nodes to traverse subtrees
  *
  * Cascade Order:
  * 1. Departments (which cascade to Users, Tasks, Materials)
- * 2. Users (which cascade to created Tasks, Activities, Comments, Attachments)
- * 3. Vendors (leaf nodes)
- * 4. Materials (leaf nodes)
- * 5. Notifications (leaf nodes)
+ * 2. Vendors (leaf nodes)
+ * 3. Materials (leaf nodes)
+ * 4. Notifications (leaf nodes)
+ *
+ * Note: Users are cascaded via Department, not directly from Organization
  *
  * @param {ObjectId} organizationId - Organization ID to cascade delete
  * @param {ObjectId} deletedBy - User ID performing the deletion
@@ -175,7 +178,6 @@ organizationSchema.statics.cascadeDelete = async function (
 ) {
   // Get all models directly from mongoose
   const Department = mongoose.model("Department");
-  const User = mongoose.model("User");
   const Vendor = mongoose.model("Vendor");
   const Material = mongoose.model("Material");
   const Notification = mongoose.model("Notification");
@@ -183,7 +185,8 @@ organizationSchema.statics.cascadeDelete = async function (
   // CRITICAL: Use withDeleted() to enumerate ALL children (including already deleted)
   // This ensures idempotent cascade and proper handling of partially deleted hierarchies
 
-  // Soft delete all departments
+  // Soft delete all departments (softDelete internally calls cascadeDelete)
+  // For already-deleted departments, traverse their subtrees for idempotency
   const departments = await Department.find({
     organization: organizationId,
   })
@@ -191,25 +194,15 @@ organizationSchema.statics.cascadeDelete = async function (
     .session(session);
   for (const dept of departments) {
     if (!dept.isDeleted) {
+      // softDelete() will call Department.cascadeDelete() internally
       await dept.softDelete(deletedBy, { session });
-      // Cascade delete department children
+    } else {
+      // Idempotent traverse: still cascade to subtree for already-deleted nodes
       await Department.cascadeDelete(dept._id, deletedBy, { session });
     }
   }
 
-  // Soft delete all users
-  const users = await User.find({ organization: organizationId })
-    .withDeleted()
-    .session(session);
-  for (const user of users) {
-    if (!user.isDeleted) {
-      await user.softDelete(deletedBy, { session });
-      // Cascade delete user children
-      await User.cascadeDelete(user._id, deletedBy, { session });
-    }
-  }
-
-  // Soft delete all vendors
+  // Soft delete all vendors (leaf nodes - no cascade needed)
   const vendors = await Vendor.find({ organization: organizationId })
     .withDeleted()
     .session(session);
@@ -219,7 +212,7 @@ organizationSchema.statics.cascadeDelete = async function (
     }
   }
 
-  // Soft delete all materials
+  // Soft delete all materials (leaf nodes - no cascade needed)
   const materials = await Material.find({
     organization: organizationId,
   })
@@ -231,7 +224,7 @@ organizationSchema.statics.cascadeDelete = async function (
     }
   }
 
-  // Soft delete all notifications
+  // Soft delete all notifications (leaf nodes - no cascade needed)
   const notifications = await Notification.find({
     organization: organizationId,
   })
@@ -242,8 +235,6 @@ organizationSchema.statics.cascadeDelete = async function (
       await notification.softDelete(deletedBy, { session });
     }
   }
-
-  // Note: Tasks are handled via Department cascade
 };
 
 // Apply plugins

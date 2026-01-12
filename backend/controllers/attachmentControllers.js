@@ -36,7 +36,7 @@ const resolveTaskId = async (parentId, parentModel, session) => {
     return activity ? activity.parent : null;
   }
   if (parentModel === "TaskComment") {
-    const comment = await TaskComment.findById(parent)
+    const comment = await TaskComment.findById(parentId)
       .session(session)
       .select("parent parentModel");
     if (!comment) return null;
@@ -185,7 +185,11 @@ export const createAttachment = asyncHandler(async (req, res) => {
       )
       .lean();
 
-    createdResponse(res, "Attachment created successfully", populatedAttachment);
+    createdResponse(
+      res,
+      "Attachment created successfully",
+      populatedAttachment
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Create Attachment Error:", error);
@@ -210,7 +214,8 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
     }
 
     if (
-      attachment.organization.toString() !== req.user.organization._id.toString()
+      attachment.organization.toString() !==
+      req.user.organization._id.toString()
     ) {
       throw CustomError.authorization(
         "You are not authorized to delete this attachment"
@@ -257,9 +262,16 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
       rooms
     );
 
-    const deletedAttachment = await Attachment.findById(attachmentId).withDeleted().lean();
+    const deletedAttachment = await Attachment.findById(attachmentId)
+      .withDeleted()
+      .lean();
 
-    successResponse(res, 200, "Attachment deleted successfully", deletedAttachment);
+    successResponse(
+      res,
+      200,
+      "Attachment deleted successfully",
+      deletedAttachment
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Delete Attachment Error:", error);
@@ -284,7 +296,8 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
     }
 
     if (
-      attachment.organization.toString() !== req.user.organization._id.toString()
+      attachment.organization.toString() !==
+      req.user.organization._id.toString()
     ) {
       throw CustomError.authorization(
         "You are not authorized to restore this attachment"
@@ -331,7 +344,12 @@ export const restoreAttachment = asyncHandler(async (req, res) => {
       )
       .lean();
 
-    successResponse(res, 200, "Attachment restored successfully", populatedAttachment);
+    successResponse(
+      res,
+      200,
+      "Attachment restored successfully",
+      populatedAttachment
+    );
   } catch (error) {
     await session.abortTransaction();
     logger.error("Restore Attachment Error:", error);

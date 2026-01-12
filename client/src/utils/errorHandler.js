@@ -143,7 +143,7 @@ export const handleApiError = (error) => {
         "A conflict occurred. The resource may already exist.";
 
       // Extract field-specific conflict errors (e.g., duplicate email)
-      if (errorData?.errors && Array.y(errorData.errors)) {
+      if (errorData?.errors && Array.isArray(errorData.errors)) {
         errorData.errors.forEach((err) => {
           if (err.field && err.message) {
             errorResponse.fieldErrors[err.field] = err.message;
@@ -185,7 +185,7 @@ export const handleApiError = (error) => {
       // Unknown error
       errorResponse.message = errorData?.message || errorResponse.message;
 
-      // Try to extract field erroror unknown status codes
+      // Try to extract field errors for unknown status codes
       if (errorData?.errors && Array.isArray(errorData.errors)) {
         errorData.errors.forEach((err) => {
           if (err.field && err.message) {
