@@ -146,7 +146,7 @@ const RoutineTaskForm = ({
     reset,
     setValue,
     getValues,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm({
     defaultValues: DEFAULT_VALUES,
     mode: "onBlur",
@@ -393,7 +393,7 @@ const RoutineTaskForm = ({
           type="button"
           form="routine-task-form"
           onClick={handleSubmit(onSubmit)}
-          disabled={isSubmitting || (!isDirty && isEditMode)}
+          disabled={isSubmitting}
           variant="contained"
           startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
           size="small"
@@ -408,7 +408,7 @@ const RoutineTaskForm = ({
         </Button>
       </>
     ),
-    [handleClose, handleSubmit, onSubmit, isSubmitting, isDirty, isEditMode]
+    [handleClose, handleSubmit, onSubmit, isSubmitting, isEditMode]
   );
 
   return (

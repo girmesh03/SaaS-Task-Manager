@@ -126,7 +126,7 @@ const TaskActivityForm = ({
     reset,
     setValue,
     getValues,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm({
     defaultValues: DEFAULT_VALUES,
     mode: "onBlur",
@@ -365,7 +365,7 @@ const TaskActivityForm = ({
           type="button"
           form="task-activity-form"
           onClick={handleSubmit(onSubmit)}
-          disabled={isSubmitting || (!isDirty && isEditMode) || validationError}
+          disabled={isSubmitting || !!validationError}
           variant="contained"
           startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
           size="small"
@@ -385,7 +385,6 @@ const TaskActivityForm = ({
       handleSubmit,
       onSubmit,
       isSubmitting,
-      isDirty,
       isEditMode,
       validationError,
     ]
@@ -548,16 +547,16 @@ const TaskActivityForm = ({
                           rules={{
                             required: "Quantity is required",
                             min: {
-                              value: 0,
-                              message: "Quantity cannot be negative",
+                              value: 1,
+                              message: "Quantity must be >= 1",
                             },
                           }}
                           render={({ field }) => (
                             <MuiNumberField
                               {...field}
                               label="Quantity"
-                              placeholder="0"
-                              min={0}
+                              placeholder="1"
+                              min={1}
                               required
                               disabled={!!validationError}
                               error={errors.materials?.[index]?.quantity}
