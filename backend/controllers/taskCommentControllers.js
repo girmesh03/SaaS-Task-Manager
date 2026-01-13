@@ -47,11 +47,47 @@ export const getTaskComments = asyncHandler(async (req, res) => {
     page = PAGINATION.DEFAULT_PAGE,
     limit = PAGINATION.DEFAULT_LIMIT,
     parentId,
+    taskId,
     deleted = "false",
   } = req.validated.query;
 
   const filter = { organization: req.user.organization._id };
-  if (parentId) filter.parent = parentId;
+
+  // If taskId is provided, fetch all comments for the task (including nested)
+  // This requires finding all comments that belong to this task's comment tree
+  if (taskId) {
+    // Get all root comments for the task
+    const rootCommentIds = await TaskComment.find({
+      parent: taskId,
+      parentModel: "BaseTask",
+      organization: req.user.organization._id,
+    }).distinct("_id");
+
+    // Get all nested comments (replies to comments)
+    const getAllNestedCommentIds = async (parentIds, allIds = []) => {
+      if (parentIds.length === 0) return allIds;
+
+      const childComments = await TaskComment.find({
+        parent: { $in: parentIds },
+        parentModel: "TaskComment",
+        organization: req.user.organization._id,
+      }).distinct("_id");
+
+      if (childComments.length === 0) return allIds;
+
+      return getAllNestedCommentIds(childComments, [
+        ...allIds,
+        ...childComments,
+      ]);
+    };
+
+    const nestedCommentIds = await getAllNestedCommentIds(rootCommentIds);
+    const allCommentIds = [...rootCommentIds, ...nestedCommentIds];
+
+    filter._id = { $in: allCommentIds };
+  } else if (parentId) {
+    filter.parent = parentId;
+  }
 
   let query = TaskComment.find(filter);
 
@@ -465,4 +501,169 @@ export const restoreTaskComment = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+});
+
+/**
+ * Toggle like on a comment
+ *
+ * POST /api/comments/:commentId/like
+ *
+ * Toggles like status for the current user on a comment.
+ * If user has already liked, it unlikes. If not liked, it likes.
+ *
+ * Edge cases handled:
+ * - Comment not found
+ * - Comment belongs to different organization
+ * - Comment is deleted (cannot like deleted comments)
+ * - User already liked (toggle to unlike)
+ * - Concurrent like requests (atomic operation)
+ */
+export const toggleLikeComment = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { commentId } = req.validated.params;
+    const userId = req.user._id;
+
+    // Find comment with session for transaction
+    const comment = await TaskComment.findById(commentId).session(session);
+
+    if (!comment) {
+      throw CustomError.notFound("Comment", commentId);
+    }
+
+    // Check organization access
+    if (
+      comment.organization.toString() !== req.user.organization._id.toString()
+    ) {
+      throw CustomError.authorization(
+        "You are not authorized to like this comment"
+      );
+    }
+
+    // Cannot like deleted comments
+    if (comment.isDeleted) {
+      throw CustomError.validation("Cannot like a deleted comment");
+    }
+
+    // Check if user already liked
+    const userIdStr = userId.toString();
+    const alreadyLiked = comment.likes.some(
+      (likeId) => likeId.toString() === userIdStr
+    );
+
+    let action;
+    if (alreadyLiked) {
+      // Unlike: Remove user from likes array (atomic pull)
+      await TaskComment.findByIdAndUpdate(
+        commentId,
+        { $pull: { likes: userId } },
+        { session }
+      );
+      action = "unliked";
+    } else {
+      // Like: Add user to likes array (atomic addToSet to prevent duplicates)
+      await TaskComment.findByIdAndUpdate(
+        commentId,
+        { $addToSet: { likes: userId } },
+        { session }
+      );
+      action = "liked";
+    }
+
+    await session.commitTransaction();
+
+    // Fetch updated comment with like count
+    const updatedComment = await TaskComment.findById(commentId)
+      .populate(
+        "createdBy",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate(
+        "mentions",
+        "_id fullName firstName lastName position role email profilePicture isPlatformUser isHod lastLogin isDeleted"
+      )
+      .populate("likes", "_id fullName firstName lastName profilePicture")
+      .lean({ virtuals: true });
+
+    // Emit socket event for real-time updates
+    const taskId = await resolveTaskId(
+      comment.parent,
+      comment.parentModel,
+      null // No session needed for read
+    );
+
+    const rooms = [
+      `organization:${comment.organization}`,
+      `department:${comment.department}`,
+    ];
+    if (taskId) rooms.push(`task:${taskId}`);
+
+    emitToRooms(
+      "task_comment:liked",
+      {
+        commentId: comment._id,
+        taskId: taskId,
+        userId: userId,
+        action: action,
+        likeCount: updatedComment.likeCount,
+      },
+      rooms
+    );
+
+    okResponse(
+      res,
+      action === "liked"
+        ? "Comment liked successfully"
+        : "Comment unliked successfully",
+      {
+        ...updatedComment,
+        isLikedByMe: action === "liked",
+      }
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error("Toggle Like Comment Error:", error);
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
+
+/**
+ * Get users who liked a comment
+ *
+ * GET /api/comments/:commentId/likes
+ *
+ * Returns list of users who liked the comment.
+ * Useful for showing "liked by" tooltip/modal.
+ */
+export const getCommentLikes = asyncHandler(async (req, res) => {
+  const { commentId } = req.validated.params;
+
+  const comment = await TaskComment.findById(commentId)
+    .populate(
+      "likes",
+      "_id fullName firstName lastName profilePicture role position"
+    )
+    .lean();
+
+  if (!comment) {
+    throw CustomError.notFound("Comment", commentId);
+  }
+
+  // Check organization access
+  if (
+    comment.organization.toString() !== req.user.organization._id.toString()
+  ) {
+    throw CustomError.authorization(
+      "You are not authorized to view this comment"
+    );
+  }
+
+  okResponse(res, "Comment likes retrieved successfully", {
+    likes: comment.likes || [],
+    likeCount: comment.likes?.length || 0,
+  });
 });

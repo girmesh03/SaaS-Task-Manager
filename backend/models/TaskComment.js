@@ -44,6 +44,15 @@ const taskCommentSchema = new mongoose.Schema(
       },
       default: [],
     },
+    likes: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -63,13 +72,20 @@ const taskCommentSchema = new mongoose.Schema(
   {
     timestamps: true,
     toJSON: {
+      virtuals: true,
       transform: dateTransform,
     },
     toObject: {
+      virtuals: true,
       transform: dateTransform,
     },
   }
 );
+
+// Virtual for like count
+taskCommentSchema.virtual("likeCount").get(function () {
+  return this.likes?.length || 0;
+});
 
 // Indexes
 taskCommentSchema.index({ parent: 1, createdAt: -1 });

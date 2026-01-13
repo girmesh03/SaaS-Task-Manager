@@ -4,47 +4,94 @@ import { LIMITS } from "../../utils/constants.js";
 import mongoose from "mongoose";
 
 export const createTaskCommentValidator = [
-  body("comment").trim().notEmpty().withMessage("Comment is required")
-    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
+  body("comment")
+    .trim()
+    .notEmpty()
+    .withMessage("Comment is required")
+    .isLength({ max: LIMITS.COMMENT_MAX })
+    .withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
     .escape(),
 
-  body("parentId").trim().notEmpty().withMessage("Parent ID is required")
-    .custom((value) => mongoose.Types.ObjectId.isValid(value) || (() => { throw new Error("Invalid parent ID"); })()),
+  body("parentId")
+    .trim()
+    .notEmpty()
+    .withMessage("Parent ID is required")
+    .custom(
+      (value) =>
+        mongoose.Types.ObjectId.isValid(value) ||
+        (() => {
+          throw new Error("Invalid parent ID");
+        })()
+    ),
 
-  body("parentModel").trim().notEmpty().withMessage("Parent model is required")
-    .isIn(["BaseTask", "TaskActivity", "TaskComment"]).withMessage("Parent model must be BaseTask, TaskActivity, or TaskComment")
+  body("parentModel")
+    .trim()
+    .notEmpty()
+    .withMessage("Parent model is required")
+    .isIn(["BaseTask", "TaskActivity", "TaskComment"])
+    .withMessage("Parent model must be BaseTask, TaskActivity, or TaskComment")
     .custom(async (value, { req }) => {
       const parentId = req.body.parentId;
       if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) return true; // Handled by parent check
 
       let ParentModel;
       if (value === "BaseTask") ParentModel = mongoose.model("BaseTask");
-      else if (value === "TaskActivity") ParentModel = mongoose.model("TaskActivity");
-      else if (value === "TaskComment") ParentModel = mongoose.model("TaskComment");
+      else if (value === "TaskActivity")
+        ParentModel = mongoose.model("TaskActivity");
+      else if (value === "TaskComment")
+        ParentModel = mongoose.model("TaskComment");
 
       if (!ParentModel) throw new Error("Invalid parent model configuration");
 
       const parent = await ParentModel.findById(parentId).lean();
       if (!parent) throw new Error(`${value} not found`);
       if (parent.isDeleted) throw new Error(`${value} is deleted`);
-      if (parent.organization.toString() !== req.user.organization._id.toString()) {
+      if (
+        parent.organization.toString() !== req.user.organization._id.toString()
+      ) {
         throw new Error(`${value} belongs to another organization`);
       }
       return true;
     }),
 
-  body("mentionIds").optional().isArray().withMessage("Mentions must be an array")
-    .custom((value) => value.length <= LIMITS.MAX_MENTIONS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`); })())
-    .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid user ID in mentions"); })())
+  body("mentionIds")
+    .optional()
+    .isArray()
+    .withMessage("Mentions must be an array")
+    .custom(
+      (value) =>
+        value.length <= LIMITS.MAX_MENTIONS ||
+        (() => {
+          throw new Error(
+            `Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`
+          );
+        })()
+    )
+    .custom(
+      (value) =>
+        value.every((id) => mongoose.Types.ObjectId.isValid(id)) ||
+        (() => {
+          throw new Error("Invalid user ID in mentions");
+        })()
+    )
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       const { default: User } = await import("../../models/User.js");
       const users = await User.find({ _id: { $in: value } }).lean();
 
-      if (users.length !== value.length) throw new Error("One or more mentioned users not found");
-      if (users.some(u => u.isDeleted)) throw new Error("One or more mentioned users are deleted");
-      if (users.some(u => u.organization.toString() !== req.user.organization._id.toString())) {
-        throw new Error("All mentioned users must belong to the same organization");
+      if (users.length !== value.length)
+        throw new Error("One or more mentioned users not found");
+      if (users.some((u) => u.isDeleted))
+        throw new Error("One or more mentioned users are deleted");
+      if (
+        users.some(
+          (u) =>
+            u.organization.toString() !== req.user.organization._id.toString()
+        )
+      ) {
+        throw new Error(
+          "All mentioned users must belong to the same organization"
+        );
       }
       return true;
     }),
@@ -53,26 +100,53 @@ export const createTaskCommentValidator = [
 ];
 
 export const updateTaskCommentValidator = [
-  body("comment").optional().trim().notEmpty().withMessage("Comment cannot be empty")
-    .isLength({ max: LIMITS.COMMENT_MAX }).withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
+  body("comment")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Comment cannot be empty")
+    .isLength({ max: LIMITS.COMMENT_MAX })
+    .withMessage(`Comment cannot exceed ${LIMITS.COMMENT_MAX} characters`)
     .escape(),
 
-  body("mentionIds").optional().isArray().withMessage("Mentions must be an array")
-    .custom((value) => value.length <= LIMITS.MAX_MENTIONS || (() => { throw new Error(`Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`); })())
-    .custom((value) => value.every(id => mongoose.Types.ObjectId.isValid(id)) || (() => { throw new Error("Invalid user ID in mentions"); })())
+  body("mentionIds")
+    .optional()
+    .isArray()
+    .withMessage("Mentions must be an array")
+    .custom(
+      (value) =>
+        value.length <= LIMITS.MAX_MENTIONS ||
+        (() => {
+          throw new Error(
+            `Cannot have more than ${LIMITS.MAX_MENTIONS} mentions`
+          );
+        })()
+    )
+    .custom(
+      (value) =>
+        value.every((id) => mongoose.Types.ObjectId.isValid(id)) ||
+        (() => {
+          throw new Error("Invalid user ID in mentions");
+        })()
+    )
     .custom(async (value, { req }) => {
       if (!value || value.length === 0) return true;
       const { default: User } = await import("../../models/User.js");
       const organizationId = req.user.organization._id;
       const users = await User.find({
         _id: { $in: value },
-        organization: organizationId
-      }).withDeleted().lean();
+        organization: organizationId,
+      })
+        .withDeleted()
+        .lean();
 
       if (users.length !== new Set(value).size) {
-        throw new Error("One or more mentioned users not found or belong to another organization");
+        throw new Error(
+          "One or more mentioned users not found or belong to another organization"
+        );
       }
-      if (users.some(u => u.isDeleted)) throw new Error("One or more mentioned users are deleted");
+      if (users.some((u) => u.isDeleted))
+        throw new Error("One or more mentioned users are deleted");
       return true;
     }),
 
@@ -113,9 +187,22 @@ export const taskCommentIdValidator = [
 ];
 
 export const getTaskCommentsValidator = [
-  query("page").optional().isInt({ min: 1 }).withMessage("Page must be a positive integer"),
-  query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
-  query("parentId").optional().isMongoId().withMessage("Parent must be a valid Mongo ID"),
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Limit must be between 1 and 100"),
+  query("parentId")
+    .optional()
+    .isMongoId()
+    .withMessage("Parent must be a valid Mongo ID"),
+  query("taskId")
+    .optional()
+    .isMongoId()
+    .withMessage("Task ID must be a valid Mongo ID"),
   query("deleted").optional().isIn(["true", "false", "only"]),
   handleValidationErrors,
 ];

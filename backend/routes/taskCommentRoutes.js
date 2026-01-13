@@ -6,6 +6,8 @@ import {
   updateTaskComment,
   deleteTaskComment,
   restoreTaskComment,
+  toggleLikeComment,
+  getCommentLikes,
 } from "../controllers/taskCommentControllers.js";
 import {
   createTaskCommentValidator,
@@ -60,6 +62,22 @@ router.patch(
   taskCommentIdValidator,
   authorize("TaskComment", "update"),
   restoreTaskComment
+);
+
+// Like endpoints
+router.post(
+  "/:commentId/like",
+  verifyJWT,
+  taskCommentIdValidator,
+  authorize("TaskComment", "read"), // Any user who can read can like
+  toggleLikeComment
+);
+router.get(
+  "/:commentId/likes",
+  verifyJWT,
+  taskCommentIdValidator,
+  authorize("TaskComment", "read"),
+  getCommentLikes
 );
 
 export default router;

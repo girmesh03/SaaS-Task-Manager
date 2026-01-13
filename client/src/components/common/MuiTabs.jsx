@@ -71,7 +71,7 @@ const MuiTabs = forwardRef(
             aria-labelledby={`simple-tab-${index}`}
           >
             {value === index && (
-              <Box sx={{ p: 3, ...panelSx }}>{tab.content}</Box>
+              <Box sx={{ p: 1, ...panelSx }}>{tab.content}</Box>
             )}
           </div>
         ))}

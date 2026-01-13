@@ -30,8 +30,9 @@ export const taskCommentApi = api.injectEndpoints({
      * Retrieves a list of comments filtered by parent (Task or TaskActivity).
      *
      * @param {Object} params - Query parameters
-     * @param {string} params.taskId - Parent Task ID (optional)
-     * @param {string} params.activityId - Parent Activity ID (optional)
+     * @param {string} params.taskId - Task ID to get all comments (including nested)
+     * @param {string} params.task - Parent Task ID (for root comments only)
+     * @param {string} params.activity - Parent Activity ID (optional)
      * @param {number} params.page - Page number (1-based)
      * @param {number} params.limit - Items per page
      * @param {string} params.sort - Sort field
@@ -42,11 +43,15 @@ export const taskCommentApi = api.injectEndpoints({
      */
     getTaskComments: builder.query({
       query: (params) => {
-        const { task, activity, ...rest } = params;
+        const { task, activity, taskId, ...rest } = params;
         return {
           url: "/comments",
           method: "GET",
-          params: { ...rest, parentId: task || activity },
+          params: {
+            ...rest,
+            taskId: taskId,
+            parentId: !taskId ? task || activity : undefined,
+          },
         };
       },
       providesTags: (result) =>
@@ -74,7 +79,9 @@ export const taskCommentApi = api.injectEndpoints({
      */
     getTaskComment: builder.query({
       query: (commentId) => `/comments/${commentId}`,
-      providesTags: (result, error, commentId) => [{ type: "TaskComment", id: commentId }],
+      providesTags: (result, error, commentId) => [
+        { type: "TaskComment", id: commentId },
+      ],
     }),
 
     /**
@@ -169,6 +176,46 @@ export const taskCommentApi = api.injectEndpoints({
         { type: "TaskComment", id: "LIST" },
       ],
     }),
+
+    /**
+     * Toggle like on comment mutation
+     *
+     * POST /api/comments/:commentId/like
+     *
+     * Toggles like status for the current user on a comment.
+     *
+     * @param {string} commentId - Comment ID
+     *
+     * @returns {Object} Response with updated comment and like status
+     */
+    toggleLikeComment: builder.mutation({
+      query: (commentId) => ({
+        url: `/comments/${commentId}/like`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, commentId) => [
+        { type: "TaskComment", id: commentId },
+        { type: "TaskComment", id: "LIST" },
+      ],
+    }),
+
+    /**
+     * Get comment likes query
+     *
+     * GET /api/comments/:commentId/likes
+     *
+     * Retrieves list of users who liked the comment.
+     *
+     * @param {string} commentId - Comment ID
+     *
+     * @returns {Object} Response with likes array and count
+     */
+    getCommentLikes: builder.query({
+      query: (commentId) => `/comments/${commentId}/likes`,
+      providesTags: (result, error, commentId) => [
+        { type: "TaskComment", id: commentId },
+      ],
+    }),
   }),
 });
 
@@ -179,4 +226,6 @@ export const {
   useUpdateTaskCommentMutation,
   useDeleteTaskCommentMutation,
   useRestoreTaskCommentMutation,
+  useToggleLikeCommentMutation,
+  useGetCommentLikesQuery,
 } = taskCommentApi;

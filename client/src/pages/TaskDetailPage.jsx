@@ -65,6 +65,7 @@ import {
   RoutineTaskForm,
   AssignedTaskForm,
   TaskActivityTimeline,
+  TaskCommentThread,
 } from "../components/tasks";
 import useAuth from "../hooks/useAuth";
 import useAuthorization from "../hooks/useAuthorization";
@@ -779,17 +780,14 @@ const TaskDetailPage = () => {
     if (!task) return null;
 
     return (
-      <Box>
-        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Comments
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="body2" color="text.secondary">
-            Comments will be displayed here. TaskCommentThread component will be
-            implemented in Task 16.5.
-          </Typography>
-        </Paper>
+      <Box sx={{ p: { xs: 1, sm: 2 } }}>
+        <TaskCommentThread
+          parentId={task._id}
+          parentModel="BaseTask"
+          isDeleted={task.isDeleted}
+          title="Comments"
+          showForm={!task.isDeleted}
+        />
       </Box>
     );
   }, [task]);
@@ -868,7 +866,7 @@ const TaskDetailPage = () => {
       </MuiBreadcrumbs>
 
       {/* Page Header */}
-      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 1 }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           justifyContent="space-between"
@@ -989,12 +987,7 @@ const TaskDetailPage = () => {
       )}
 
       {/* Tabs */}
-      <MuiTabs
-        value={tabValue}
-        onChange={handleTabChange}
-        tabs={tabs}
-        sx={{ mb: 3 }}
-      />
+      <MuiTabs value={tabValue} onChange={handleTabChange} tabs={tabs} />
 
       {/* Tab Content */}
       {currentTabContent}
